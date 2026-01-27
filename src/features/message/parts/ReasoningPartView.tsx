@@ -73,8 +73,8 @@ export const ReasoningPartView = memo(function ReasoningPartView({ part, isStrea
   }, [part.text, isPartStreaming, expanded])
 
   return (
-    <div className={`border border-border-300/20 rounded-xl overflow-hidden transition-all duration-300 ease-out ${
-      expanded ? 'w-[calc(100%+1.5rem)] -ml-3' : 'w-[260px] ml-0'
+    <div className={`border border-border-300/20 rounded-xl overflow-hidden transition-all duration-300 ease-out -ml-3 ${
+      expanded ? 'w-[calc(100%+1.5rem)]' : 'w-[260px]'
     }`}>
       <button
         onClick={() => setExpanded(!expanded)}
