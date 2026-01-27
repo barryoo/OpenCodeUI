@@ -1,7 +1,8 @@
 import { useState, useRef, useEffect } from 'react'
-import { ComposeIcon, MenuDotsIcon, SunIcon, MoonIcon, SystemIcon, SidebarIcon, MaximizeIcon, MinimizeIcon } from '../../components/Icons'
+import { ComposeIcon, CogIcon, MoreHorizontalIcon, TeachIcon, SidebarIcon, MaximizeIcon, MinimizeIcon } from '../../components/Icons'
 import { DropdownMenu, MenuItem, IconButton } from '../../components/ui'
 import { ModelSelector } from './ModelSelector'
+import { SettingsDialog } from '../settings/SettingsDialog'
 import type { ThemeMode } from '../../hooks'
 import type { ModelInfo } from '../../api'
 
@@ -31,6 +32,7 @@ export function Header({
   onToggleWideMode,
 }: HeaderProps) {
   const [settingsMenuOpen, setSettingsMenuOpen] = useState(false)
+  const [settingsDialogOpen, setSettingsDialogOpen] = useState(false)
   const settingsTriggerRef = useRef<HTMLButtonElement>(null)
   const settingsMenuRef = useRef<HTMLDivElement>(null)
 
@@ -103,7 +105,7 @@ export function Header({
             size="sm"
             className="hover:bg-bg-200/50"
           >
-            <MenuDotsIcon />
+            <MoreHorizontalIcon size={20} />
           </IconButton>
 
           {/* Settings Menu */}
@@ -112,70 +114,38 @@ export function Header({
             isOpen={settingsMenuOpen}
             position="bottom"
             align="right"
-            width={220}
+            width={180}
           >
-            <div ref={settingsMenuRef}>
-              <div className="px-3 py-2">
-                <p className="text-xs text-text-400 mb-2">Theme</p>
-                <div className="flex gap-1">
-                  <button
-                    onClick={() => onThemeChange('system')}
-                    className={`flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-md text-xs transition-colors ${
-                      themeMode === 'system'
-                        ? 'bg-bg-300 text-text-100'
-                        : 'text-text-300 hover:bg-bg-200 hover:text-text-200'
-                    }`}
-                  >
-                    <SystemIcon />
-                    <span>Auto</span>
-                  </button>
-                  <button
-                    onClick={() => onThemeChange('light')}
-                    className={`flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-md text-xs transition-colors ${
-                      themeMode === 'light'
-                        ? 'bg-bg-300 text-text-100'
-                        : 'text-text-300 hover:bg-bg-200 hover:text-text-200'
-                    }`}
-                  >
-                    <SunIcon />
-                    <span>Light</span>
-                  </button>
-                  <button
-                    onClick={() => onThemeChange('dark')}
-                    className={`flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-md text-xs transition-colors ${
-                      themeMode === 'dark'
-                        ? 'bg-bg-300 text-text-100'
-                        : 'text-text-300 hover:bg-bg-200 hover:text-text-200'
-                    }`}
-                  >
-                    <MoonIcon />
-                    <span>Dark</span>
-                  </button>
-                </div>
-              </div>
-              <div className="border-t border-border-300/30 my-1" />
+            <div ref={settingsMenuRef} className="py-1">
               <MenuItem
-                label="Convert to task"
-                disabled
-                onClick={() => setSettingsMenuOpen(false)}
-              />
-              <MenuItem
+                icon={<CogIcon />}
                 label="Settings"
-                onClick={() => setSettingsMenuOpen(false)}
+                onClick={() => {
+                  setSettingsMenuOpen(false)
+                  setSettingsDialogOpen(true)
+                }}
               />
               <MenuItem
-                label="Take a screenshot"
-                disabled
-                onClick={() => setSettingsMenuOpen(false)}
-              />
-              <MenuItem
-                label="Add an image"
-                onClick={() => setSettingsMenuOpen(false)}
+                icon={<TeachIcon />}
+                label="Help & Feedback"
+                onClick={() => {
+                  setSettingsMenuOpen(false)
+                  // TODO: Open help
+                }}
               />
             </div>
           </DropdownMenu>
         </div>
       </div>
+
+      <SettingsDialog
+        isOpen={settingsDialogOpen}
+        onClose={() => setSettingsDialogOpen(false)}
+        themeMode={themeMode}
+        onThemeChange={onThemeChange}
+        isWideMode={isWideMode}
+        onToggleWideMode={onToggleWideMode}
+      />
     </div>
   )
 }
