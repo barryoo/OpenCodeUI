@@ -4,6 +4,7 @@
 
 import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from 'react'
 import { getPath, type ApiPath } from '../api'
+import { useRouter } from '../hooks/useRouter'
 
 export interface SavedDirectory {
   path: string
@@ -32,15 +33,12 @@ export interface DirectoryContextValue {
 
 const DirectoryContext = createContext<DirectoryContextValue | null>(null)
 
-const STORAGE_KEY_DIRECTORY = 'opencode-current-directory'
 const STORAGE_KEY_SIDEBAR = 'opencode-sidebar-expanded'
 const STORAGE_KEY_SAVED = 'opencode-saved-directories'
 
 export function DirectoryProvider({ children }: { children: ReactNode }) {
-  const [currentDirectory, setCurrentDirectoryState] = useState<string | undefined>(() => {
-    const saved = localStorage.getItem(STORAGE_KEY_DIRECTORY)
-    return saved || undefined
-  })
+  // 从 URL 获取 directory（替代 localStorage）
+  const { directory: urlDirectory, setDirectory: setUrlDirectory } = useRouter()
   
   const [savedDirectories, setSavedDirectories] = useState<SavedDirectory[]>(() => {
     try {
@@ -63,20 +61,15 @@ export function DirectoryProvider({ children }: { children: ReactNode }) {
     getPath().then(setPathInfo).catch(console.error)
   }, [])
 
-  // 保存到 localStorage
+  // 保存 savedDirectories 到 localStorage
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY_SAVED, JSON.stringify(savedDirectories))
   }, [savedDirectories])
 
-  // 设置当前目录
+  // 设置当前目录（更新 URL）
   const setCurrentDirectory = useCallback((directory: string | undefined) => {
-    setCurrentDirectoryState(directory)
-    if (directory) {
-      localStorage.setItem(STORAGE_KEY_DIRECTORY, directory)
-    } else {
-      localStorage.removeItem(STORAGE_KEY_DIRECTORY)
-    }
-  }, [])
+    setUrlDirectory(directory)
+  }, [setUrlDirectory])
 
   // 添加目录
   const addDirectory = useCallback((path: string) => {
@@ -103,10 +96,10 @@ export function DirectoryProvider({ children }: { children: ReactNode }) {
   // 移除目录
   const removeDirectory = useCallback((path: string) => {
     setSavedDirectories(prev => prev.filter(d => d.path !== path))
-    if (currentDirectory === path) {
+    if (urlDirectory === path) {
       setCurrentDirectory(undefined)
     }
-  }, [currentDirectory, setCurrentDirectory])
+  }, [urlDirectory, setCurrentDirectory])
 
   // 设置侧边栏展开
   const setSidebarExpanded = useCallback((expanded: boolean) => {
@@ -116,7 +109,7 @@ export function DirectoryProvider({ children }: { children: ReactNode }) {
 
   return (
     <DirectoryContext.Provider value={{
-      currentDirectory,
+      currentDirectory: urlDirectory,
       setCurrentDirectory,
       savedDirectories,
       addDirectory,
