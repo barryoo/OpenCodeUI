@@ -27,6 +27,29 @@ interface GlobalEventsCallbacks {
   onScrollRequest?: () => void
 }
 
+// ============================================
+// 待处理请求缓存 - 处理 permission/question 事件先于 session.created 到达的时序问题
+// ============================================
+interface PendingRequest<T> {
+  request: T
+  timestamp: number
+}
+
+const pendingPermissions = new Map<string, PendingRequest<ApiPermissionRequest>>()
+const pendingQuestions = new Map<string, PendingRequest<ApiQuestionRequest>>()
+
+// 5秒后过期，防止内存泄漏
+const PENDING_TIMEOUT = 5000
+
+function cleanupExpired<T>(map: Map<string, PendingRequest<T>>) {
+  const now = Date.now()
+  for (const [key, value] of map) {
+    if (now - value.timestamp > PENDING_TIMEOUT) {
+      map.delete(key)
+    }
+  }
+}
+
 /**
  * 检查 sessionID 是否属于当前 session 或其子 session
  */
@@ -98,7 +121,27 @@ export function useGlobalEvents(callbacks?: GlobalEventsCallbacks) {
         // 注册子 session 关系
         if (session.parentID) {
           childSessionStore.registerChildSession(session)
+          
+          // 处理因时序问题缓存的权限请求
+          const pendingPermission = pendingPermissions.get(session.id)
+          if (pendingPermission && belongsToCurrentSession(session.id)) {
+            console.log('[GlobalEvents] Processing delayed permission for session:', session.id)
+            callbacksRef.current?.onPermissionAsked?.(pendingPermission.request)
+            pendingPermissions.delete(session.id)
+          }
+          
+          // 处理因时序问题缓存的问题请求
+          const pendingQuestion = pendingQuestions.get(session.id)
+          if (pendingQuestion && belongsToCurrentSession(session.id)) {
+            console.log('[GlobalEvents] Processing delayed question for session:', session.id)
+            callbacksRef.current?.onQuestionAsked?.(pendingQuestion.request)
+            pendingQuestions.delete(session.id)
+          }
         }
+        
+        // 清理过期缓存
+        cleanupExpired(pendingPermissions)
+        cleanupExpired(pendingQuestions)
       },
 
       onSessionIdle: (data) => {
@@ -125,16 +168,28 @@ export function useGlobalEvents(callbacks?: GlobalEventsCallbacks) {
       // ============================================
       // Permission Events → callbacks (通过 ref 调用)
       // 关键变化：不仅处理当前 session，也处理子 session 的权限请求
+      // 时序处理：如果 session 还没注册，缓存请求等 session.created 后处理
       // ============================================
       
       onPermissionAsked: (request) => {
         // 检查是否属于当前 session 或其子 session
         if (belongsToCurrentSession(request.sessionID)) {
           callbacksRef.current?.onPermissionAsked?.(request)
+        } else {
+          // 可能是子 session 的请求先于 session.created 到达
+          // 缓存它，等 session 注册后处理
+          console.log('[GlobalEvents] Caching permission request for unregistered session:', request.sessionID)
+          pendingPermissions.set(request.sessionID, {
+            request,
+            timestamp: Date.now(),
+          })
         }
       },
 
       onPermissionReplied: (data) => {
+        // 清理缓存（无论是否属于当前 session）
+        pendingPermissions.delete(data.sessionID)
+        
         if (belongsToCurrentSession(data.sessionID)) {
           callbacksRef.current?.onPermissionReplied?.(data)
         }
@@ -142,22 +197,33 @@ export function useGlobalEvents(callbacks?: GlobalEventsCallbacks) {
 
       // ============================================
       // Question Events → callbacks (通过 ref 调用)
-      // 同样处理子 session 的问题请求
+      // 同样处理子 session 的问题请求，以及时序问题
       // ============================================
 
       onQuestionAsked: (request) => {
         if (belongsToCurrentSession(request.sessionID)) {
           callbacksRef.current?.onQuestionAsked?.(request)
+        } else {
+          // 缓存未注册 session 的请求
+          console.log('[GlobalEvents] Caching question request for unregistered session:', request.sessionID)
+          pendingQuestions.set(request.sessionID, {
+            request,
+            timestamp: Date.now(),
+          })
         }
       },
 
       onQuestionReplied: (data) => {
+        pendingQuestions.delete(data.sessionID)
+        
         if (belongsToCurrentSession(data.sessionID)) {
           callbacksRef.current?.onQuestionReplied?.(data)
         }
       },
 
       onQuestionRejected: (data) => {
+        pendingQuestions.delete(data.sessionID)
+        
         if (belongsToCurrentSession(data.sessionID)) {
           callbacksRef.current?.onQuestionRejected?.(data)
         }

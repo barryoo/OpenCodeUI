@@ -3,8 +3,9 @@ import { ChevronDownIcon } from '../../../components/Icons'
 import { ContentBlock } from '../../../components'
 import { getToolIcon } from '../../../utils/toolUtils'
 import { detectLanguage } from '../../../utils/languageUtils'
-import { useChildSessions, layoutStore, useSessionState } from '../../../store'
-import type { ToolPart, Message, TextPart, ToolPart as ToolPartType } from '../../../types/message'
+import { useChildSessions } from '../../../store'
+import { SubSessionInline } from './SubSessionInline'
+import type { ToolPart } from '../../../types/message'
 
 interface ToolPartViewProps {
   part: ToolPart
@@ -459,11 +460,11 @@ function extractData(part: ToolPart): ExtractedData {
 
 // ============================================
 // Task Tool View (子 agent 特殊视图)
+// 内嵌子会话消息流，和其他工具保持一致的 timeline 风格
 // ============================================
 
 function TaskToolView({ part }: ToolPartViewProps) {
   const { state } = part
-  const [isExpanded, setIsExpanded] = useState(false)
   
   // 从 input 中提取任务信息
   const input = state.input as Record<string, unknown> | undefined
@@ -472,11 +473,9 @@ function TaskToolView({ part }: ToolPartViewProps) {
   const agentType = input?.subagent_type as string || 'general'
   
   // 获取子 session ID
-  // 1. 优先从 metadata 中读取 (持久化存储，刷新后依然有效)
   const metadata = state.metadata as Record<string, unknown> | undefined
   const metadataSessionId = metadata?.sessionId as string | undefined
   
-  // 2. 只有当 metadata 中没有时，才尝试用 store 查找 (实时创建时使用)
   const childSessions = useChildSessions(part.sessionID)
   const storeChildSession = childSessions.length > 0 
     ? childSessions.sort((a, b) => b.createdAt - a.createdAt)[0]
@@ -484,239 +483,58 @@ function TaskToolView({ part }: ToolPartViewProps) {
     
   const targetSessionId = metadataSessionId || storeChildSession?.id
   
-  // 获取子 session 的消息（用于内联预览）
-  const childSessionState = useSessionState(isExpanded ? targetSessionId ?? null : null)
-  const childMessages = childSessionState?.messages || []
-  
-  const isActive = state.status === 'running' || state.status === 'pending'
   const isCompleted = state.status === 'completed'
   const isError = state.status === 'error'
   
-  // 打开浮动窗口
-  const handleOpenFloating = () => {
-    if (targetSessionId) {
-      layoutStore.openFloatingPanel(targetSessionId)
-    }
-  }
-  
-  // 切换内联展开
-  const toggleExpand = () => {
-    setIsExpanded(!isExpanded)
-  }
-  
   return (
-    <div className="flex flex-col gap-2">
-      {/* 任务信息卡片 */}
-      <div className="rounded-lg bg-bg-200/50 border border-border-200/40 overflow-hidden">
-        {/* Header - 可点击展开 */}
-        <div 
-          className="flex items-start gap-3 p-3 cursor-pointer hover:bg-bg-200/80 transition-colors"
-          onClick={toggleExpand}
-        >
-          <div className="flex-shrink-0 w-7 h-7 rounded-full bg-accent-main-100/10 flex items-center justify-center">
-            <SubagentIcon className="w-3.5 h-3.5 text-accent-main-100" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-medium text-text-100">{agentType}</span>
-              {isActive && (
-                <span className="text-[10px] text-info-100 bg-info-100/10 px-1.5 py-0.5 rounded animate-pulse">
-                  Running
-                </span>
-              )}
-              {isCompleted && (
-                <span className="text-[10px] text-success-100 bg-success-100/10 px-1.5 py-0.5 rounded">
-                  Done
-                </span>
-              )}
-              {isError && (
-                <span className="text-[10px] text-danger-100 bg-danger-100/10 px-1.5 py-0.5 rounded">
-                  Error
-                </span>
-              )}
-            </div>
-            <p className="text-xs text-text-300 mt-0.5">{description}</p>
-          </div>
-          
-          {/* 展开/收起 + 弹出按钮 */}
-          <div className="flex items-center gap-1 flex-shrink-0">
-            {targetSessionId && (
-              <button
-                onClick={(e) => {
-                  e.stopPropagation()
-                  handleOpenFloating()
-                }}
-                className="p-1.5 text-text-400 hover:text-accent-main-100 hover:bg-accent-main-100/10 rounded transition-colors"
-                title="Open in floating window"
-              >
-                <PopoutIcon className="w-3.5 h-3.5" />
-              </button>
-            )}
-            <span className={`text-text-400 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`}>
-              <ChevronDownIcon size={14} />
-            </span>
-          </div>
+    <div className="flex flex-col gap-3">
+      {/* 任务信息 */}
+      <div className="text-xs">
+        <div className="flex items-center gap-2 flex-wrap text-text-300">
+          <span className="font-medium">{agentType}</span>
+          <span className="text-text-500">·</span>
+          <span className="text-text-400">{description}</span>
         </div>
         
-        {/* 展开的内容 */}
-        <div className={`grid transition-[grid-template-rows] duration-300 ease-in-out ${
-          isExpanded ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'
-        }`}>
-          <div className="overflow-hidden">
-            <div className="border-t border-border-200/40">
-              {/* Prompt 预览 */}
-              {prompt && (
-                <div className="px-3 py-2 bg-bg-100/50">
-                  <p className="text-[11px] text-text-500 mb-1">Prompt:</p>
-                  <p className="text-xs text-text-300 whitespace-pre-wrap line-clamp-5">{prompt}</p>
-                </div>
-              )}
-              
-              {/* 子会话消息预览 */}
-              {targetSessionId && (
-                <SubSessionPreview 
-                  messages={childMessages} 
-                  isLoading={childSessionState?.loadState === 'loading'}
-                  onOpenFloating={handleOpenFloating}
-                />
-              )}
-            </div>
-          </div>
-        </div>
+        {/* Prompt（简短时显示） */}
+        {prompt && prompt.length <= 150 && (
+          <p className="text-text-500 mt-1.5 whitespace-pre-wrap">{prompt}</p>
+        )}
+        
+        {/* Prompt（过长时折叠显示） */}
+        {prompt && prompt.length > 150 && (
+          <ContentBlock
+            label="Prompt"
+            content={prompt}
+            defaultCollapsed={true}
+            maxHeight={120}
+          />
+        )}
       </div>
       
-      {/* 如果完成了，显示 output */}
-      {isCompleted && state.output !== undefined && state.output !== null ? (
+      {/* 内嵌子会话 */}
+      {targetSessionId && (
+        <SubSessionInline sessionId={targetSessionId} />
+      )}
+      
+      {/* Output（完成时显示） */}
+      {isCompleted && state.output !== undefined && state.output !== null && (
         <ContentBlock
           label="Result"
           content={typeof state.output === 'string' ? state.output : JSON.stringify(state.output, null, 2)}
           defaultCollapsed={true}
+          maxHeight={150}
         />
-      ) : null}
-      
-      {/* 错误信息 */}
-      {isError && state.error !== undefined && state.error !== null ? (
-        <div className="p-3 rounded-lg bg-danger-100/10 border border-danger-100/30">
-          <p className="text-xs text-danger-100">
-            {typeof state.error === 'string' ? state.error : String(JSON.stringify(state.error))}
-          </p>
-        </div>
-      ) : null}
-    </div>
-  )
-}
-
-// ============================================
-// 子会话消息预览组件
-// ============================================
-
-interface SubSessionPreviewProps {
-  messages: Message[]
-  isLoading?: boolean
-  onOpenFloating: () => void
-}
-
-function SubSessionPreview({ messages, isLoading, onOpenFloating }: SubSessionPreviewProps) {
-  // 只显示最近几条消息的摘要
-  const MAX_PREVIEW_MESSAGES = 3
-  const recentMessages = messages.slice(-MAX_PREVIEW_MESSAGES)
-  
-  if (isLoading) {
-    return (
-      <div className="px-3 py-4 flex items-center justify-center">
-        <span className="text-xs text-text-400">Loading messages...</span>
-      </div>
-    )
-  }
-  
-  if (messages.length === 0) {
-    return (
-      <div className="px-3 py-4 flex items-center justify-center">
-        <span className="text-xs text-text-400">No messages yet</span>
-      </div>
-    )
-  }
-  
-  return (
-    <div className="px-3 py-2 space-y-2">
-      {/* 如果有更多消息，显示提示 */}
-      {messages.length > MAX_PREVIEW_MESSAGES && (
-        <div className="text-[10px] text-text-500 text-center py-1">
-          ... {messages.length - MAX_PREVIEW_MESSAGES} more messages above
-        </div>
       )}
       
-      {/* 消息预览 */}
-      {recentMessages.map((msg, idx) => (
-        <MessagePreviewItem key={msg.info.id || idx} message={msg} />
-      ))}
-      
-      {/* 查看完整会话按钮 */}
-      <button
-        onClick={onOpenFloating}
-        className="w-full py-1.5 text-[11px] font-medium text-accent-main-100 hover:bg-accent-main-100/10 rounded transition-colors"
-      >
-        Open full session
-      </button>
+      {/* 错误信息 */}
+      {isError && state.error !== undefined && state.error !== null && (
+        <ContentBlock
+          label="Error"
+          content={typeof state.error === 'string' ? state.error : String(JSON.stringify(state.error))}
+          variant="error"
+        />
+      )}
     </div>
-  )
-}
-
-// 单条消息预览
-function MessagePreviewItem({ message }: { message: Message }) {
-  const { info, parts } = message
-  const isUser = info.role === 'user'
-  
-  // 提取文本内容
-  const textContent = parts
-    .filter((p): p is TextPart => p.type === 'text')
-    .map(p => p.text)
-    .join('\n')
-    .slice(0, 200)
-  
-  // 统计工具调用数量
-  const toolCount = parts.filter((p): p is ToolPartType => p.type === 'tool').length
-  
-  return (
-    <div className={`flex gap-2 ${isUser ? 'justify-end' : ''}`}>
-      <div className={`max-w-[85%] px-2.5 py-1.5 rounded-lg text-xs ${
-        isUser 
-          ? 'bg-accent-main-100/10 text-text-100' 
-          : 'bg-bg-200 text-text-200'
-      }`}>
-        {textContent ? (
-          <p className="line-clamp-2 whitespace-pre-wrap">{textContent}</p>
-        ) : toolCount > 0 ? (
-          <p className="text-text-400 italic">{toolCount} tool call{toolCount > 1 ? 's' : ''}</p>
-        ) : (
-          <p className="text-text-500 italic">Empty message</p>
-        )}
-      </div>
-    </div>
-  )
-}
-
-// ============================================
-// Icons for TaskToolView
-// ============================================
-
-function SubagentIcon({ className }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
-      <circle cx="9" cy="7" r="4" />
-      <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
-      <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-    </svg>
-  )
-}
-
-function PopoutIcon({ className }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
-      <polyline points="15 3 21 3 21 9" />
-      <line x1="10" y1="14" x2="21" y2="3" />
-    </svg>
   )
 }

@@ -1,7 +1,6 @@
 import { useState, useCallback, useRef, useEffect } from 'react'
 import { Header, InputBox, PermissionDialog, QuestionDialog, Sidebar, ChatArea, type ChatAreaHandle } from './features/chat'
-import { FloatingPanel } from './features/chat/FloatingPanel'
-import { useMessageStore, messageStore, useSessionFamily, useLayoutStore } from './store'
+import { useMessageStore, messageStore, useSessionFamily } from './store'
 import { useSessionManager, useGlobalEvents } from './hooks'
 import { usePermissions, useTheme, useModels, useRouter, usePermissionHandler, useMessageAnimation, useDirectory, useSessionContext } from './hooks'
 import { 
@@ -30,9 +29,6 @@ function App() {
     redoSteps,
     revertedContent,
   } = useMessageStore()
-  
-  // 保持 useLayoutStore 订阅以确保浮动面板更新触发重渲染
-  useLayoutStore()
   
   // ============================================
   // UI State
@@ -493,9 +489,6 @@ function App() {
             />
           )}
         </div>
-
-        {/* Floating Sub Session Panel */}
-        <FloatingPanel />
       </div>
     </div>
   )
