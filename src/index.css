@@ -427,6 +427,22 @@ body {
   }
 }
 
+/* Textarea 特殊处理 - 保证光标对齐 */
+textarea.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: hsl(var(--border-300) / 0.5) transparent;
+}
+
+textarea.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+  background: transparent;
+}
+
+textarea.custom-scrollbar::-webkit-scrollbar-thumb {
+  background-color: hsl(var(--border-300) / 0.4);
+  border-radius: 99px;
+}
+
 .custom-scrollbar::-webkit-scrollbar {
   width: 10px; /* 稍微宽一点以支持透明边框技巧 */
   background: transparent;

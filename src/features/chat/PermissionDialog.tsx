@@ -1,5 +1,5 @@
 import type { ApiPermissionRequest, PermissionReply } from '../../api'
-import { ClipboardListIcon, GlobeIcon, UsersIcon, ReturnIcon } from '../../components/Icons'
+import { PermissionListIcon, GlobeIcon, UsersIcon, ReturnIcon } from '../../components/Icons'
 import { DiffView } from '../../components/DiffView'
 import { childSessionStore } from '../../store'
 
@@ -45,7 +45,7 @@ export function PermissionDialog({ request, onReply, queueLength = 1, isReplying
             <div className="flex items-center justify-between py-3 px-4">
               <div className="flex items-center gap-2">
                 <div className="flex items-center justify-center text-text-100 w-5 h-5">
-                  <ClipboardListIcon size={20} />
+                  <PermissionListIcon size={20} />
                 </div>
                 <h3 className="text-sm font-medium text-text-100">Permission: {request.permission}</h3>
                 {queueLength > 1 && (

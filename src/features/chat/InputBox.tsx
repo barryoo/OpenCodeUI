@@ -444,14 +444,8 @@ export function InputBox({
 
                 {/* Text Input - textarea with highlight overlay */}
                 <div className="px-4 pt-4 pb-2">
-                  <div className="relative">
-                    {/* Highlight overlay - 渲染在 textarea 下方，显示染色文本 */}
-                    <TextHighlightOverlay 
-                      text={text}
-                      attachments={attachments}
-                      scrollRef={textareaRef}
-                    />
-                    {/* Textarea - 文字透明，只显示光标 */}
+                  <div className="relative w-full">
+                    {/* Textarea - 主体，文字透明，只显示光标 */}
                     <textarea
                       ref={textareaRef}
                       value={text}
@@ -460,16 +454,26 @@ export function InputBox({
                       onPaste={handlePaste}
                       onScroll={handleScroll}
                       placeholder="Reply to Agent (type @ to mention)"
-                      className="w-full resize-none focus:outline-none focus:ring-0 bg-transparent placeholder:text-text-400 custom-scrollbar relative"
+                      className="w-full resize-none focus:outline-none focus:ring-0 bg-transparent placeholder:text-text-400 custom-scrollbar block"
                       style={{ 
                         ...SHARED_TEXT_STYLE,
                         minHeight: '24px', 
                         maxHeight: '50vh',
                         color: 'transparent',
-                        caretColor: '#fff',
+                        caretColor: 'hsl(var(--text-100))',
+                        position: 'relative',
                         zIndex: 2,
+                        // 确保没有浏览器默认样式干扰
+                        WebkitAppearance: 'none',
+                        outline: 'none',
                       }}
                       rows={1}
+                    />
+                    {/* Highlight overlay - 渲染在 textarea 下方，显示染色文本 */}
+                    <TextHighlightOverlay 
+                      text={text}
+                      attachments={attachments}
+                      scrollRef={textareaRef}
                     />
                   </div>
                 </div>
@@ -514,8 +518,8 @@ export function InputBox({
  * 必须完全一致才能让光标位置正确对齐
  */
 const SHARED_TEXT_STYLE: React.CSSProperties = {
-  fontSize: '14px',           // text-sm
-  lineHeight: '20px',         // 固定像素值确保一致
+  fontSize: '14px',
+  lineHeight: '20px',
   fontFamily: 'ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji"',
   letterSpacing: 'normal',
   wordSpacing: 'normal',
@@ -526,6 +530,13 @@ const SHARED_TEXT_STYLE: React.CSSProperties = {
   margin: 0,
   border: 'none',
   boxSizing: 'border-box' as const,
+  // 关键：确保字体渲染一致
+  WebkitFontSmoothing: 'antialiased',
+  MozOsxFontSmoothing: 'grayscale',
+  textRendering: 'geometricPrecision',
+  fontKerning: 'normal',
+  fontFeatureSettings: 'normal',
+  fontVariantLigatures: 'normal',
 }
 
 interface TextHighlightOverlayProps {
@@ -537,7 +548,7 @@ interface TextHighlightOverlayProps {
 function TextHighlightOverlay({ text, attachments, scrollRef }: TextHighlightOverlayProps) {
   const overlayRef = useRef<HTMLDivElement>(null)
   
-  // 同步滚动
+  // 同步滚动和尺寸
   useEffect(() => {
     const textarea = scrollRef.current
     const overlay = overlayRef.current
@@ -548,20 +559,53 @@ function TextHighlightOverlay({ text, attachments, scrollRef }: TextHighlightOve
       overlay.scrollLeft = textarea.scrollLeft
     }
     
+    // 同步尺寸（高度会随内容变化）
+    const syncSize = () => {
+      overlay.style.height = textarea.style.height
+    }
+    
+    // 监听滚动
     textarea.addEventListener('scroll', syncScroll)
-    return () => textarea.removeEventListener('scroll', syncScroll)
+    
+    // 使用 ResizeObserver 监听尺寸变化
+    const resizeObserver = new ResizeObserver(syncSize)
+    resizeObserver.observe(textarea)
+    
+    // 初始同步
+    syncScroll()
+    syncSize()
+    
+    return () => {
+      textarea.removeEventListener('scroll', syncScroll)
+      resizeObserver.disconnect()
+    }
   }, [scrollRef])
 
   // 将文本分割为 token（普通文本 + mention 高亮）
   const tokens = useMemo(() => tokenize(text, attachments), [text, attachments])
+
+  // 共享的 overlay 样式
+  const overlayStyle: React.CSSProperties = {
+    ...SHARED_TEXT_STYLE,
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 1,
+    pointerEvents: 'none',
+    overflow: 'hidden',
+    // 关键：与 textarea 保持一致
+    minHeight: '24px',
+    maxHeight: '50vh',
+  }
 
   // 没有 mention 时直接渲染纯文本（性能优化）
   if (attachments.filter(a => a.textRange).length === 0) {
     return (
       <div
         ref={overlayRef}
-        className="absolute inset-0 pointer-events-none overflow-hidden text-text-100"
-        style={{ ...SHARED_TEXT_STYLE, zIndex: 1 }}
+        className="text-text-100"
+        style={overlayStyle}
         aria-hidden
       >
         {text || '\u00A0'}
@@ -572,8 +616,7 @@ function TextHighlightOverlay({ text, attachments, scrollRef }: TextHighlightOve
   return (
     <div
       ref={overlayRef}
-      className="absolute inset-0 pointer-events-none overflow-hidden"
-      style={{ ...SHARED_TEXT_STYLE, zIndex: 1 }}
+      style={overlayStyle}
       aria-hidden
     >
       {tokens.map((token, i) => {
