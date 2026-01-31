@@ -478,6 +478,17 @@ export const ClipboardListIcon = (props: IconProps) => (
   </DefaultIcon>
 )
 
+export const PermissionListIcon = (props: IconProps) => (
+  <DefaultIcon {...props} strokeWidth={1.5}>
+    <polyline points="3 5 5 7 9 3" />
+    <path d="M12 5h9" />
+    <rect x="3" y="10" width="4" height="4" rx="1" />
+    <path d="M12 12h9" />
+    <rect x="3" y="17" width="4" height="4" rx="1" />
+    <path d="M12 19h9" />
+  </DefaultIcon>
+)
+
 export const UsersIcon = (props: IconProps) => (
   <DefaultIcon {...props}>
     <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
