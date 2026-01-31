@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import type { ToolPart } from '../../../types/message'
-import type { ToolConfig, ToolRegistry, ExtractedToolData } from './types'
+import type { ToolConfig, ToolRegistry, ExtractedToolData, DiagnosticInfo } from './types'
 import {
   FileReadIcon,
   FileWriteIcon,
@@ -36,7 +36,7 @@ const exact = (...names: string[]) => (name: string) => {
 export function defaultExtractData(part: ToolPart): ExtractedToolData {
   const { state } = part
   const inputObj = state.input as Record<string, unknown> | undefined
-  const metadata = state.metadata
+  const metadata = state.metadata as Record<string, unknown> | undefined
   
   const result: ExtractedToolData = {}
   
@@ -48,11 +48,7 @@ export function defaultExtractData(part: ToolPart): ExtractedToolData {
   
   // Error
   if (state.error) {
-    if (typeof state.error === 'string') {
-      result.error = state.error
-    } else if (typeof state.error === 'object' && 'data' in state.error) {
-      result.error = String(state.error.data) || state.error.name
-    }
+    result.error = String(state.error)
   }
   
   // FilePath
@@ -71,7 +67,7 @@ export function defaultExtractData(part: ToolPart): ExtractedToolData {
   // Diff / Files (from metadata)
   if (metadata) {
     if (Array.isArray(metadata.files) && metadata.files.length > 0) {
-      result.files = metadata.files.map((f: any) => ({
+      result.files = (metadata.files as any[]).map((f: any) => ({
         filePath: f.filePath || f.file || 'unknown',
         diff: f.diff,
         before: f.before,
@@ -80,10 +76,62 @@ export function defaultExtractData(part: ToolPart): ExtractedToolData {
         deletions: f.deletions,
       }))
     } else if (typeof metadata.diff === 'string') {
+      // 优先使用 unified diff
       result.diff = metadata.diff
-    } else if (metadata.filediff) {
-      const fd = metadata.filediff as { before: string; after: string }
-      result.diff = { before: fd.before, after: fd.after }
+      // 从 filediff 获取统计
+      if (metadata.filediff && typeof metadata.filediff === 'object') {
+        const fd = metadata.filediff as { additions?: number; deletions?: number }
+        if (fd.additions !== undefined || fd.deletions !== undefined) {
+          result.diffStats = {
+            additions: fd.additions || 0,
+            deletions: fd.deletions || 0
+          }
+        }
+      }
+    } else if (metadata.filediff && typeof metadata.filediff === 'object') {
+      const fd = metadata.filediff as { before?: string; after?: string; additions?: number; deletions?: number }
+      if (fd.before !== undefined && fd.after !== undefined) {
+        result.diff = { before: fd.before, after: fd.after }
+      }
+      if (fd.additions !== undefined || fd.deletions !== undefined) {
+        result.diffStats = {
+          additions: fd.additions || 0,
+          deletions: fd.deletions || 0
+        }
+      }
+    }
+    
+    // 提取 diagnostics
+    if (metadata.diagnostics && typeof metadata.diagnostics === 'object') {
+      const diagMap = metadata.diagnostics as Record<string, any[]>
+      const diagnostics: DiagnosticInfo[] = []
+      
+      for (const [file, items] of Object.entries(diagMap)) {
+        if (!Array.isArray(items)) continue
+        for (const item of items) {
+          if (!item || typeof item !== 'object') continue
+          // severity: 1=error, 2=warning, 3=info, 4=hint
+          const severityMap: Record<number, DiagnosticInfo['severity']> = {
+            1: 'error',
+            2: 'warning',
+            3: 'info',
+            4: 'hint'
+          }
+          diagnostics.push({
+            file: file.split(/[/\\]/).pop() || file,
+            severity: severityMap[item.severity] || 'info',
+            message: item.message || '',
+            line: item.range?.start?.line ?? 0,
+            column: item.range?.start?.character ?? 0
+          })
+        }
+      }
+      
+      // 只保留 error 和 warning
+      const filtered = diagnostics.filter(d => d.severity === 'error' || d.severity === 'warning')
+      if (filtered.length > 0) {
+        result.diagnostics = filtered
+      }
     }
   }
   

@@ -53,7 +53,6 @@ function App() {
     messages,
     isStreaming,
     prependedCount,
-    sessionDirectory,
     canUndo,
     canRedo,
     redoSteps,
@@ -193,7 +192,7 @@ function App() {
                 selectedVariant={selectedVariant}
                 onVariantChange={handleVariantChange}
                 supportsImages={currentModel?.supportsImages ?? false}
-                rootPath={sessionDirectory}
+                rootPath={effectiveDirectory}
                 revertedText={revertedMessage?.text}
                 revertedAttachments={revertedMessage?.attachments}
                 canRedo={canRedo}

@@ -10,6 +10,9 @@ import {
   SyntheticTextPartView,
   StepFinishPartView,
   SubtaskPartView,
+  RetryPartView,
+  CompactionPartView,
+  MessageErrorView,
 } from './parts'
 import type { 
   Message, 
@@ -21,6 +24,9 @@ import type {
   AgentPart,
   StepFinishPart,
   SubtaskPart,
+  RetryPart,
+  CompactionPart,
+  AssistantMessageInfo,
 } from '../../types/message'
 
 interface MessageRendererProps {
@@ -137,7 +143,7 @@ function UserMessageView({ message, onUndo, canUndo }: UserMessageViewProps) {
 // ============================================
 
 function AssistantMessageView({ message }: { message: Message }) {
-  const { parts, isStreaming } = message
+  const { parts, isStreaming, info } = message
   
   // 收集连续的 tool parts 合并渲染
   const renderItems = groupPartsForRender(parts)
@@ -147,6 +153,9 @@ function AssistantMessageView({ message }: { message: Message }) {
     .filter((p): p is TextPart => p.type === 'text' && !p.synthetic)
     .map(p => p.text)
     .join('')
+  
+  // 检查消息级别错误
+  const messageError = (info as AssistantMessageInfo).error
   
   return (
     <div className="flex flex-col gap-2 w-full group">
@@ -200,10 +209,29 @@ function AssistantMessageView({ message }: { message: Message }) {
                 part={part as SubtaskPart}
               />
             )
+          case 'retry':
+            return (
+              <RetryPartView
+                key={part.id}
+                part={part as RetryPart}
+              />
+            )
+          case 'compaction':
+            return (
+              <CompactionPartView
+                key={part.id}
+                part={part as CompactionPart}
+              />
+            )
           default:
             return null
         }
       })}
+
+      {/* Message-level error */}
+      {messageError && (
+        <MessageErrorView error={messageError} />
+      )}
 
       {/* Copy button */}
       {fullText.trim() && (
@@ -304,9 +332,9 @@ function groupPartsForRender(parts: Part[]): RenderItem[] {
   for (let i = 0; i < parts.length; i++) {
     const part = parts[i]
     
-    // 跳过不渲染的 parts
-    if (part.type === 'step-start' || part.type === 'snapshot' || part.type === 'patch' || 
-        part.type === 'retry' || part.type === 'compaction') {
+    // 跳过不渲染的 parts（内部状态 + 冗余信息）
+    // patch: 文件变更已在 tool diff 中显示
+    if (part.type === 'step-start' || part.type === 'snapshot' || part.type === 'patch') {
       continue
     }
     

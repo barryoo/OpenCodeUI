@@ -3,7 +3,7 @@
 // ============================================
 
 // ============================================
-// Message Info (元信息)
+// Common Types
 // ============================================
 
 export interface MessageTime {
@@ -31,8 +31,62 @@ export interface PathInfo {
 export interface MessageSummary {
   title?: string
   body?: string
-  diffs?: unknown[]
+  diffs?: FileDiff[]
 }
+
+export interface FileDiff {
+  path: string
+  additions: number
+  deletions: number
+  diff?: string
+}
+
+// ============================================
+// Error Types
+// ============================================
+
+export interface ProviderAuthError {
+  name: 'ProviderAuthError'
+  data: { providerID: string; message: string }
+}
+
+export interface UnknownError {
+  name: 'UnknownError'
+  data: { message: string }
+}
+
+export interface MessageOutputLengthError {
+  name: 'MessageOutputLengthError'
+  data: Record<string, never>
+}
+
+export interface MessageAbortedError {
+  name: 'MessageAbortedError'
+  data: { message: string }
+}
+
+export interface APIError {
+  name: 'APIError'
+  data: {
+    message: string
+    statusCode?: number
+    isRetryable: boolean
+    responseHeaders?: Record<string, string>
+    responseBody?: string
+    metadata?: Record<string, string>
+  }
+}
+
+export type MessageError = 
+  | ProviderAuthError 
+  | UnknownError 
+  | MessageOutputLengthError 
+  | MessageAbortedError 
+  | APIError
+
+// ============================================
+// Message Info (元信息)
+// ============================================
 
 // User message info
 export interface UserMessageInfo {
@@ -61,7 +115,8 @@ export interface AssistantMessageInfo {
   cost: number
   tokens: TokenUsage
   finish?: 'stop' | 'tool-calls' | string
-  error?: { name: string; data: unknown }
+  error?: MessageError
+  summary?: boolean  // 是否为摘要消息
 }
 
 export type MessageInfo = UserMessageInfo | AssistantMessageInfo
@@ -89,28 +144,52 @@ export interface ReasoningPart extends PartBase {
   time: { start: number; end?: number }
 }
 
+// ToolState - 按状态细分的联合类型
+export interface ToolStatePending {
+  status: 'pending'
+  input: Record<string, unknown>
+  raw?: string
+}
+
+export interface ToolStateRunning {
+  status: 'running'
+  input: Record<string, unknown>
+  title?: string
+  metadata?: Record<string, unknown>
+  time: { start: number }
+}
+
+export interface ToolStateCompleted {
+  status: 'completed'
+  input: Record<string, unknown>
+  output: string
+  title: string
+  metadata: Record<string, unknown>
+  time: { start: number; end: number; compacted?: number }
+  attachments?: FilePart[]
+}
+
+export interface ToolStateError {
+  status: 'error'
+  input: Record<string, unknown>
+  error: string
+  metadata?: Record<string, unknown>
+  time: { start: number; end: number }
+}
+
+export type ToolStateStrict = ToolStatePending | ToolStateRunning | ToolStateCompleted | ToolStateError
+
+// 宽松的 ToolState 类型，用于实际渲染（API 返回的数据可能不完全符合严格类型）
 export interface ToolState {
   status: 'pending' | 'running' | 'completed' | 'error'
-  input?: unknown
-  output?: unknown
+  input?: Record<string, unknown>
+  output?: string
   title?: string
-  error?: { name: string; data: unknown } | string
-  time?: { start: number; end?: number }
-  metadata?: {
-    diff?: string
-    filediff?: {
-      file: string
-      before: string
-      after: string
-      additions: number
-      deletions: number
-    }
-    filepath?: string
-    output?: string
-    exit?: number
-    truncated?: boolean
-    [key: string]: unknown
-  }
+  error?: string
+  time?: { start: number; end?: number; compacted?: number }
+  metadata?: Record<string, unknown>
+  attachments?: FilePart[]
+  raw?: string
 }
 
 export interface ToolPart extends PartBase {
@@ -120,16 +199,43 @@ export interface ToolPart extends PartBase {
   state: ToolState
 }
 
+// FilePartSource - 3种来源类型
+export interface FilePartSourceText {
+  value: string
+  start: number
+  end: number
+}
+
+export interface FileSource {
+  type: 'file'
+  text: FilePartSourceText
+  path: string
+}
+
+export interface SymbolSource {
+  type: 'symbol'
+  text: FilePartSourceText
+  path: string
+  range: { start: { line: number; character: number }; end: { line: number; character: number } }
+  name: string
+  kind: number
+}
+
+export interface ResourceSource {
+  type: 'resource'
+  text: FilePartSourceText
+  clientName: string
+  uri: string
+}
+
+export type FilePartSource = FileSource | SymbolSource | ResourceSource
+
 export interface FilePart extends PartBase {
   type: 'file'
   mime: string
   filename?: string
   url: string
-  source?: {
-    text?: { value: string; start: number; end: number }
-    type?: string
-    path?: string
-  }
+  source?: FilePartSource
 }
 
 export interface AgentPart extends PartBase {
@@ -174,7 +280,7 @@ export interface PatchPart extends PartBase {
 export interface RetryPart extends PartBase {
   type: 'retry'
   attempt: number
-  error: { name: string; data: unknown }
+  error: APIError
   time: { created: number }
 }
 

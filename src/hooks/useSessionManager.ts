@@ -20,7 +20,7 @@ import {
 } from '../api'
 import { sessionErrorHandler } from '../utils'
 
-const INITIAL_MESSAGE_LIMIT = 20
+const INITIAL_MESSAGE_LIMIT = 400
 
 interface UseSessionManagerOptions {
   sessionId: string | null

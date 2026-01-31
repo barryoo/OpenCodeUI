@@ -7,25 +7,57 @@ import type { Attachment } from '../features/attachment'
 /**
  * 获取编辑器的纯文本内容
  * Tag 节点会被序列化为其文本内容（@xxx）
+ * 正确处理换行（<br> 和块级元素）
  */
 export function getEditorText(editor: HTMLElement): string {
   let text = ''
+  let lastWasBlock = false
   
-  const walk = (node: Node) => {
+  const walk = (node: Node, isFirst: boolean = false) => {
     if (node.nodeType === Node.TEXT_NODE) {
       text += node.textContent || ''
+      lastWasBlock = false
     } else if (node.nodeType === Node.ELEMENT_NODE) {
       const el = node as HTMLElement
-      if (el.classList.contains('mention-tag')) {
-        // Tag 直接取文本内容
-        text += el.textContent || ''
-      } else {
-        el.childNodes.forEach(walk)
+      const tagName = el.tagName.toLowerCase()
+      
+      // 处理 <br>
+      if (tagName === 'br') {
+        text += '\n'
+        lastWasBlock = true
+        return
       }
+      
+      // 处理 mention-tag
+      if (el.classList.contains('mention-tag')) {
+        text += el.textContent || ''
+        lastWasBlock = false
+        return
+      }
+      
+      // 块级元素（div, p 等）在前面加换行（除非是第一个或已经有换行）
+      const isBlock = tagName === 'div' || tagName === 'p'
+      if (isBlock && !isFirst && !lastWasBlock && text.length > 0) {
+        text += '\n'
+      }
+      
+      // 递归处理子节点
+      let childFirst = true
+      el.childNodes.forEach(child => {
+        walk(child, childFirst)
+        childFirst = false
+      })
+      
+      lastWasBlock = isBlock
     }
   }
   
-  editor.childNodes.forEach(walk)
+  let first = true
+  editor.childNodes.forEach(node => {
+    walk(node, first)
+    first = false
+  })
+  
   return text
 }
 

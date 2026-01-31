@@ -22,11 +22,23 @@ export interface ExtractedToolData {
   
   // Diff (文件编辑)
   diff?: { before: string; after: string } | string
+  diffStats?: { additions: number; deletions: number }
   files?: FileDiff[]
   
   // Meta
   filePath?: string
   exitCode?: number
+  
+  // LSP 诊断
+  diagnostics?: DiagnosticInfo[]
+}
+
+export interface DiagnosticInfo {
+  file: string
+  severity: 'error' | 'warning' | 'info' | 'hint'
+  message: string
+  line: number
+  column: number
 }
 
 export interface FileDiff {

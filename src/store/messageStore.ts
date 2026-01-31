@@ -572,13 +572,16 @@ class MessageStore {
       if (part.type === 'file') {
         const fp = part as FilePart
         const isFolder = fp.mime === 'application/x-directory'
+        // 获取路径：FileSource 和 SymbolSource 有 path，ResourceSource 有 uri
+        const sourcePath = fp.source && 'path' in fp.source ? fp.source.path : 
+                          fp.source && 'uri' in fp.source ? fp.source.uri : undefined
         attachments.push({
           id: fp.id || crypto.randomUUID(),
           type: isFolder ? 'folder' : 'file',
-          displayName: fp.filename || fp.source?.path || 'file',
+          displayName: fp.filename || sourcePath || 'file',
           url: fp.url,
           mime: fp.mime,
-          relativePath: fp.source?.path,
+          relativePath: sourcePath,
           textRange: fp.source?.text ? {
             value: fp.source.text.value,
             start: fp.source.text.start,

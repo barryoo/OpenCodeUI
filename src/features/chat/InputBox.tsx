@@ -1,7 +1,6 @@
-import { useState, useRef, useEffect, useCallback } from 'react'
-import { AttachmentPreview, type Attachment, getMentionText } from '../attachment'
-import { MentionMenu, detectMentionTrigger, type MentionMenuHandle, type MentionItem } from '../mention'
-import { getEditorText, getTagRanges, getCursorPosition, setCursorPosition, rebuildEditorWithText, syncAttachmentsFromEditor } from '../../utils/editorUtils'
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
+import { AttachmentPreview, type Attachment } from '../attachment'
+import { MentionMenu, detectMentionTrigger, MENTION_COLORS, type MentionMenuHandle, type MentionItem } from '../mention'
 import { InputToolbar } from './input/InputToolbar'
 import { UndoStatus } from './input/UndoStatus'
 import type { ApiAgent } from '../../api/client'
@@ -9,6 +8,16 @@ import type { ApiAgent } from '../../api/client'
 // ============================================
 // Types
 // ============================================
+
+/** Token 类型：普通文本或 mention */
+type TokenType = 'text' | 'mention-file' | 'mention-folder' | 'mention-agent'
+
+/** 解析后的 token */
+interface Token {
+  type: TokenType
+  content: string
+  attachmentId?: string  // 关联的 attachment id
+}
 
 export interface InputBoxProps {
   onSend: (text: string, attachments: Attachment[], options?: { agent?: string; variant?: string }) => void
@@ -61,9 +70,9 @@ export function InputBox({
   onClearRevert,
   registerInputBox,
 }: InputBoxProps) {
-  // 文本状态（纯文本，@ mention 用 @path 格式）
+  // 文本状态
   const [text, setText] = useState('')
-  // 附件状态（包括图片、文件、文件夹、agent）
+  // 附件状态（图片、文件、文件夹、agent）
   const [attachments, setAttachments] = useState<Attachment[]>([])
   
   // @ Mention 状态
@@ -72,7 +81,7 @@ export function InputBox({
   const [mentionStartIndex, setMentionStartIndex] = useState(-1)
   
   // Refs
-  const editorRef = useRef<HTMLDivElement>(null)
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
   const inputContainerRef = useRef<HTMLDivElement>(null)
   const mentionMenuRef = useRef<MentionMenuHandle>(null)
   const prevRevertedTextRef = useRef<string | undefined>(undefined)
@@ -87,27 +96,28 @@ export function InputBox({
 
   // 处理 revert 恢复
   useEffect(() => {
-    if (revertedText !== undefined && editorRef.current) {
-      rebuildEditorWithText(editorRef.current, revertedText, revertedAttachments || [])
-      
+    if (revertedText !== undefined) {
       setText(revertedText)
       setAttachments(revertedAttachments || [])
-      
       // 聚焦并移动光标到末尾
-      editorRef.current.focus()
-      const selection = window.getSelection()
-      const range = document.createRange()
-      range.selectNodeContents(editorRef.current)
-      range.collapse(false)
-      selection?.removeAllRanges()
-      selection?.addRange(range)
-    } else if (prevRevertedTextRef.current !== undefined && revertedText === undefined && editorRef.current) {
-      editorRef.current.innerHTML = ''
+      if (textareaRef.current) {
+        textareaRef.current.focus()
+        textareaRef.current.setSelectionRange(revertedText.length, revertedText.length)
+      }
+    } else if (prevRevertedTextRef.current !== undefined && revertedText === undefined) {
       setText('')
       setAttachments([])
     }
     prevRevertedTextRef.current = revertedText
   }, [revertedText, revertedAttachments])
+
+  // 自动调整 textarea 高度
+  useEffect(() => {
+    const textarea = textareaRef.current
+    if (!textarea) return
+    textarea.style.height = 'auto'
+    textarea.style.height = Math.min(textarea.scrollHeight, window.innerHeight * 0.5) + 'px'
+  }, [text])
 
   // 计算
   const canSend = (text.trim().length > 0 || attachments.length > 0) && !disabled
@@ -119,7 +129,7 @@ export function InputBox({
   const handleSend = useCallback(() => {
     if (!canSend) return
     
-    // 从 attachments 中找 agent mention（如果有的话用它）
+    // 从 attachments 中找 agent mention
     const agentAttachment = attachments.find(a => a.type === 'agent')
     const mentionedAgent = agentAttachment?.agentName
     
@@ -131,13 +141,10 @@ export function InputBox({
     // 清空
     setText('')
     setAttachments([])
-    if (editorRef.current) {
-      editorRef.current.textContent = ''
-    }
     onClearRevert?.()
   }, [canSend, text, attachments, selectedAgent, selectedVariant, onSend, onClearRevert])
 
-  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
+  const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     // Mention 菜单打开时，拦截导航键
     if (mentionOpen && mentionMenuRef.current) {
       switch (e.key) {
@@ -154,10 +161,9 @@ export function InputBox({
           const selected = mentionMenuRef.current.getSelectedItem()
           if (selected?.type === 'folder') {
             e.preventDefault()
-            // 确保路径不会有重复斜杠
             const basePath = (selected.relativePath || selected.displayName).replace(/\/+$/, '')
             const folderPath = basePath + '/'
-            updateMentionQueryInEditor(folderPath)
+            updateMentionQuery(folderPath)
           }
           return
         }
@@ -168,7 +174,7 @@ export function InputBox({
             const parts = mentionQuery.replace(/\/$/, '').split('/')
             parts.pop()
             const parentPath = parts.length > 0 ? parts.join('/') + '/' : ''
-            updateMentionQueryInEditor(parentPath)
+            updateMentionQuery(parentPath)
           }
           return
         }
@@ -180,130 +186,98 @@ export function InputBox({
         case 'Escape':
           e.preventDefault()
           setMentionOpen(false)
-          // 焦点留在编辑器，光标位置不变
           return
       }
     }
     
+    // Tab 键：mention 菜单关闭时，不做任何事（阻止跳到工具栏）
+    if (e.key === 'Tab') {
+      e.preventDefault()
+      return
+    }
+    
+    // Enter 发送（Shift+Enter 换行）
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
       handleSend()
     }
   }, [mentionOpen, mentionQuery, handleSend])
   
-  // 更新编辑器中的 @ 查询文本（用于进入/退出文件夹）
-  const updateMentionQueryInEditor = useCallback((newQuery: string) => {
-    if (!editorRef.current) return
+  // 更新 @ 查询文本（用于进入/退出文件夹）
+  const updateMentionQuery = useCallback((newQuery: string) => {
+    if (!textareaRef.current) return
     
-    const editor = editorRef.current
-    const currentText = getEditorText(editor)
-    
-    // 替换 @ 开始到当前 query 结束的部分
-    const beforeAt = currentText.slice(0, mentionStartIndex)
-    const afterQuery = currentText.slice(mentionStartIndex + 1 + mentionQuery.length)
+    const beforeAt = text.slice(0, mentionStartIndex)
+    const afterQuery = text.slice(mentionStartIndex + 1 + mentionQuery.length)
     const newText = beforeAt + '@' + newQuery + afterQuery
     
-    // 重建编辑器内容（保留已有的 Tag）
-    rebuildEditorWithText(editor, newText, attachments)
     setText(newText)
     setMentionQuery(newQuery)
     
     // 移动光标到 @ 查询末尾
     requestAnimationFrame(() => {
-      if (!editorRef.current) return
+      if (!textareaRef.current) return
       const pos = mentionStartIndex + 1 + newQuery.length
-      setCursorPosition(editorRef.current, pos)
-      editorRef.current.focus()
+      textareaRef.current.setSelectionRange(pos, pos)
+      textareaRef.current.focus()
     })
-  }, [mentionStartIndex, mentionQuery, attachments])
+  }, [text, mentionStartIndex, mentionQuery])
 
-  // 状态更新辅助函数
-  const updateState = useCallback(() => {
-    const editor = editorRef.current
-    if (!editor) return
-    
-    const newText = getEditorText(editor)
+  const handleChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const newText = e.target.value
     setText(newText)
     
-    // Sync attachments positions from DOM
-    setAttachments(prev => syncAttachmentsFromEditor(editor, prev))
-    
-    // 获取 Tag 位置范围（用于判断 @ 是否在 Tag 内）
-    const tagRanges = getTagRanges(editor)
+    // 同步检测 mention 是否被破坏/删除
+    // 比对 attachments 的 textRange：如果文本中对应位置不再匹配，删除该 attachment
+    setAttachments(prev => {
+      const surviving = prev.filter(a => {
+        if (!a.textRange) return true // 图片等无 textRange 的保留
+        const { start, end, value } = a.textRange
+        const actual = newText.slice(start, end)
+        return actual === value
+      })
+      // 只在数量变化时更新（避免不必要的 re-render）
+      return surviving.length === prev.length ? prev : surviving
+    })
     
     // 检测 @ 触发
-    const cursorPos = getCursorPosition(editor)
+    const cursorPos = e.target.selectionStart || 0
     const trigger = detectMentionTrigger(newText, cursorPos, '@')
     
     if (trigger) {
-      // 检查这个 @ 是否在某个 Tag 内
-      const isInsideTag = tagRanges.some(r => 
-        trigger.startIndex >= r.start && trigger.startIndex < r.end
-      )
-      
-      if (!isInsideTag) {
-        setMentionQuery(trigger.query)
-        setMentionStartIndex(trigger.startIndex)
-        setMentionOpen(true)
-      } else {
-        setMentionOpen(false)
-      }
+      setMentionQuery(trigger.query)
+      setMentionStartIndex(trigger.startIndex)
+      setMentionOpen(true)
     } else {
       setMentionOpen(false)
     }
   }, [])
 
-  const handleInput = useCallback(() => {
-    updateState()
-  }, [updateState])
-
-
   // @ Mention 选择处理
   const handleMentionSelect = useCallback((item: MentionItem & { _enterFolder?: boolean }) => {
-    if (!editorRef.current) return
+    if (!textareaRef.current) return
     
-    const editor = editorRef.current
-    const currentText = getEditorText(editor)
-    
-    // 如果是进入文件夹（双击或右箭头），更新 query 而不是选中
+    // 如果是进入文件夹
     if (item._enterFolder && item.type === 'folder') {
-      // 确保路径不会有重复斜杠
       const basePath = (item.relativePath || item.displayName).replace(/\/+$/, '')
       const folderPath = basePath + '/'
-      const beforeAt = currentText.slice(0, mentionStartIndex)
-      const afterQuery = currentText.slice(mentionStartIndex + 1 + mentionQuery.length)
-      const newText = beforeAt + '@' + folderPath + afterQuery
-      
-      // 使用 rebuild 更新，保持现有 tag
-      rebuildEditorWithText(editor, newText, attachments)
-      setText(newText)
-      setMentionQuery(folderPath)
-      
-      // 移动光标到文件夹路径末尾
-      requestAnimationFrame(() => {
-        if (!editorRef.current) return
-        const pos = mentionStartIndex + 1 + folderPath.length
-        setCursorPosition(editorRef.current, pos)
-        editorRef.current.focus()
-      })
+      updateMentionQuery(folderPath)
       return
     }
     
-    // 构建 @ 显示文本
+    // 构建 @ 文本
     const mentionText = item.type === 'agent' 
       ? `@${item.displayName}`
       : `@${item.relativePath || item.displayName}`
     
     // 计算新文本
-    const beforeAt = currentText.slice(0, mentionStartIndex)
-    const afterQuery = currentText.slice(mentionStartIndex + 1 + mentionQuery.length)
-    // 插入 Tag 文本和空格
+    const beforeAt = text.slice(0, mentionStartIndex)
+    const afterQuery = text.slice(mentionStartIndex + 1 + mentionQuery.length)
     const newText = beforeAt + mentionText + ' ' + afterQuery
     
     // 创建附件
-    const attachmentId = crypto.randomUUID()
     const attachment: Attachment = {
-      id: attachmentId,
+      id: crypto.randomUUID(),
       type: item.type,
       displayName: item.displayName,
       relativePath: item.relativePath,
@@ -317,27 +291,22 @@ export function InputBox({
       },
     }
     
-    const nextAttachments = [...attachments, attachment]
-    
-    // 使用 rebuild 重建整个编辑器内容，这样可以保留之前的 Tag
-    rebuildEditorWithText(editor, newText, nextAttachments)
-    
     setText(newText)
-    setAttachments(nextAttachments)
+    setAttachments(prev => [...prev, attachment])
     setMentionOpen(false)
     
-    // 移动光标到 Tag 后面的空格之后
+    // 移动光标到 mention 后
     requestAnimationFrame(() => {
-      if (!editorRef.current) return
+      if (!textareaRef.current) return
       const newCursorPos = mentionStartIndex + mentionText.length + 1
-      setCursorPosition(editorRef.current, newCursorPos)
-      editorRef.current.focus()
+      textareaRef.current.setSelectionRange(newCursorPos, newCursorPos)
+      textareaRef.current.focus()
     })
-  }, [mentionStartIndex, mentionQuery, attachments])
+  }, [text, mentionStartIndex, mentionQuery, updateMentionQuery])
 
   const handleMentionClose = useCallback(() => {
     setMentionOpen(false)
-    editorRef.current?.focus()
+    textareaRef.current?.focus()
   }, [])
 
   // 图片上传
@@ -363,31 +332,25 @@ export function InputBox({
     })
   }, [supportsImages])
 
-  // 删除附件（同时删除文本中的 @ mention）
+  // 删除附件
   const handleRemoveAttachment = useCallback((id: string) => {
     const attachment = attachments.find(a => a.id === id)
     if (!attachment) return
     
-    // 如果有 textRange，从文本中删除
-    if (attachment.textRange && editorRef.current) {
-      const currentText = editorRef.current.textContent || ''
-      
-      // 简化处理：直接找并删除 mentionText
-      const mentionText = getMentionText(attachment)
-      const newText = currentText.replace(mentionText + ' ', '').replace(mentionText, '')
-      
-      editorRef.current.textContent = newText
+    // 如果有 textRange，从文本中删除 @mention
+    if (attachment.textRange) {
+      const { value } = attachment.textRange
+      // 删除 @mention 和后面的空格
+      const newText = text.replace(value + ' ', '').replace(value, '')
       setText(newText)
     }
     
     setAttachments(prev => prev.filter(a => a.id !== id))
-  }, [attachments])
+  }, [attachments, text])
 
   // 粘贴处理
   const handlePaste = useCallback((e: React.ClipboardEvent) => {
-    e.preventDefault() // 阻止默认 HTML 粘贴，只允许纯文本或文件
-    
-    // 1. 处理文件
+    // 处理图片粘贴
     if (supportsImages) {
       const items = e.clipboardData?.items
       const files: File[] = []
@@ -404,6 +367,7 @@ export function InputBox({
       if (files.length > 0) {
         const imageFiles = files.filter(f => f.type.startsWith('image/'))
         if (imageFiles.length > 0) {
+          e.preventDefault()
           const dt = new DataTransfer()
           imageFiles.forEach(f => dt.items.add(f))
           handleImageUpload(dt.files)
@@ -412,15 +376,13 @@ export function InputBox({
       }
     }
     
-    // 2. 处理纯文本
-    const pasteText = e.clipboardData.getData('text/plain')
-    if (pasteText) {
-      // 使用 insertText 命令，这样浏览器会正确记录 undo 历史
-      // 注意：execCommand 已被标记为 deprecated，但在 contentEditable 中仍是最可靠的方式
-      document.execCommand('insertText', false, pasteText)
-      updateState()
-    }
-  }, [supportsImages, handleImageUpload, updateState])
+    // 文本粘贴：让 textarea 默认处理（天然支持换行和 undo）
+  }, [supportsImages, handleImageUpload])
+
+  // 滚动同步（备用，overlay 内部也监听了 scroll）
+  const handleScroll = useCallback(() => {
+    // overlay 通过 useEffect 自动同步，这里留空
+  }, [])
 
   // ============================================
   // Render
@@ -448,7 +410,7 @@ export function InputBox({
           {/* Input Container */}
           <div 
             ref={inputContainerRef}
-            className={`bg-bg-000 rounded-2xl relative z-30 transition-all focus-within:outline-none cursor-text shadow-2xl shadow-black/5 ${
+            className={`bg-bg-000 rounded-2xl relative z-30 transition-all focus-within:outline-none shadow-2xl shadow-black/5 ${
               isStreaming 
                 ? 'border border-accent-main-100/50 animate-border-pulse' 
                 : 'border border-border-200/50'
@@ -467,8 +429,8 @@ export function InputBox({
             />
             
             <div className="relative">
-              <div className="overflow-hidden" style={{ height: 'auto', opacity: 1 }}>
-                {/* Attachments Preview */}
+              <div className="overflow-hidden">
+                {/* Attachments Preview - 显示在输入框上方 */}
                 <div className={`overflow-hidden transition-all duration-300 ease-out ${
                   attachments.length > 0 ? 'max-h-40 opacity-100' : 'max-h-0 opacity-0'
                 }`}>
@@ -480,19 +442,34 @@ export function InputBox({
                   </div>
                 </div>
 
-                {/* Text Input */}
+                {/* Text Input - textarea with highlight overlay */}
                 <div className="px-4 pt-4 pb-2">
                   <div className="relative">
-                    <div
-                      ref={editorRef}
-                      contentEditable
-                      onInput={handleInput}
+                    {/* Highlight overlay - 渲染在 textarea 下方，显示染色文本 */}
+                    <TextHighlightOverlay 
+                      text={text}
+                      attachments={attachments}
+                      scrollRef={textareaRef}
+                    />
+                    {/* Textarea - 文字透明，只显示光标 */}
+                    <textarea
+                      ref={textareaRef}
+                      value={text}
+                      onChange={handleChange}
                       onKeyDown={handleKeyDown}
                       onPaste={handlePaste}
-                      className="w-full resize-none focus:outline-none focus:ring-0 focus:border-transparent text-text-100 overflow-y-auto custom-scrollbar text-sm max-w-none whitespace-pre-wrap empty:before:content-[attr(data-placeholder)] empty:before:text-text-400 empty:before:pointer-events-none"
-                      data-placeholder="Reply to Agent (type @ to mention)"
-                      style={{ minHeight: '24px', maxHeight: '50vh', outline: 'none' }}
-                      tabIndex={0}
+                      onScroll={handleScroll}
+                      placeholder="Reply to Agent (type @ to mention)"
+                      className="w-full resize-none focus:outline-none focus:ring-0 bg-transparent placeholder:text-text-400 custom-scrollbar relative"
+                      style={{ 
+                        ...SHARED_TEXT_STYLE,
+                        minHeight: '24px', 
+                        maxHeight: '50vh',
+                        color: 'transparent',
+                        caretColor: '#fff',
+                        zIndex: 2,
+                      }}
+                      rows={1}
                     />
                   </div>
                 </div>
@@ -526,4 +503,148 @@ export function InputBox({
       </div>
     </div>
   )
+}
+
+// ============================================
+// TextHighlightOverlay - 在 textarea 上渲染高亮文本
+// ============================================
+
+/** 
+ * Overlay 和 textarea 共享的文本样式
+ * 必须完全一致才能让光标位置正确对齐
+ */
+const SHARED_TEXT_STYLE: React.CSSProperties = {
+  fontSize: '14px',           // text-sm
+  lineHeight: '20px',         // 固定像素值确保一致
+  fontFamily: 'ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji"',
+  letterSpacing: 'normal',
+  wordSpacing: 'normal',
+  whiteSpace: 'pre-wrap',
+  wordBreak: 'break-word' as const,
+  overflowWrap: 'break-word',
+  padding: 0,
+  margin: 0,
+  border: 'none',
+  boxSizing: 'border-box' as const,
+}
+
+interface TextHighlightOverlayProps {
+  text: string
+  attachments: Attachment[]
+  scrollRef: React.RefObject<HTMLTextAreaElement | null>
+}
+
+function TextHighlightOverlay({ text, attachments, scrollRef }: TextHighlightOverlayProps) {
+  const overlayRef = useRef<HTMLDivElement>(null)
+  
+  // 同步滚动
+  useEffect(() => {
+    const textarea = scrollRef.current
+    const overlay = overlayRef.current
+    if (!textarea || !overlay) return
+    
+    const syncScroll = () => {
+      overlay.scrollTop = textarea.scrollTop
+      overlay.scrollLeft = textarea.scrollLeft
+    }
+    
+    textarea.addEventListener('scroll', syncScroll)
+    return () => textarea.removeEventListener('scroll', syncScroll)
+  }, [scrollRef])
+
+  // 将文本分割为 token（普通文本 + mention 高亮）
+  const tokens = useMemo(() => tokenize(text, attachments), [text, attachments])
+
+  // 没有 mention 时直接渲染纯文本（性能优化）
+  if (attachments.filter(a => a.textRange).length === 0) {
+    return (
+      <div
+        ref={overlayRef}
+        className="absolute inset-0 pointer-events-none overflow-hidden text-text-100"
+        style={{ ...SHARED_TEXT_STYLE, zIndex: 1 }}
+        aria-hidden
+      >
+        {text || '\u00A0'}
+      </div>
+    )
+  }
+
+  return (
+    <div
+      ref={overlayRef}
+      className="absolute inset-0 pointer-events-none overflow-hidden"
+      style={{ ...SHARED_TEXT_STYLE, zIndex: 1 }}
+      aria-hidden
+    >
+      {tokens.map((token, i) => {
+        if (token.type === 'text') {
+          return <span key={i} className="text-text-100">{token.content || '\u00A0'}</span>
+        }
+        // Mention token — 用对应类型的颜色
+        const colorKey = token.type === 'mention-agent' ? 'agent' 
+          : token.type === 'mention-folder' ? 'folder' 
+          : 'file'
+        const colors = MENTION_COLORS[colorKey]
+        return (
+          <span 
+            key={i} 
+            className={`${colors.bg} ${colors.text} ${colors.darkText} rounded px-0.5 -mx-0.5`}
+          >
+            {token.content}
+          </span>
+        )
+      })}
+    </div>
+  )
+}
+
+// ============================================
+// tokenize - 将文本按 attachment 的 textRange 分割
+// ============================================
+
+function tokenize(text: string, attachments: Attachment[]): Token[] {
+  // 收集有 textRange 的 mention attachments，按 start 排序
+  const mentions = attachments
+    .filter(a => a.textRange)
+    .map(a => ({
+      start: a.textRange!.start,
+      end: a.textRange!.end,
+      value: a.textRange!.value,
+      type: a.type,
+      id: a.id,
+    }))
+    .sort((a, b) => a.start - b.start)
+
+  if (mentions.length === 0) {
+    return [{ type: 'text', content: text }]
+  }
+
+  const tokens: Token[] = []
+  let lastIndex = 0
+
+  for (const m of mentions) {
+    // 验证 mention 在文本中仍然匹配
+    const actual = text.slice(m.start, m.end)
+    if (actual !== m.value) continue  // 不匹配，跳过
+
+    // 前面的普通文本
+    if (m.start > lastIndex) {
+      tokens.push({ type: 'text', content: text.slice(lastIndex, m.start) })
+    }
+
+    // mention token
+    const tokenType: TokenType = m.type === 'agent' ? 'mention-agent'
+      : m.type === 'folder' ? 'mention-folder'
+      : 'mention-file'
+    tokens.push({ type: tokenType, content: m.value, attachmentId: m.id })
+
+    lastIndex = m.end
+  }
+
+  // 剩余文本
+  if (lastIndex < text.length) {
+    tokens.push({ type: 'text', content: text.slice(lastIndex) })
+  }
+
+  return tokens
 }

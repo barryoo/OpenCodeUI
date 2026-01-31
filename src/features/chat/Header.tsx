@@ -1,10 +1,11 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useMemo } from 'react'
 import { ComposeIcon, CogIcon, MoreHorizontalIcon, TeachIcon, SidebarIcon, MaximizeIcon, MinimizeIcon, SunIcon, MoonIcon, SystemIcon, ShareIcon } from '../../components/Icons'
 import { DropdownMenu, MenuItem, IconButton } from '../../components/ui'
 import { ModelSelector } from './ModelSelector'
 import { SettingsDialog } from '../settings/SettingsDialog'
 import { ShareDialog } from './ShareDialog'
 import { useMessageStore } from '../../store'
+import { useSessionStats, formatTokens, formatCost } from '../../hooks'
 import type { ThemeMode } from '../../hooks'
 import type { ModelInfo } from '../../api'
 
@@ -33,12 +34,24 @@ export function Header({
   isWideMode,
   onToggleWideMode,
 }: HeaderProps) {
-  const { shareUrl } = useMessageStore()
+  const { shareUrl, messages } = useMessageStore()
   const [settingsMenuOpen, setSettingsMenuOpen] = useState(false)
   const [settingsDialogOpen, setSettingsDialogOpen] = useState(false)
   const [shareDialogOpen, setShareDialogOpen] = useState(false)
   const settingsTriggerRef = useRef<HTMLButtonElement>(null)
   const settingsMenuRef = useRef<HTMLDivElement>(null)
+
+  // 获取当前选中的模型
+  const selectedModel = useMemo(() => {
+    if (!selectedModelKey) return null
+    return models.find(m => `${m.providerId}:${m.id}` === selectedModelKey) || null
+  }, [models, selectedModelKey])
+
+  // 计算 session 统计
+  const stats = useSessionStats(selectedModel?.contextLimit || 200000)
+  
+  // 是否有消息（用于控制显示）
+  const hasMessages = messages.length > 0
 
   // Close settings menu when clicking outside
   useEffect(() => {
@@ -75,6 +88,13 @@ export function Header({
           isLoading={modelsLoading}
         />
       </div>
+
+      {/* Center: Context & Cost Stats */}
+      {hasMessages && (
+        <div className="hidden md:flex items-center gap-4 pointer-events-auto">
+          <ContextIndicator stats={stats} />
+        </div>
+      )}
 
       <div className="flex items-center gap-2 pointer-events-auto">
         {/* Wide Mode Toggle */}
@@ -191,6 +211,110 @@ export function Header({
         isOpen={shareDialogOpen} 
         onClose={() => setShareDialogOpen(false)} 
       />
+    </div>
+  )
+}
+
+// ============================================
+// Context Indicator Component
+// ============================================
+
+import type { SessionStats } from '../../hooks'
+
+interface ContextIndicatorProps {
+  stats: SessionStats
+}
+
+function ContextIndicator({ stats }: ContextIndicatorProps) {
+  const [showTooltip, setShowTooltip] = useState(false)
+  
+  // 根据使用率确定颜色
+  const getProgressColor = (percent: number) => {
+    if (percent >= 90) return 'bg-danger-100'
+    if (percent >= 70) return 'bg-warning-100'
+    return 'bg-accent-main-100'
+  }
+  
+  const progressColor = getProgressColor(stats.contextPercent)
+  
+  return (
+    <div 
+      className="relative flex items-center gap-3 px-3 py-1.5 rounded-lg bg-bg-200/30 hover:bg-bg-200/50 transition-colors cursor-default"
+      onMouseEnter={() => setShowTooltip(true)}
+      onMouseLeave={() => setShowTooltip(false)}
+    >
+      {/* Context Progress */}
+      <div className="flex items-center gap-2">
+        <div className="w-20 h-1.5 bg-bg-300/50 rounded-full overflow-hidden">
+          <div 
+            className={`h-full rounded-full transition-all duration-300 ${progressColor}`}
+            style={{ width: `${Math.max(1, stats.contextPercent)}%` }}
+          />
+        </div>
+        <span className="text-[11px] font-mono text-text-400 tabular-nums">
+          {formatTokens(stats.contextUsed)}
+        </span>
+      </div>
+      
+      {/* Cost */}
+      {stats.totalCost > 0 && (
+        <>
+          <div className="w-px h-3 bg-border-200/50" />
+          <span className="text-[11px] font-mono text-text-400 tabular-nums">
+            {formatCost(stats.totalCost)}
+          </span>
+        </>
+      )}
+      
+      {/* Tooltip */}
+      {showTooltip && (
+        <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 z-50">
+          <div className="bg-bg-100 border border-border-200 rounded-lg shadow-lg px-3 py-2 min-w-[180px]">
+            <div className="text-[10px] font-bold text-text-400 uppercase tracking-wider mb-2">
+              Session Stats
+            </div>
+            <div className="space-y-1.5 text-xs">
+              <div className="flex justify-between">
+                <span className="text-text-400">Context</span>
+                <span className="font-mono text-text-200">
+                  {formatTokens(stats.contextUsed)} / {formatTokens(stats.contextLimit)}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-text-400">Input tokens</span>
+                <span className="font-mono text-text-200">{formatTokens(stats.inputTokens)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-text-400">Output tokens</span>
+                <span className="font-mono text-text-200">{formatTokens(stats.outputTokens)}</span>
+              </div>
+              {stats.reasoningTokens > 0 && (
+                <div className="flex justify-between">
+                  <span className="text-text-400">Reasoning</span>
+                  <span className="font-mono text-text-200">{formatTokens(stats.reasoningTokens)}</span>
+                </div>
+              )}
+              {stats.cacheRead > 0 && (
+                <div className="flex justify-between">
+                  <span className="text-text-400">Cache read</span>
+                  <span className="font-mono text-success-100">{formatTokens(stats.cacheRead)}</span>
+                </div>
+              )}
+              {stats.totalCost > 0 && (
+                <>
+                  <div className="border-t border-border-200/50 my-1.5" />
+                  <div className="flex justify-between">
+                    <span className="text-text-400">Total cost</span>
+                    <span className="font-mono text-text-200">{formatCost(stats.totalCost)}</span>
+                  </div>
+                </>
+              )}
+            </div>
+            {/* Arrow */}
+            <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-bg-100 border-l border-t border-border-200 rotate-45" />
+          </div>
+        </div>
+      )}
     </div>
   )
 }

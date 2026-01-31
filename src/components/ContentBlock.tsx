@@ -40,6 +40,8 @@ export interface ContentBlockProps {
   content?: string
   /** Diff 数据 */
   diff?: { before: string; after: string } | string
+  /** Diff 统计（可选，如果提供则直接使用，否则计算） */
+  diffStats?: { additions: number; deletions: number }
   /** 统计信息 */
   stats?: { exit?: number }
   
@@ -64,6 +66,7 @@ export const ContentBlock = memo(function ContentBlock({
   collapsible = true,
   content,
   diff,
+  diffStats: providedDiffStats,
   stats,
   isLoading = false,
   loadingText = 'Loading...',
@@ -76,9 +79,12 @@ export const ContentBlock = memo(function ContentBlock({
   const lang = language || (filePath ? detectLanguage(filePath) : 'text')
   const fileName = filePath?.split(/[/\\]/).pop()
   
-  // Diff 统计
+  // Diff 统计 - 优先使用提供的，否则计算
   const diffStats = useMemo(() => {
     if (!isDiff) return null
+    
+    // 如果提供了统计，直接使用
+    if (providedDiffStats) return providedDiffStats
     
     // 如果是对象格式 (before/after)，计算 diff
     if (typeof diff === 'object') {
@@ -100,7 +106,7 @@ export const ContentBlock = memo(function ContentBlock({
       if (line.startsWith('-')) deletions++
     }
     return { additions, deletions }
-  }, [isDiff, diff])
+  }, [isDiff, diff, providedDiffStats])
 
   return (
     <div className={`border rounded-lg overflow-hidden text-xs ${

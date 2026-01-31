@@ -15,10 +15,12 @@ export { useSmoothStream } from './useSmoothStream'
 export { useModelSelection } from './useModelSelection'
 export { useChatSession } from './useChatSession'
 export { usePathMode } from './usePathMode'
+export { useSessionStats, formatTokens, formatCost } from './useSessionStats'
 export type { ThemeMode } from './useTheme'
 export type { UseProjectResult } from './useProject'
 export type { UseRevertStateResult, RevertHistoryItem } from './useRevertState'
 export type { UsePermissionHandlerResult } from './usePermissionHandler'
+export type { SessionStats } from './useSessionStats'
 
 // Re-export from contexts
 export { DirectoryProvider, useDirectory, SessionProvider, useSessionContext } from '../contexts'
