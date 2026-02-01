@@ -119,14 +119,22 @@ export function Header({
   return (
     <div className="h-14 flex justify-between items-center px-4 z-20 bg-bg-100 transition-colors duration-200 relative">
       
-      {/* Left: Navigation & Context */}
-      <div className="flex items-center gap-2 min-w-0 shrink-1">
+      {/* Left: Sidebar, New Chat, Model (z-20) */}
+      <div className="flex items-center gap-2 min-w-0 shrink-1 z-20">
         <IconButton
           aria-label="Toggle sidebar"
           onClick={onToggleSidebar}
           className="hover:bg-bg-200/50 text-text-400 hover:text-text-100"
         >
           <SidebarIcon size={18} />
+        </IconButton>
+
+        <IconButton
+          aria-label="New chat"
+          onClick={onNewChat}
+          className="hover:bg-bg-200/50 text-text-400 hover:text-text-100"
+        >
+          <ComposeIcon size={18} />
         </IconButton>
 
         <div className="w-px h-4 bg-border-200/50 mx-1 shrink-0" />
@@ -139,8 +147,8 @@ export function Header({
         />
       </div>
 
-      {/* Center: Session Capsule (Title + Stats) - Only on desktop */}
-      <div className="absolute left-1/2 -translate-x-1/2 hidden md:flex">
+      {/* Center: Session Title (Clean) (z-20) */}
+      <div className="absolute left-1/2 -translate-x-1/2 hidden md:flex z-20">
         <div className={`flex items-center group ${isEditingTitle ? 'bg-bg-200/50 ring-1 ring-accent-main-100' : 'bg-transparent hover:bg-bg-200/50 border border-transparent hover:border-border-200/50'} rounded-lg transition-all duration-200 p-0.5 min-w-0 shrink`}>
           
           {isEditingTitle ? (
@@ -159,15 +167,10 @@ export function Header({
           ) : (
             <button 
               onClick={handleStartEdit}
-              className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-text-200 hover:text-text-100 transition-colors max-w-[300px] cursor-text select-none"
+              className="px-3 py-1.5 text-sm font-medium text-text-200 hover:text-text-100 transition-colors truncate max-w-[300px] cursor-text select-none text-center"
               title="Click to rename"
             >
-              <span className="truncate">{sessionTitle}</span>
-              
-              {/* Integrated Stats Badge */}
-              {hasMessages && (
-                <StatsBadge stats={stats} />
-              )}
+              {sessionTitle}
             </button>
           )}
 
@@ -186,41 +189,20 @@ export function Header({
         </div>
       </div>
 
-      {/* Right: Actions & Tools */}
-      <div className="flex items-center gap-1 pointer-events-auto shrink-0">
+      {/* Right: Stats, Settings, Panels (z-20) */}
+      <div className="flex items-center gap-1 pointer-events-auto shrink-0 z-20">
         
-        {/* New Chat */}
-        <IconButton
-          aria-label="New chat"
-          onClick={onNewChat}
-          className="hover:bg-bg-200/50 text-text-400 hover:text-text-100 mr-1"
-        >
-          <ComposeIcon size={18} />
-        </IconButton>
+        {/* Stats Badge (Pill) */}
+        {hasMessages && (
+          <div className="hidden lg:flex mr-2">
+            <StatsBadge stats={stats} />
+          </div>
+        )}
 
         <div className="w-px h-4 bg-border-200/50 mx-1 hidden sm:block" />
 
-        {/* Layout Group */}
-        <div className="flex items-center gap-0.5">
-          <IconButton
-            aria-label={bottomPanelOpen ? "Close bottom panel" : "Open bottom panel"}
-            onClick={() => layoutStore.toggleBottomPanel()}
-            className={`transition-colors ${bottomPanelOpen ? 'text-accent-main-100 bg-bg-200/50' : 'text-text-400 hover:text-text-100 hover:bg-bg-200/50'}`}
-          >
-            <PanelBottomIcon size={18} />
-          </IconButton>
-
-          <IconButton
-            aria-label={rightPanelOpen ? "Close panel" : "Open panel"}
-            onClick={() => layoutStore.toggleRightPanel()}
-            className={`transition-colors ${rightPanelOpen ? 'text-accent-main-100 bg-bg-200/50' : 'text-text-400 hover:text-text-100 hover:bg-bg-200/50'}`}
-          >
-            <PanelRightIcon size={18} />
-          </IconButton>
-        </div>
-
-        {/* Settings */}
-        <div className="relative ml-1">
+        {/* Settings Button */}
+        <div className="relative">
           <IconButton
             ref={settingsTriggerRef}
             aria-label="Menu"
@@ -293,6 +275,25 @@ export function Header({
             </div>
           </DropdownMenu>
         </div>
+
+        {/* Panel Toggles Group */}
+        <div className="flex items-center gap-0.5 ml-1">
+          <IconButton
+            aria-label={bottomPanelOpen ? "Close bottom panel" : "Open bottom panel"}
+            onClick={() => layoutStore.toggleBottomPanel()}
+            className={`transition-colors ${bottomPanelOpen ? 'text-accent-main-100 bg-bg-200/50' : 'text-text-400 hover:text-text-100 hover:bg-bg-200/50'}`}
+          >
+            <PanelBottomIcon size={18} />
+          </IconButton>
+
+          <IconButton
+            aria-label={rightPanelOpen ? "Close panel" : "Open panel"}
+            onClick={() => layoutStore.toggleRightPanel()}
+            className={`transition-colors ${rightPanelOpen ? 'text-accent-main-100 bg-bg-200/50' : 'text-text-400 hover:text-text-100 hover:bg-bg-200/50'}`}
+          >
+            <PanelRightIcon size={18} />
+          </IconButton>
+        </div>
       </div>
 
       <SettingsDialog
@@ -306,45 +307,44 @@ export function Header({
 
       <ShareDialog isOpen={shareDialogOpen} onClose={() => setShareDialogOpen(false)} />
 
-      {/* Smooth gradient */}
+      {/* Smooth gradient - z-10 */}
       <div className="absolute top-full left-0 right-0 h-8 bg-gradient-to-b from-bg-100 to-transparent pointer-events-none z-10" />
     </div>
   )
 }
 
 // ============================================
-// Stats Badge Component (Fusion Style)
+// Stats Badge Component (Bordered Pill)
 // ============================================
 
 function StatsBadge({ stats }: { stats: SessionStats }) {
   const [showTooltip, setShowTooltip] = useState(false)
   
-  const getTextColor = (percent: number) => {
-    if (percent >= 90) return 'text-danger-100'
-    if (percent >= 70) return 'text-warning-100'
-    return 'text-text-400'
+  const getColor = (percent: number) => {
+    if (percent >= 90) return 'bg-danger-100'
+    if (percent >= 70) return 'bg-warning-100'
+    return 'bg-accent-main-100'
   }
+  
+  const color = getColor(stats.contextPercent)
   
   return (
     <div 
-      className="relative flex items-center"
+      className="relative flex items-center group/stats"
       onMouseEnter={() => setShowTooltip(true)}
       onMouseLeave={() => setShowTooltip(false)}
-      onClick={(e) => e.stopPropagation()} // Prevent triggering rename
+      onClick={(e) => e.stopPropagation()} 
     >
-      <div className={`
-        flex items-center justify-center px-1.5 py-0.5 rounded
-        bg-bg-300/30 hover:bg-bg-300/50 transition-colors
-        border border-transparent hover:border-border-200/30
-      `}>
-        <span className={`text-[10px] font-mono leading-none ${getTextColor(stats.contextPercent)}`}>
+      <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full border border-border-200/50 hover:bg-bg-200/50 transition-colors cursor-default">
+        <div className={`w-1.5 h-1.5 rounded-full ${color} opacity-80`} />
+        <span className="text-[10px] font-mono text-text-400 group-hover/stats:text-text-200 transition-colors">
           {Math.round(stats.contextPercent)}%
         </span>
       </div>
 
-      {/* Detailed Tooltip */}
+      {/* Detailed Tooltip - High Z-index */}
       {showTooltip && (
-        <div className="absolute top-full left-1/2 -translate-x-1/2 mt-3 z-50 cursor-default">
+        <div className="absolute top-full left-1/2 -translate-x-1/2 mt-3 z-[100] cursor-default">
           <div className="bg-bg-100 border border-border-200 rounded-lg shadow-xl px-3 py-2 min-w-[180px]">
             <div className="text-[10px] font-bold text-text-400 uppercase tracking-wider mb-2">
               Session Stats
@@ -360,7 +360,7 @@ function StatsBadge({ stats }: { stats: SessionStats }) {
               </div>
               <div className="w-full h-1 bg-bg-300 rounded-full overflow-hidden my-1">
                 <div 
-                  className={`h-full ${getTextColor(stats.contextPercent).replace('text-', 'bg-')}`} 
+                  className={`h-full ${color}`} 
                   style={{ width: `${Math.min(100, stats.contextPercent)}%` }}
                 />
               </div>
@@ -370,7 +370,6 @@ function StatsBadge({ stats }: { stats: SessionStats }) {
                 <span className="font-mono">{formatCost(stats.totalCost)}</span>
               </div>
             </div>
-            {/* Arrow */}
             <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-bg-100 border-l border-t border-border-200 rotate-45" />
           </div>
         </div>
