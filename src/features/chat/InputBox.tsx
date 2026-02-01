@@ -557,6 +557,12 @@ export function InputBox({
                 {/* Text Input - textarea with highlight overlay */}
                 <div className="px-4 pt-4 pb-2">
                   <div className="relative w-full">
+                    {/* Highlight overlay - 渲染在 textarea 下方，显示染色文本 */}
+                    <TextHighlightOverlay 
+                      text={text}
+                      attachments={attachments}
+                      scrollRef={textareaRef}
+                    />
                     {/* Textarea - 主体，文字透明，只显示光标 */}
                     <textarea
                       ref={textareaRef}
@@ -566,9 +572,10 @@ export function InputBox({
                       onPaste={handlePaste}
                       onScroll={handleScroll}
                       placeholder="Reply to Agent (type @ to mention)"
-                      className="w-full resize-none focus:outline-none focus:ring-0 bg-transparent placeholder:text-text-400 custom-scrollbar block"
+                      className="w-full resize-none focus:outline-none focus:ring-0 bg-transparent placeholder:text-text-400 custom-scrollbar"
                       style={{ 
                         ...SHARED_TEXT_STYLE,
+                        display: 'block',
                         minHeight: '24px', 
                         maxHeight: '50vh',
                         color: 'transparent',
@@ -578,14 +585,9 @@ export function InputBox({
                         // 确保没有浏览器默认样式干扰
                         WebkitAppearance: 'none',
                         outline: 'none',
+                        resize: 'none',
                       }}
                       rows={1}
-                    />
-                    {/* Highlight overlay - 渲染在 textarea 下方，显示染色文本 */}
-                    <TextHighlightOverlay 
-                      text={text}
-                      attachments={attachments}
-                      scrollRef={textareaRef}
                     />
                   </div>
                 </div>
@@ -628,27 +630,41 @@ export function InputBox({
 /** 
  * Overlay 和 textarea 共享的文本样式
  * 必须完全一致才能让光标位置正确对齐
+ * 
+ * 关键点：
+ * 1. 使用完全相同的 font 属性
+ * 2. 使用 inherit 继承，避免浏览器差异
+ * 3. 避免任何可能影响布局的属性差异
  */
 const SHARED_TEXT_STYLE: React.CSSProperties = {
+  // 字体 - 使用系统 UI 字体栈
+  fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
   fontSize: '14px',
+  fontWeight: 400,
   lineHeight: '20px',
-  fontFamily: 'ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji"',
-  letterSpacing: 'normal',
-  wordSpacing: 'normal',
+  letterSpacing: '0px',
+  wordSpacing: '0px',
+  
+  // 文本换行行为
   whiteSpace: 'pre-wrap',
-  wordBreak: 'break-word' as const,
+  wordBreak: 'break-word',
   overflowWrap: 'break-word',
+  
+  // 盒模型
   padding: 0,
   margin: 0,
   border: 'none',
-  boxSizing: 'border-box' as const,
-  // 关键：确保字体渲染一致
+  boxSizing: 'border-box',
+  
+  // 文本渲染
+  textRendering: 'auto',
   WebkitFontSmoothing: 'antialiased',
-  MozOsxFontSmoothing: 'grayscale',
-  textRendering: 'geometricPrecision',
-  fontKerning: 'normal',
+  
+  // 禁用字体特性变化
+  fontKerning: 'auto',
   fontFeatureSettings: 'normal',
   fontVariantLigatures: 'normal',
+  textSizeAdjust: '100%',
 }
 
 interface TextHighlightOverlayProps {
@@ -660,35 +676,49 @@ interface TextHighlightOverlayProps {
 function TextHighlightOverlay({ text, attachments, scrollRef }: TextHighlightOverlayProps) {
   const overlayRef = useRef<HTMLDivElement>(null)
   
-  // 同步滚动和尺寸
+  // 同步滚动和尺寸 - 使用 RAF 确保同步
   useEffect(() => {
     const textarea = scrollRef.current
     const overlay = overlayRef.current
     if (!textarea || !overlay) return
     
-    const syncScroll = () => {
+    let rafId: number | null = null
+    
+    const sync = () => {
+      if (!textarea || !overlay) return
+      
+      // 同步滚动位置
       overlay.scrollTop = textarea.scrollTop
       overlay.scrollLeft = textarea.scrollLeft
+      
+      // 同步尺寸 - 使用实际计算值而不是 style
+      const rect = textarea.getBoundingClientRect()
+      overlay.style.width = `${rect.width}px`
+      overlay.style.height = `${rect.height}px`
     }
     
-    // 同步尺寸（高度会随内容变化）
-    const syncSize = () => {
-      overlay.style.height = textarea.style.height
+    const scheduleSync = () => {
+      if (rafId) cancelAnimationFrame(rafId)
+      rafId = requestAnimationFrame(sync)
     }
     
     // 监听滚动
-    textarea.addEventListener('scroll', syncScroll)
+    textarea.addEventListener('scroll', scheduleSync, { passive: true })
+    
+    // 监听输入（内容变化会改变高度）
+    textarea.addEventListener('input', scheduleSync)
     
     // 使用 ResizeObserver 监听尺寸变化
-    const resizeObserver = new ResizeObserver(syncSize)
+    const resizeObserver = new ResizeObserver(scheduleSync)
     resizeObserver.observe(textarea)
     
     // 初始同步
-    syncScroll()
-    syncSize()
+    sync()
     
     return () => {
-      textarea.removeEventListener('scroll', syncScroll)
+      if (rafId) cancelAnimationFrame(rafId)
+      textarea.removeEventListener('scroll', scheduleSync)
+      textarea.removeEventListener('input', scheduleSync)
       resizeObserver.disconnect()
     }
   }, [scrollRef])
@@ -702,13 +732,11 @@ function TextHighlightOverlay({ text, attachments, scrollRef }: TextHighlightOve
     position: 'absolute',
     top: 0,
     left: 0,
-    right: 0,
     zIndex: 1,
     pointerEvents: 'none',
     overflow: 'hidden',
-    // 关键：与 textarea 保持一致
+    // 初始尺寸，会被 JS 同步覆盖
     minHeight: '24px',
-    maxHeight: '50vh',
   }
 
   // 没有 mention 时直接渲染纯文本（性能优化）
@@ -736,19 +764,20 @@ function TextHighlightOverlay({ text, attachments, scrollRef }: TextHighlightOve
           return <span key={i} className="text-text-100">{token.content || '\u00A0'}</span>
         }
         
-        // Command token - 使用紫色
+        // Command token - 使用紫色，不加额外 padding 避免偏移
         if (token.type === 'mention-command') {
           return (
             <span 
               key={i} 
-              className="bg-purple-500/10 text-purple-600 dark:text-purple-400 rounded px-0.5 -mx-0.5"
+              className="text-purple-600 dark:text-purple-400"
+              style={{ backgroundColor: 'rgba(168, 85, 247, 0.1)' }}
             >
               {token.content}
             </span>
           )
         }
         
-        // Mention token — 用对应类型的颜色
+        // Mention token — 用对应类型的颜色，不加额外 padding
         const colorKey = token.type === 'mention-agent' ? 'agent' 
           : token.type === 'mention-folder' ? 'folder' 
           : 'file'
@@ -756,7 +785,7 @@ function TextHighlightOverlay({ text, attachments, scrollRef }: TextHighlightOve
         return (
           <span 
             key={i} 
-            className={`${colors.bg} ${colors.text} ${colors.darkText} rounded px-0.5 -mx-0.5`}
+            className={`${colors.bg} ${colors.text} ${colors.darkText}`}
           >
             {token.content}
           </span>
