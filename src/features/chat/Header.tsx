@@ -4,8 +4,8 @@ import { DropdownMenu, MenuItem, IconButton } from '../../components/ui'
 import { ModelSelector } from './ModelSelector'
 import { SettingsDialog } from '../settings/SettingsDialog'
 import { ShareDialog } from './ShareDialog'
-import { MultiFileDiffModal } from '../../components/MultiFileDiffModal'
 import { useMessageStore } from '../../store'
+import { useLayoutStore, layoutStore } from '../../store/layoutStore'
 import { useSessionStats, formatTokens, formatCost } from '../../hooks'
 import type { ThemeMode } from '../../hooks'
 import type { ModelInfo } from '../../api'
@@ -36,10 +36,12 @@ export function Header({
   onToggleWideMode,
 }: HeaderProps) {
   const { shareUrl, messages, sessionId } = useMessageStore()
+  const { rightPanelOpen, activeTab } = useLayoutStore()
+  
   const [settingsMenuOpen, setSettingsMenuOpen] = useState(false)
   const [settingsDialogOpen, setSettingsDialogOpen] = useState(false)
   const [shareDialogOpen, setShareDialogOpen] = useState(false)
-  const [diffModalOpen, setDiffModalOpen] = useState(false)
+  
   const settingsTriggerRef = useRef<HTMLButtonElement>(null)
   const settingsMenuRef = useRef<HTMLDivElement>(null)
 
@@ -114,8 +116,14 @@ export function Header({
         {hasMessages && sessionId && (
           <IconButton
             aria-label="View changes"
-            onClick={() => setDiffModalOpen(true)}
-            className="hover:bg-bg-200/50 text-text-400 hover:text-text-100"
+            onClick={() => layoutStore.toggleRightPanel('changes')}
+            className={`
+              transition-colors
+              ${rightPanelOpen && activeTab === 'changes'
+                ? 'text-accent-main-100 bg-bg-200/50' 
+                : 'text-text-400 hover:text-text-100 hover:bg-bg-200/50'
+              }
+            `}
           >
             <GitCommitIcon size={18} />
           </IconButton>
@@ -224,14 +232,6 @@ export function Header({
         isOpen={shareDialogOpen} 
         onClose={() => setShareDialogOpen(false)} 
       />
-
-      {sessionId && (
-        <MultiFileDiffModal 
-          isOpen={diffModalOpen}
-          onClose={() => setDiffModalOpen(false)}
-          sessionId={sessionId}
-        />
-      )}
     </div>
   )
 }

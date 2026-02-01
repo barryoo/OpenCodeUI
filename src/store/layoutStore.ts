@@ -1,11 +1,21 @@
 // ============================================
 // LayoutStore - 全局 UI 布局状态
-// 目前这个 store 暂时保留，以后可能需要管理其他布局状态
 // ============================================
+
+export type RightPanelTab = 'changes' | 'terminal' | 'preview'
+
+interface LayoutState {
+  rightPanelOpen: boolean
+  activeTab: RightPanelTab
+}
 
 type Subscriber = () => void
 
 class LayoutStore {
+  private state: LayoutState = {
+    rightPanelOpen: false,
+    activeTab: 'changes'
+  }
   private subscribers = new Set<Subscriber>()
 
   // ============================================
@@ -17,29 +27,61 @@ class LayoutStore {
     return () => this.subscribers.delete(fn)
   }
 
-  // @ts-ignore - 保留以备将来使用
   private notify() {
     this.subscribers.forEach(fn => fn())
+  }
+
+  // ============================================
+  // Actions
+  // ============================================
+
+  toggleRightPanel(tab?: RightPanelTab) {
+    if (tab && tab !== this.state.activeTab) {
+      this.state.activeTab = tab
+      this.state.rightPanelOpen = true
+    } else {
+      this.state.rightPanelOpen = !this.state.rightPanelOpen
+    }
+    this.notify()
+  }
+
+  openRightPanel(tab: RightPanelTab) {
+    this.state.rightPanelOpen = true
+    this.state.activeTab = tab
+    this.notify()
+  }
+
+  closeRightPanel() {
+    this.state.rightPanelOpen = false
+    this.notify()
+  }
+
+  getState() {
+    return this.state
   }
 }
 
 export const layoutStore = new LayoutStore()
 
 // ============================================
-// React Hook（保留接口，以后可能需要）
+// React Hook
 // ============================================
 
 import { useSyncExternalStore } from 'react'
 
-interface LayoutSnapshot {
-  // 暂时为空
-}
+let cachedSnapshot: LayoutState | null = null
 
-let cachedSnapshot: LayoutSnapshot = {}
-
-function getSnapshot(): LayoutSnapshot {
+function getSnapshot(): LayoutState {
+  if (!cachedSnapshot) {
+    cachedSnapshot = { ...layoutStore.getState() }
+  }
   return cachedSnapshot
 }
+
+// 订阅更新时清除缓存
+layoutStore.subscribe(() => {
+  cachedSnapshot = null
+})
 
 export function useLayoutStore() {
   return useSyncExternalStore(
