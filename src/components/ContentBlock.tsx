@@ -10,10 +10,11 @@
 
 import { memo, useState, useEffect, useMemo } from 'react'
 import { diffLines } from 'diff'
-import { ChevronDownIcon } from './Icons'
+import { ChevronDownIcon, MaximizeIcon } from './Icons'
 import { CopyButton } from './ui'
 import { useSyntaxHighlight } from '../hooks/useSyntaxHighlight'
 import { detectLanguage } from '../utils/languageUtils'
+import { DiffModal } from './DiffModal'
 
 // ============================================
 // Types
@@ -72,6 +73,7 @@ export const ContentBlock = memo(function ContentBlock({
   loadingText = 'Loading...',
 }: ContentBlockProps) {
   const [collapsed, setCollapsed] = useState(defaultCollapsed)
+  const [diffModalOpen, setDiffModalOpen] = useState(false)
   
   const isError = variant === 'error'
   const isDiff = !!diff
@@ -153,6 +155,20 @@ export const ContentBlock = memo(function ContentBlock({
             </div>
           )}
           
+          {/* 放大按钮 - 仅 diff 模式 */}
+          {isDiff && diff && (
+            <button
+              className="p-1 text-text-400 hover:text-text-200 hover:bg-bg-300/50 rounded transition-colors"
+              onClick={(e) => {
+                e.stopPropagation()
+                setDiffModalOpen(true)
+              }}
+              title="全屏查看"
+            >
+              <MaximizeIcon size={14} />
+            </button>
+          )}
+          
           {/* Exit code */}
           {stats?.exit !== undefined && (
             <span className={`tabular-nums ${stats.exit === 0 ? 'text-accent-secondary-100' : 'text-warning-100'}`}>
@@ -199,6 +215,18 @@ export const ContentBlock = memo(function ContentBlock({
           )}
         </div>
       </div>
+      
+      {/* Diff Modal */}
+      {isDiff && diff && (
+        <DiffModal
+          isOpen={diffModalOpen}
+          onClose={() => setDiffModalOpen(false)}
+          diff={diff}
+          filePath={filePath}
+          language={lang}
+          diffStats={diffStats || undefined}
+        />
+      )}
     </div>
   )
 })
@@ -461,24 +489,23 @@ const DiffRenderer = memo(function DiffRenderer({ before, after, unifiedDiff, la
         <col />
       </colgroup>
       <tbody>
-        {lines.map((line, idx) => (
+        {lines.map((line, idx) => {
+          const rowBgClass = line.type === 'add' ? 'bg-success-bg' :
+                             line.type === 'delete' ? 'bg-danger-bg' : ''
+          return (
           <tr
             key={idx}
-            className={
-              line.type === 'add' ? 'bg-success-bg' :
-              line.type === 'delete' ? 'bg-danger-bg' : ''
-            }
           >
             {/* Old line number - 只在非 add 时显示 */}
-            <td className="px-2 py-0.5 text-right text-text-500 select-none tabular-nums font-mono text-[11px] align-top border-r border-border-300/20">
+            <td className={`px-2 py-0.5 text-right text-text-500 select-none tabular-nums font-mono text-[11px] align-top border-r border-border-300/20 ${rowBgClass}`}>
               {line.type !== 'add' && line.oldLineNo}
             </td>
             {/* New line number - 只在非 delete 时显示 */}
-            <td className="px-2 py-0.5 text-right text-text-500 select-none tabular-nums font-mono text-[11px] align-top border-r border-border-300/20">
+            <td className={`px-2 py-0.5 text-right text-text-500 select-none tabular-nums font-mono text-[11px] align-top border-r border-border-300/20 ${rowBgClass}`}>
               {line.type !== 'delete' && line.newLineNo}
             </td>
             {/* Content with inline +/- indicator */}
-            <td className="px-3 py-0.5 font-mono whitespace-pre break-all align-top relative">
+            <td className={`px-3 py-0.5 font-mono whitespace-pre break-all align-top relative ${rowBgClass}`}>
               {/* +/- indicator */}
               {(line.type === 'add' || line.type === 'delete') && (
                 <span className={`absolute left-0.5 select-none font-bold opacity-70 ${
@@ -490,7 +517,7 @@ const DiffRenderer = memo(function DiffRenderer({ before, after, unifiedDiff, la
               <span dangerouslySetInnerHTML={{ __html: line.content }} />
             </td>
           </tr>
-        ))}
+        )})}
       </tbody>
     </table>
   )

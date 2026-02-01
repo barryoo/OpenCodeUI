@@ -16,3 +16,6 @@ export { CodeBlock } from './CodeBlock'
 // Re-export ContentBlock
 export { ContentBlock } from './ContentBlock'
 export type { ContentBlockProps } from './ContentBlock'
+
+// Re-export DiffModal
+export { DiffModal } from './DiffModal'

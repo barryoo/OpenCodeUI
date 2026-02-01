@@ -1,10 +1,11 @@
 import { memo, useState, useEffect, useMemo } from 'react'
 import { diffLines } from 'diff'
-import { ChevronDownIcon } from './Icons'
+import { ChevronDownIcon, MaximizeIcon } from './Icons'
 import { clsx } from 'clsx'
 import { useSyntaxHighlight } from '../hooks/useSyntaxHighlight'
 import { detectLanguage } from '../utils/languageUtils'
 import { syntaxErrorHandler } from '../utils'
+import { DiffModal } from './DiffModal'
 
 interface DiffViewProps {
   /** Unified diff format string */
@@ -184,6 +185,7 @@ export const DiffView = memo(function DiffView({
   language: explicitLanguage
 }: DiffViewProps) {
   const [collapsed, setCollapsed] = useState(defaultCollapsed)
+  const [modalOpen, setModalOpen] = useState(false)
   
   // Determine content to diff
   const content = useMemo(() => {
@@ -256,6 +258,18 @@ export const DiffView = memo(function DiffView({
           {stats.additions === 0 && stats.deletions === 0 && (
              <span className="text-text-400">No changes</span>
           )}
+          
+          {/* 放大按钮 */}
+          <button
+            className="p-1 text-text-400 hover:text-text-200 hover:bg-bg-300/50 rounded transition-colors"
+            onClick={(e) => {
+              e.stopPropagation()
+              setModalOpen(true)
+            }}
+            title="全屏查看"
+          >
+            <MaximizeIcon size={14} />
+          </button>
         </div>
       </div>
 
@@ -276,28 +290,28 @@ export const DiffView = memo(function DiffView({
                 <col className="w-full" />
               </colgroup>
               <tbody>
-                {lines.map((line, idx) => (
+                {lines.map((line, idx) => {
+                  const rowBgClass = clsx(
+                    line.type === 'add' && "bg-success-bg",
+                    line.type === 'delete' && "bg-danger-bg"
+                  )
+                  return (
                   <tr 
                     key={idx} 
-                    className={clsx(
-                      "hover:bg-opacity-50 transition-colors",
-                      line.type === 'add' && "bg-success-bg",
-                      line.type === 'delete' && "bg-danger-bg",
-                      line.type === 'context' && "bg-transparent"
-                    )}
+                    className="hover:bg-opacity-50 transition-colors"
                   >
                     {/* Old Line Number */}
-                    <td className="px-2 py-0.5 text-right text-text-500 border-r border-border-200/10 select-none opacity-50 tabular-nums align-top">
+                    <td className={clsx("px-2 py-0.5 text-right text-text-500 border-r border-border-200/10 select-none opacity-50 tabular-nums align-top", rowBgClass)}>
                       {line.type !== 'add' && (line.oldLineNo! + startLines.old - 1)}
                     </td>
                     
                     {/* New Line Number */}
-                    <td className="px-2 py-0.5 text-right text-text-500 border-r border-border-200/10 select-none opacity-50 tabular-nums align-top">
+                    <td className={clsx("px-2 py-0.5 text-right text-text-500 border-r border-border-200/10 select-none opacity-50 tabular-nums align-top", rowBgClass)}>
                       {line.type !== 'delete' && (line.newLineNo! + startLines.new - 1)}
                     </td>
 
                     {/* Code Content */}
-                    <td className="px-4 py-0.5 relative group overflow-hidden align-top">
+                    <td className={clsx("px-4 py-0.5 relative group overflow-hidden align-top", rowBgClass)}>
                       {/* Indicator for add/delete */}
                       {(line.type === 'add' || line.type === 'delete') && (
                         <span className={clsx(
@@ -315,12 +329,24 @@ export const DiffView = memo(function DiffView({
                       />
                     </td>
                   </tr>
-                ))}
+                )})}
               </tbody>
             </table>
           </div>
         </div>
       </div>
+      
+      {/* Diff Modal */}
+      {content && (
+        <DiffModal
+          isOpen={modalOpen}
+          onClose={() => setModalOpen(false)}
+          diff={content}
+          filePath={filePath}
+          language={language}
+          diffStats={stats}
+        />
+      )}
     </div>
   )
 })

@@ -24,7 +24,7 @@ export function DefaultRenderer({ part, data }: ToolRendererProps) {
   
   return (
     <div className="flex flex-col gap-3">
-      {/* Input */}
+      {/* Input - 默认折叠，用户不需要看 */}
       {showInput && (
         <ContentBlock 
           label="Input"
@@ -32,7 +32,7 @@ export function DefaultRenderer({ part, data }: ToolRendererProps) {
           language={data.inputLang}
           isLoading={isActive && !hasInput}
           loadingText=""
-          defaultCollapsed={(data.input?.length || 0) > 1000}
+          defaultCollapsed={true}
         />
       )}
       
