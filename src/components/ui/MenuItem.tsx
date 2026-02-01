@@ -7,6 +7,7 @@ interface MenuItemProps {
   disabled?: boolean
   selected?: boolean
   onClick?: () => void
+  variant?: 'default' | 'danger'
 }
 
 export function MenuItem({
@@ -16,6 +17,7 @@ export function MenuItem({
   disabled = false,
   selected = false,
   onClick,
+  variant = 'default',
 }: MenuItemProps) {
   return (
     <div
@@ -25,18 +27,18 @@ export function MenuItem({
         transition-all duration-150 select-none
         ${disabled
           ? 'text-text-500 cursor-not-allowed'
-          : 'cursor-pointer hover:bg-bg-200 active:scale-[0.98]'
+          : `cursor-pointer active:scale-[0.98] ${variant === 'danger' ? 'hover:bg-danger-bg hover:text-danger-100' : 'hover:bg-bg-200'}`
         }
         ${selected && !disabled ? 'text-text-100' : ''}
       `}
     >
       {icon && (
-        <span className="w-4 h-4 flex items-center justify-center flex-shrink-0 mt-0.5 text-text-400">
+        <span className={`w-4 h-4 flex items-center justify-center flex-shrink-0 mt-0.5 ${variant === 'danger' ? 'text-danger-100' : 'text-text-400'}`}>
           {icon}
         </span>
       )}
       <div className="flex-1 min-w-0">
-        <div className={`text-sm ${disabled ? 'text-text-500' : selected ? 'text-text-100' : 'text-text-200'}`}>
+        <div className={`text-sm ${disabled ? 'text-text-500' : selected ? 'text-text-100' : variant === 'danger' ? 'text-danger-100' : 'text-text-200'}`}>
           {label}
         </div>
         {description && (
