@@ -1,9 +1,19 @@
-import { memo, useState, useEffect, useCallback } from 'react'
-import { ChevronDownIcon, ChevronRightIcon, FileIcon } from './Icons'
+// ============================================
+// SessionChangesPanel - 会话变更查看器
+// 布局：上方文件列表 + 下方 Diff 预览（类似 FileExplorer）
+// 支持拖拽调整高度，CSS 变量 + requestAnimationFrame 优化
+// ============================================
+
+import { memo, useState, useEffect, useCallback, useRef, useLayoutEffect } from 'react'
+import { FileIcon, CloseIcon, RetryIcon } from './Icons'
 import { DiffViewer, type ViewMode } from './DiffViewer'
 import { getSessionDiff } from '../api/session'
 import type { FileDiff } from '../api/types'
 import { detectLanguage } from '../utils/languageUtils'
+
+// 常量
+const MIN_LIST_HEIGHT = 80
+const MIN_PREVIEW_HEIGHT = 120
 
 interface SessionChangesPanelProps {
   sessionId: string
@@ -12,13 +22,34 @@ interface SessionChangesPanelProps {
 
 export const SessionChangesPanel = memo(function SessionChangesPanel({
   sessionId,
-  isResizing = false,
+  isResizing: isPanelResizing = false,
 }: SessionChangesPanelProps) {
+  const containerRef = useRef<HTMLDivElement>(null)
+  const listRef = useRef<HTMLDivElement>(null)
+
   const [loading, setLoading] = useState(false)
   const [diffs, setDiffs] = useState<FileDiff[]>([])
-  const [expandedFiles, setExpandedFiles] = useState<Set<string>>(new Set())
   const [error, setError] = useState<string | null>(null)
   const [viewMode, setViewMode] = useState<ViewMode>('unified')
+
+  // 选中的文件（显示在预览区）
+  const [selectedFile, setSelectedFile] = useState<string | null>(null)
+
+  // 内部拖拽 resize
+  const [listHeight, setListHeight] = useState<number | null>(null)
+  const [isResizing, setIsResizing] = useState(false)
+  const rafRef = useRef<number>(0)
+  const currentHeightRef = useRef<number | null>(null)
+
+  const isAnyResizing = isPanelResizing || isResizing
+
+  // 同步高度到 CSS 变量
+  useLayoutEffect(() => {
+    if (!isResizing && listRef.current && listHeight !== null) {
+      listRef.current.style.setProperty('--list-height', `${listHeight}px`)
+      currentHeightRef.current = listHeight
+    }
+  }, [listHeight, isResizing])
 
   // 加载数据
   useEffect(() => {
@@ -28,10 +59,12 @@ export const SessionChangesPanel = memo(function SessionChangesPanel({
       getSessionDiff(sessionId)
         .then(data => {
           setDiffs(data)
-          // 默认不展开任何文件
-          // if (data.length > 0) {
-          //   setExpandedFiles(new Set([data[0].file]))
-          // }
+          // 默认选中第一个文件
+          if (data.length > 0) {
+            setSelectedFile(data[0].file)
+          } else {
+            setSelectedFile(null)
+          }
         })
         .catch(err => {
           console.error('Failed to load session diff:', err)
@@ -41,28 +74,85 @@ export const SessionChangesPanel = memo(function SessionChangesPanel({
     }
   }, [sessionId])
 
-  const toggleFile = useCallback((file: string) => {
-    setExpandedFiles(prev => {
-      const newSet = new Set(prev)
-      if (newSet.has(file)) {
-        newSet.delete(file)
-      } else {
-        newSet.add(file)
-      }
-      return newSet
-    })
-  }, [])
-  
-  // 展开/收起所有 - 用一个按钮切换
-  const allExpanded = expandedFiles.size === diffs.length && diffs.length > 0
-  
-  const toggleExpandAll = useCallback(() => {
-    if (allExpanded) {
-      setExpandedFiles(new Set())
-    } else {
-      setExpandedFiles(new Set(diffs.map(d => d.file)))
+  // 刷新
+  const handleRefresh = useCallback(() => {
+    if (sessionId) {
+      setLoading(true)
+      setError(null)
+      getSessionDiff(sessionId)
+        .then(data => {
+          setDiffs(data)
+          // 保持选中状态，如果选中的文件不在新数据中则选第一个
+          setSelectedFile(prev => {
+            if (prev && data.some(d => d.file === prev)) return prev
+            return data.length > 0 ? data[0].file : null
+          })
+        })
+        .catch(err => {
+          console.error('Failed to load session diff:', err)
+          setError('Failed to load changes')
+        })
+        .finally(() => setLoading(false))
     }
-  }, [allExpanded, diffs])
+  }, [sessionId])
+
+  // 选中文件
+  const handleSelectFile = useCallback((file: string) => {
+    setSelectedFile(prev => prev === file ? prev : file)
+  }, [])
+
+  // 关闭预览
+  const handleClosePreview = useCallback(() => {
+    setSelectedFile(null)
+    setListHeight(null)
+    currentHeightRef.current = null
+  }, [])
+
+  // 拖拽调整高度
+  const handleResizeStart = useCallback((e: React.MouseEvent) => {
+    e.preventDefault()
+    const container = containerRef.current
+    const listEl = listRef.current
+    if (!container || !listEl) return
+
+    setIsResizing(true)
+    const containerRect = container.getBoundingClientRect()
+    const startY = e.clientY
+    const startHeight = currentHeightRef.current ?? containerRect.height * 0.4
+
+    const handleMouseMove = (moveEvent: MouseEvent) => {
+      if (rafRef.current) cancelAnimationFrame(rafRef.current)
+      rafRef.current = requestAnimationFrame(() => {
+        const deltaY = moveEvent.clientY - startY
+        const newHeight = startHeight + deltaY
+        const maxHeight = containerRect.height - MIN_PREVIEW_HEIGHT
+        const clampedHeight = Math.min(Math.max(newHeight, MIN_LIST_HEIGHT), maxHeight)
+        listEl.style.setProperty('--list-height', `${clampedHeight}px`)
+        currentHeightRef.current = clampedHeight
+      })
+    }
+
+    const handleMouseUp = () => {
+      if (rafRef.current) cancelAnimationFrame(rafRef.current)
+      setIsResizing(false)
+      document.body.style.cursor = ''
+      document.body.style.userSelect = ''
+      document.removeEventListener('mousemove', handleMouseMove)
+      document.removeEventListener('mouseup', handleMouseUp)
+      if (currentHeightRef.current !== null) {
+        setListHeight(currentHeightRef.current)
+      }
+    }
+
+    document.body.style.cursor = 'row-resize'
+    document.body.style.userSelect = 'none'
+    document.addEventListener('mousemove', handleMouseMove)
+    document.addEventListener('mouseup', handleMouseUp)
+  }, [])
+
+  // 获取选中的 diff 数据
+  const selectedDiff = selectedFile ? diffs.find(d => d.file === selectedFile) : null
+  const showPreview = selectedDiff !== null
 
   if (loading) {
     return <div className="p-4 text-center text-text-400 text-xs">Loading changes...</div>
@@ -76,7 +166,7 @@ export const SessionChangesPanel = memo(function SessionChangesPanel({
     return <div className="p-4 text-center text-text-400 text-xs">No changes in this session</div>
   }
 
-  // 计算总的变化统计
+  // 总统计
   const totalStats = diffs.reduce(
     (acc, d) => ({
       additions: acc.additions + d.additions,
@@ -86,97 +176,174 @@ export const SessionChangesPanel = memo(function SessionChangesPanel({
   )
 
   return (
-    <div className="flex flex-col h-full">
-      {/* Header with controls */}
-      <div className="flex items-center justify-between px-3 py-1.5 border-b border-border-100 bg-bg-100/30 shrink-0">
-        <div className="flex items-center gap-3">
-          <span className="text-[10px] text-text-400 uppercase tracking-wider font-bold">
-            {diffs.length} file{diffs.length !== 1 ? 's' : ''}
-          </span>
-          <div className="flex items-center gap-2 text-[10px] font-mono">
-            <span className="text-success-100">+{totalStats.additions}</span>
-            <span className="text-danger-100">−{totalStats.deletions}</span>
+    <div ref={containerRef} className="flex flex-col h-full">
+      {/* 文件列表区 */}
+      <div
+        ref={listRef}
+        className="overflow-hidden flex flex-col shrink-0"
+        style={{
+          '--list-height': listHeight !== null ? `${listHeight}px` : '40%',
+          height: showPreview ? 'var(--list-height)' : '100%',
+          minHeight: showPreview ? MIN_LIST_HEIGHT : undefined,
+        } as React.CSSProperties}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between px-3 py-1.5 border-b border-border-100 bg-bg-100/30 shrink-0">
+          <div className="flex items-center gap-3">
+            <span className="text-[10px] text-text-400 uppercase tracking-wider font-bold">
+              {diffs.length} file{diffs.length !== 1 ? 's' : ''}
+            </span>
+            <div className="flex items-center gap-2 text-[10px] font-mono">
+              <span className="text-success-100">+{totalStats.additions}</span>
+              <span className="text-danger-100">-{totalStats.deletions}</span>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-1">
+            {/* View Mode Toggle */}
+            <div className="flex items-center bg-bg-200/50 rounded overflow-hidden border border-border-200/50">
+              <button
+                onClick={() => setViewMode('unified')}
+                className={`px-2 py-0.5 text-[10px] transition-colors ${
+                  viewMode === 'unified'
+                    ? 'bg-bg-000 text-text-100 shadow-sm'
+                    : 'text-text-400 hover:text-text-200'
+                }`}
+              >
+                Unified
+              </button>
+              <button
+                onClick={() => setViewMode('split')}
+                className={`px-2 py-0.5 text-[10px] transition-colors ${
+                  viewMode === 'split'
+                    ? 'bg-bg-000 text-text-100 shadow-sm'
+                    : 'text-text-400 hover:text-text-200'
+                }`}
+              >
+                Split
+              </button>
+            </div>
+
+            {/* Refresh */}
+            <button
+              onClick={handleRefresh}
+              disabled={loading}
+              className="p-1 text-text-400 hover:text-text-100 hover:bg-bg-200 rounded transition-colors disabled:opacity-50"
+              title="Refresh"
+            >
+              <RetryIcon size={12} className={loading ? 'animate-spin' : ''} />
+            </button>
           </div>
         </div>
-        
-        <div className="flex items-center gap-1">
-          {/* View Mode Toggle */}
-          <div className="flex items-center bg-bg-200/50 rounded overflow-hidden border border-border-200/50">
-            <button
-              onClick={() => setViewMode('unified')}
-              className={`px-2 py-0.5 text-[10px] transition-colors ${
-                viewMode === 'unified' 
-                  ? 'bg-bg-000 text-text-100 shadow-sm' 
-                  : 'text-text-400 hover:text-text-200'
-              }`}
-            >
-              Unified
-            </button>
-            <button
-              onClick={() => setViewMode('split')}
-              className={`px-2 py-0.5 text-[10px] transition-colors ${
-                viewMode === 'split' 
-                  ? 'bg-bg-000 text-text-100 shadow-sm' 
-                  : 'text-text-400 hover:text-text-200'
-              }`}
-            >
-              Split
-            </button>
+
+        {/* File List */}
+        <div className="flex-1 overflow-auto panel-scrollbar-y">
+          <div className="py-0.5">
+            {diffs.map((diff) => {
+              const isSelected = selectedFile === diff.file
+              const fileStatus = getFileStatus(diff)
+
+              return (
+                <button
+                  key={diff.file}
+                  onClick={() => handleSelectFile(diff.file)}
+                  className={`
+                    w-full flex items-center gap-2 px-3 py-1 text-left
+                    hover:bg-bg-200/50 transition-colors text-[12px]
+                    ${isSelected ? 'bg-bg-200/70 text-text-100' : 'text-text-300'}
+                  `}
+                >
+                  <FileStatusIcon status={fileStatus} />
+                  <span className="flex-1 font-mono truncate">{diff.file}</span>
+                  <div className="flex items-center gap-2 text-[10px] font-mono shrink-0">
+                    {diff.additions > 0 && <span className="text-success-100">+{diff.additions}</span>}
+                    {diff.deletions > 0 && <span className="text-danger-100">-{diff.deletions}</span>}
+                  </div>
+                </button>
+              )
+            })}
           </div>
-          
-          {/* Expand/Collapse toggle button */}
-          <button
-            onClick={toggleExpandAll}
-            className="p-1 text-text-400 hover:text-text-200 hover:bg-bg-200 rounded transition-colors"
-            title={allExpanded ? "Collapse all" : "Expand all"}
-          >
-            {allExpanded ? <ChevronDownIcon size={14} /> : <ChevronRightIcon size={14} />}
-          </button>
         </div>
       </div>
-      
-      {/* File list */}
-      <div className="flex-1 overflow-y-auto panel-scrollbar-y">
-        {diffs.map((diff) => {
-          const isExpanded = expandedFiles.has(diff.file)
-          const language = detectLanguage(diff.file) || 'text'
-          const fileStatus = getFileStatus(diff)
-          
-          return (
-            <div key={diff.file} className="border-b border-border-100/50 last:border-0">
-              <button
-                onClick={() => toggleFile(diff.file)}
-                className="w-full flex items-center gap-2 px-3 py-2 hover:bg-bg-200/50 transition-colors text-left group"
-              >
-                <span className="text-text-400 shrink-0">
-                  {isExpanded ? <ChevronDownIcon size={14} /> : <ChevronRightIcon size={14} />}
-                </span>
-                
-                {/* File status icon */}
-                <FileStatusIcon status={fileStatus} />
-                
-                <span className="flex-1 text-xs font-mono text-text-100 truncate">{diff.file}</span>
-                
-                <div className="flex items-center gap-2 text-[10px] font-mono shrink-0">
-                  {diff.additions > 0 && <span className="text-success-100">+{diff.additions}</span>}
-                  {diff.deletions > 0 && <span className="text-danger-100">−{diff.deletions}</span>}
-                </div>
-              </button>
-              
-              {isExpanded && (
-                <div className="bg-bg-100/30 border-t border-border-100/50">
-                  <DiffViewer 
-                    before={diff.before} 
-                    after={diff.after} 
-                    language={language}
-                    viewMode={viewMode}
-                    isResizing={isResizing}
-                  />
-                </div>
-              )}
-            </div>
-          )
-        })}
+
+      {/* Resize Handle */}
+      {showPreview && (
+        <div
+          className={`
+            h-1.5 cursor-row-resize shrink-0 relative
+            hover:bg-accent-main-100/50 transition-colors
+            border-t border-border-200
+            ${isResizing ? 'bg-accent-main-100' : 'bg-transparent'}
+          `}
+          onMouseDown={handleResizeStart}
+        />
+      )}
+
+      {/* Diff 预览区 */}
+      {showPreview && selectedDiff && (
+        <div className="flex-1 flex flex-col min-h-0" style={{ minHeight: MIN_PREVIEW_HEIGHT }}>
+          <DiffPreviewPanel
+            diff={selectedDiff}
+            viewMode={viewMode}
+            isResizing={isAnyResizing}
+            onClose={handleClosePreview}
+          />
+        </div>
+      )}
+    </div>
+  )
+})
+
+// ============================================
+// Diff Preview Panel - 下方预览区
+// ============================================
+
+interface DiffPreviewPanelProps {
+  diff: FileDiff
+  viewMode: ViewMode
+  isResizing: boolean
+  onClose: () => void
+}
+
+const DiffPreviewPanel = memo(function DiffPreviewPanel({
+  diff,
+  viewMode,
+  isResizing,
+  onClose,
+}: DiffPreviewPanelProps) {
+  const language = detectLanguage(diff.file) || 'text'
+  const fileName = diff.file.split(/[/\\]/).pop() || diff.file
+  const fileStatus = getFileStatus(diff)
+
+  return (
+    <div className="flex flex-col h-full">
+      {/* Preview Header */}
+      <div className="flex items-center justify-between px-3 py-1.5 border-b border-border-100/50 bg-bg-100/30 shrink-0">
+        <div className="flex items-center gap-2 min-w-0">
+          <FileStatusIcon status={fileStatus} />
+          <span className="text-[11px] font-mono text-text-200 truncate">{fileName}</span>
+          <div className="flex items-center gap-2 text-[10px] font-mono shrink-0">
+            {diff.additions > 0 && <span className="text-success-100">+{diff.additions}</span>}
+            {diff.deletions > 0 && <span className="text-danger-100">-{diff.deletions}</span>}
+          </div>
+        </div>
+        <button
+          onClick={onClose}
+          className="p-1 text-text-400 hover:text-text-100 hover:bg-bg-200 rounded transition-colors shrink-0"
+        >
+          <CloseIcon size={12} />
+        </button>
+      </div>
+
+      {/* Diff Content - DiffViewer 自带滚动 */}
+      <div className="flex-1 min-h-0">
+        <DiffViewer
+          before={diff.before}
+          after={diff.after}
+          language={language}
+          viewMode={viewMode}
+          isResizing={isResizing}
+        />
       </div>
     </div>
   )
@@ -200,6 +367,6 @@ function FileStatusIcon({ status }: { status: FileStatus }) {
     deleted: 'text-danger-100',
     modified: 'text-warning-100',
   }[status]
-  
+
   return <FileIcon size={14} className={`${colorClass} shrink-0`} />
 }

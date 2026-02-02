@@ -19,6 +19,19 @@ export const BottomPanel = memo(function BottomPanel({ directory }: BottomPanelP
   
   const [isRestoring, setIsRestoring] = useState(false)
   const [restored, setRestored] = useState(false)
+  
+  // 追踪面板 resize 状态
+  const [isPanelResizing, setIsPanelResizing] = useState(false)
+  useEffect(() => {
+    const onStart = () => setIsPanelResizing(true)
+    const onEnd = () => setIsPanelResizing(false)
+    window.addEventListener('panel-resize-start', onStart)
+    window.addEventListener('panel-resize-end', onEnd)
+    return () => {
+      window.removeEventListener('panel-resize-start', onStart)
+      window.removeEventListener('panel-resize-end', onEnd)
+    }
+  }, [])
 
   // 页面加载时恢复已有的 PTY sessions
   useEffect(() => {
@@ -119,7 +132,7 @@ export const BottomPanel = memo(function BottomPanel({ directory }: BottomPanelP
             directory={directory ?? ''}
             previewFile={previewFile}
             position="bottom"
-            isPanelResizing={false} // Panel resizing is handled by ResizablePanel
+            isPanelResizing={isPanelResizing}
           />
         )
       case 'changes':
@@ -130,11 +143,11 @@ export const BottomPanel = memo(function BottomPanel({ directory }: BottomPanelP
             </div>
           )
         }
-        return <SessionChangesPanel sessionId={sessionId} isResizing={false} />
+        return <SessionChangesPanel sessionId={sessionId} isResizing={isPanelResizing} />
       default:
         return null
     }
-  }, [isRestoring, handleNewTerminal, directory, previewFile, sessionId])
+  }, [isRestoring, handleNewTerminal, directory, previewFile, sessionId, isPanelResizing])
 
   return (
     <ResizablePanel

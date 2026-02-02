@@ -26,6 +26,7 @@ const MIN_TREE_HEIGHT = 100
 const MIN_PREVIEW_HEIGHT = 150
 const LINE_HEIGHT = 20 // 每行高度（用于虚拟滚动）
 const OVERSCAN = 5 // 额外渲染的行数
+const MAX_LINE_LENGTH = 5000 // 超过此长度截断显示，避免 DOM 过大
 
 interface FileExplorerProps {
   directory?: string
@@ -233,8 +234,9 @@ export const FileExplorer = memo(function FileExplorer({
         <div
           className={`
             h-1.5 cursor-row-resize shrink-0 relative
-            hover:bg-accent-main-100/50 transition-all
-            ${isResizing ? 'bg-accent-main-100' : 'bg-border-200/50'}
+            hover:bg-accent-main-100/50 transition-colors
+            border-t border-border-200
+            ${isResizing ? 'bg-accent-main-100' : 'bg-transparent'}
           `}
           onMouseDown={handleResizeStart}
         />
@@ -497,8 +499,11 @@ function DiffPreview({ hunks, isResizing = false }: DiffPreviewProps) {
 }
 
 // ============================================
-// Code Preview - Syntax highlighted code display
-// 小文件直接渲染支持换行，大文件虚拟滚动
+// Code Preview - 统一使用虚拟滚动 + 禁用自动换行
+// 核心优化：
+// 1. 始终使用虚拟滚动，不论文件大小
+// 2. 禁用自动换行，使用水平滚动
+// 3. 超长行截断显示
 // ============================================
 
 interface CodePreviewProps {
@@ -507,84 +512,37 @@ interface CodePreviewProps {
   isResizing?: boolean
 }
 
-// 大文件阈值
-const LARGE_FILE_THRESHOLD = 1000
+/** 截断超长行，避免 DOM 过大 */
+function truncateLine(line: string): { text: string; truncated: boolean } {
+  if (line.length <= MAX_LINE_LENGTH) {
+    return { text: line, truncated: false }
+  }
+  return { 
+    text: line.slice(0, MAX_LINE_LENGTH), 
+    truncated: true 
+  }
+}
+
+/** 截断高亮 HTML，保持标签完整性 */
+function truncateHtml(html: string): { html: string; truncated: boolean } {
+  // 简单估算：如果原始 HTML 很长，进行截断
+  // 这里用一个保守的阈值，因为 HTML 有标签开销
+  if (html.length <= MAX_LINE_LENGTH * 2) {
+    return { html, truncated: false }
+  }
+  // 截断并闭合所有打开的标签
+  const truncated = html.slice(0, MAX_LINE_LENGTH * 2)
+  // 简单处理：直接截断，浏览器会自动修复
+  return { html: truncated, truncated: true }
+}
 
 function CodePreview({ code, language, isResizing = false }: CodePreviewProps) {
   const lines = useMemo(() => code.split('\n'), [code])
-  const isLargeFile = lines.length >= LARGE_FILE_THRESHOLD
   
-  // 大文件用虚拟滚动
-  if (isLargeFile) {
-    return <VirtualCodePreview code={code} language={language} lines={lines} isResizing={isResizing} />
-  }
-  
-  // 小文件直接渲染
-  return <SimpleCodePreview code={code} language={language} lines={lines} isResizing={isResizing} />
-}
-
-// 小文件：直接渲染，支持换行
-// 在 resize 期间使用缓存的高亮结果，避免重新计算
-function SimpleCodePreview({ code, language, lines, isResizing }: { code: string; language: string; lines: string[]; isResizing: boolean }) {
-  // text 类型不走高亮，避免 shiki 输出内联黑色样式
-  const enableHighlight = language !== 'text' && !isResizing // resize 时禁用高亮
-  const { output: html, isLoading } = useSyntaxHighlight(code, { lang: language, enabled: enableHighlight })
-  
-  // 缓存高亮结果
-  const highlightedLinesRef = useRef<string[] | null>(null)
-  
-  // 解析高亮后的行
-  const highlightedLines = useMemo(() => {
-    if (isLoading || !html) return highlightedLinesRef.current
-    
-    const parser = new DOMParser()
-    const doc = parser.parseFromString(html as string, 'text/html')
-    const lineElements = doc.querySelectorAll('.line')
-    
-    if (lineElements.length === 0) return highlightedLinesRef.current
-    
-    const result = Array.from(lineElements).map(el => el.innerHTML || '&nbsp;')
-    highlightedLinesRef.current = result
-    return result
-  }, [html, isLoading])
-  
-  return (
-    <div 
-      className={`font-mono text-[11px] leading-relaxed ${isResizing ? 'whitespace-pre overflow-hidden' : ''}`} 
-      style={{ contain: 'content' }}
-    >
-      {lines.map((line, idx) => {
-        const highlighted = highlightedLines?.[idx]
-        const isHtml = highlighted && highlighted.includes('<')
-        
-        return (
-          <div key={idx} className="flex hover:bg-bg-200/30 py-0.5">
-            <span className="select-none text-text-500 w-10 text-right pr-3 shrink-0 border-r border-border-100/30 mr-3">
-              {idx + 1}
-            </span>
-            {isHtml ? (
-              <span 
-                className={`flex-1 min-w-0 ${isResizing ? '' : 'whitespace-pre-wrap break-all'}`}
-                dangerouslySetInnerHTML={{ __html: highlighted }}
-              />
-            ) : (
-              <span className={`text-text-200 flex-1 min-w-0 ${isResizing ? '' : 'whitespace-pre-wrap break-all'}`}>
-                {highlighted || line || ' '}
-              </span>
-            )}
-          </div>
-        )
-      })}
-    </div>
-  )
-}
-
-// 大文件：虚拟滚动
-// 在 resize 期间使用缓存的高亮结果，并跳过 ResizeObserver 更新
-function VirtualCodePreview({ code, language, lines, isResizing }: { code: string; language: string; lines: string[]; isResizing: boolean }) {
   // text 类型不走高亮，resize 时也禁用以提高性能
   const enableHighlight = language !== 'text' && !isResizing
   const { output: html, isLoading } = useSyntaxHighlight(code, { lang: language, enabled: enableHighlight })
+  
   const containerRef = useRef<HTMLDivElement>(null)
   const [scrollTop, setScrollTop] = useState(0)
   const [containerHeight, setContainerHeight] = useState(0)
@@ -629,12 +587,12 @@ function VirtualCodePreview({ code, language, lines, isResizing }: { code: strin
     // resize 时跳过 ResizeObserver
     if (isResizing) return
     
-    let timeoutId: ReturnType<typeof setTimeout> | null = null
+    let rafId: number | null = null
     const updateHeight = () => {
-      if (timeoutId) clearTimeout(timeoutId)
-      timeoutId = setTimeout(() => {
+      if (rafId) cancelAnimationFrame(rafId)
+      rafId = requestAnimationFrame(() => {
         setContainerHeight(container.clientHeight)
-      }, 50) 
+      })
     }
     
     // 初始化立即执行
@@ -644,17 +602,15 @@ function VirtualCodePreview({ code, language, lines, isResizing }: { code: strin
     resizeObserver.observe(container)
     
     return () => {
-      if (timeoutId) clearTimeout(timeoutId)
+      if (rafId) cancelAnimationFrame(rafId)
       resizeObserver.disconnect()
     }
   }, [isResizing])
   
-  // 处理滚动 - resize 时使用 throttle
+  // 处理滚动
   const handleScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
-    if (!isResizing) {
-      setScrollTop(e.currentTarget.scrollTop)
-    }
-  }, [isResizing])
+    setScrollTop(e.currentTarget.scrollTop)
+  }, [])
   
   // 渲染可见行
   const visibleLines = useMemo(() => {
@@ -665,6 +621,29 @@ function VirtualCodePreview({ code, language, lines, isResizing }: { code: strin
       const highlighted = highlightedLines?.[i]
       const isHtml = highlighted && highlighted.includes('<')
       
+      // 截断处理
+      let displayContent: React.ReactNode
+      let isTruncated = false
+      
+      if (isHtml && highlighted) {
+        const { html: truncatedHtml, truncated } = truncateHtml(highlighted)
+        isTruncated = truncated
+        displayContent = (
+          <span 
+            className="whitespace-pre"
+            dangerouslySetInnerHTML={{ __html: truncatedHtml }}
+          />
+        )
+      } else {
+        const { text, truncated } = truncateLine(highlighted || rawLine)
+        isTruncated = truncated
+        displayContent = (
+          <span className="text-text-200 whitespace-pre">
+            {text}
+          </span>
+        )
+      }
+      
       result.push(
         <div 
           key={i} 
@@ -674,26 +653,22 @@ function VirtualCodePreview({ code, language, lines, isResizing }: { code: strin
           <span className="select-none text-text-500 w-10 text-right pr-3 shrink-0 border-r border-border-100/30 mr-3 leading-5">
             {i + 1}
           </span>
-          {isHtml ? (
-            <span 
-              className={`leading-5 pr-4 ${isResizing ? 'whitespace-pre overflow-hidden' : 'whitespace-pre'}`}
-              dangerouslySetInnerHTML={{ __html: highlighted }}
-            />
-          ) : (
-            <span className={`text-text-200 leading-5 pr-4 ${isResizing ? 'whitespace-pre overflow-hidden' : 'whitespace-pre'}`}>
-              {highlighted || rawLine}
-            </span>
-          )}
+          <span className="leading-5 pr-4">
+            {displayContent}
+            {isTruncated && (
+              <span className="text-text-500 ml-1">… (truncated)</span>
+            )}
+          </span>
         </div>
       )
     }
     return result
-  }, [startIndex, endIndex, lines, highlightedLines, isResizing])
+  }, [startIndex, endIndex, lines, highlightedLines])
 
   return (
     <div 
       ref={containerRef}
-      className="h-full overflow-auto panel-scrollbar relative"
+      className="h-full overflow-auto panel-scrollbar"
       onScroll={handleScroll}
       style={{ contain: 'strict' }}
     >

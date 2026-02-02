@@ -1,11 +1,26 @@
 /**
  * DiffViewer - 核心 Diff 渲染组件
- * 性能优化：在 resize 期间跳过词级别 diff 计算，使用缓存结果
+ * 
+ * 参考 FileExplorer 的 CodePreview 实现：
+ * 1. 始终使用虚拟滚动
+ * 2. 填满父容器（h-full）
+ * 3. 大文件跳过词级别diff和语法高亮
  */
 
-import { memo, useMemo, useRef } from 'react'
+import { memo, useMemo, useRef, useState, useEffect, useCallback } from 'react'
 import { diffLines, diffWords } from 'diff'
 import { useSyntaxHighlight } from '../hooks/useSyntaxHighlight'
+
+// ============================================
+// 常量
+// ============================================
+
+const LINE_HEIGHT = 20 // 和 CodePreview 保持一致
+const OVERSCAN = 5
+
+// 大文件阈值 - 超过则跳过词级别diff
+const LARGE_FILE_LINES = 2000
+const LARGE_FILE_CHARS = 300000
 
 // ============================================
 // Types
@@ -41,245 +56,6 @@ interface UnifiedLine extends DiffLine {
 }
 
 // ============================================
-// Main Component
-// ============================================
-
-export const DiffViewer = memo(function DiffViewer({
-  before,
-  after,
-  language = 'text',
-  viewMode = 'split',
-  isResizing = false,
-}: DiffViewerProps) {
-  return (
-    <div className="flex-1 overflow-auto panel-scrollbar font-mono text-[13px] leading-6" style={{ contain: 'content' }}>
-      {viewMode === 'split' ? (
-        <SplitDiffView before={before} after={after} language={language} isResizing={isResizing} />
-      ) : (
-        <UnifiedDiffView before={before} after={after} language={language} isResizing={isResizing} />
-      )}
-    </div>
-  )
-})
-
-// ============================================
-// Token Renderer
-// ============================================
-
-const ShikiLine = memo(function ShikiLine({ tokens }: { tokens: any[] }) {
-  if (!tokens || tokens.length === 0) return null
-  return (
-    <>
-      {tokens.map((token, i) => (
-        <span key={i} style={{ color: token.color }}>{token.content}</span>
-      ))}
-    </>
-  )
-})
-
-// ============================================
-// Split Diff View
-// ============================================
-
-const SplitDiffView = memo(function SplitDiffView({ 
-  before, 
-  after, 
-  language,
-  isResizing 
-}: { 
-  before: string, 
-  after: string, 
-  language: string,
-  isResizing: boolean 
-}) {
-  // 缓存计算结果
-  const cachedRef = useRef<PairedLine[] | null>(null)
-  
-  // Syntax Highlighting
-  // 仅在非 resizing 时启用高亮，且仅当 language 有效时
-  const shouldHighlight = !isResizing && language !== 'text'
-  const { output: beforeTokens } = useSyntaxHighlight(before, { lang: language, mode: 'tokens', enabled: shouldHighlight })
-  const { output: afterTokens } = useSyntaxHighlight(after, { lang: language, mode: 'tokens', enabled: shouldHighlight })
-  
-  const pairedLines = useMemo(() => {
-    if (isResizing && cachedRef.current) {
-      return cachedRef.current
-    }
-    const result = computePairedLines(before, after, isResizing)
-    cachedRef.current = result
-    return result
-  }, [before, after, isResizing])
-
-  if (pairedLines.length === 0) {
-    return <div className="p-8 text-text-400 text-sm text-center">No changes</div>
-  }
-
-  // 渲染行内容的辅助函数
-  const renderLineContent = (line: DiffLine, tokensArray: any[][] | null) => {
-    // 1. 优先展示行内 Diff 高亮 (modified lines)
-    if (line.highlightedContent) {
-      return (
-        <span 
-          className="text-text-100"
-          dangerouslySetInnerHTML={{ __html: line.highlightedContent }} 
-        />
-      )
-    }
-    
-    // 2. 展示语法高亮 (context, whole add/delete)
-    if (tokensArray && line.lineNo && tokensArray[line.lineNo - 1]) {
-      return <ShikiLine tokens={tokensArray[line.lineNo - 1]} />
-    }
-    
-    // 3. 兜底纯文本 (loading state or resizing)
-    return <span className="text-text-100">{line.content}</span>
-  }
-
-  return (
-    <div className="flex min-h-full w-full">
-      {/* Left panel */}
-      <div className="flex-1 border-r border-border-100 min-w-0">
-        {pairedLines.map((pair, idx) => (
-          <div
-            key={idx}
-            className={`flex ${getLineBgClass(pair.left.type)}`}
-          >
-            <div className="w-12 shrink-0 px-2 text-right text-text-500 select-none opacity-60">
-              {pair.left.lineNo}
-            </div>
-            <div className={`flex-1 px-3 min-w-0 ${isResizing ? 'whitespace-pre overflow-hidden' : 'whitespace-pre-wrap break-all'}`}>
-              {pair.left.type === 'delete' && (
-                <span className="text-danger-100 select-none mr-1 inline-block w-3">−</span>
-              )}
-              {pair.left.type !== 'empty' ? (
-                renderLineContent(pair.left, beforeTokens as any[][])
-              ) : (
-                <span>&nbsp;</span>
-              )}
-            </div>
-          </div>
-        ))}
-      </div>
-      
-      {/* Right panel */}
-      <div className="flex-1 min-w-0">
-        {pairedLines.map((pair, idx) => (
-          <div
-            key={idx}
-            className={`flex ${getLineBgClass(pair.right.type)}`}
-          >
-            <div className="w-12 shrink-0 px-2 text-right text-text-500 select-none opacity-60">
-              {pair.right.lineNo}
-            </div>
-            <div className={`flex-1 px-3 min-w-0 ${isResizing ? 'whitespace-pre overflow-hidden' : 'whitespace-pre-wrap break-all'}`}>
-              {pair.right.type === 'add' && (
-                <span className="text-success-100 select-none mr-1 inline-block w-3">+</span>
-              )}
-              {pair.right.type !== 'empty' ? (
-                renderLineContent(pair.right, afterTokens as any[][])
-              ) : (
-                <span>&nbsp;</span>
-              )}
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  )
-})
-
-// ============================================
-// Unified Diff View
-// ============================================
-
-const UnifiedDiffView = memo(function UnifiedDiffView({ 
-  before, 
-  after, 
-  language,
-  isResizing 
-}: { 
-  before: string, 
-  after: string, 
-  language: string,
-  isResizing: boolean 
-}) {
-  const cachedRef = useRef<UnifiedLine[] | null>(null)
-  
-  const shouldHighlight = !isResizing && language !== 'text'
-  const { output: beforeTokens } = useSyntaxHighlight(before, { lang: language, mode: 'tokens', enabled: shouldHighlight })
-  const { output: afterTokens } = useSyntaxHighlight(after, { lang: language, mode: 'tokens', enabled: shouldHighlight })
-  
-  const lines = useMemo(() => {
-    if (isResizing && cachedRef.current) {
-      return cachedRef.current
-    }
-    const result = computeUnifiedLines(before, after)
-    cachedRef.current = result
-    return result
-  }, [before, after, isResizing])
-
-  if (lines.length === 0) {
-    return <div className="p-8 text-text-400 text-sm text-center">No changes</div>
-  }
-
-  const renderLineContent = (line: UnifiedLine) => {
-    if (line.highlightedContent) {
-      return (
-        <span 
-          className="text-text-100"
-          dangerouslySetInnerHTML={{ __html: line.highlightedContent }} 
-        />
-      )
-    }
-    
-    // Unified view needs to pick tokens from either before or after
-    let tokens = null
-    let lineNo = null
-    
-    if (line.type === 'delete' && line.oldLineNo) {
-      tokens = beforeTokens
-      lineNo = line.oldLineNo
-    } else if ((line.type === 'add' || line.type === 'context') && line.newLineNo) {
-      tokens = afterTokens
-      lineNo = line.newLineNo
-    }
-    
-    if (tokens && lineNo && (tokens as any[][])[lineNo - 1]) {
-      return <ShikiLine tokens={(tokens as any[][])[lineNo - 1]} />
-    }
-    
-    return <span className="text-text-100">{line.content}</span>
-  }
-
-  return (
-    <div className="max-w-5xl mx-auto w-full">
-      {lines.map((line, idx) => (
-        <div
-          key={idx}
-          className={`flex ${getLineBgClass(line.type)}`}
-        >
-          <div className="w-12 shrink-0 px-2 text-right text-text-500 select-none opacity-60">
-            {line.oldLineNo}
-          </div>
-          <div className="w-12 shrink-0 px-2 text-right text-text-500 select-none opacity-60">
-            {line.newLineNo}
-          </div>
-          <div className={`flex-1 px-3 min-w-0 ${isResizing ? 'whitespace-pre overflow-hidden' : 'whitespace-pre-wrap break-all'}`}>
-            {line.type === 'add' && (
-              <span className="text-success-100 select-none mr-1 inline-block w-3">+</span>
-            )}
-            {line.type === 'delete' && (
-              <span className="text-danger-100 select-none mr-1 inline-block w-3">−</span>
-            )}
-            {renderLineContent(line)}
-          </div>
-        </div>
-      ))}
-    </div>
-  )
-})
-
-// ============================================
 // Helpers
 // ============================================
 
@@ -292,16 +68,388 @@ function getLineBgClass(type: LineType): string {
   }
 }
 
-function computePairedLines(before: string, after: string, skipWordDiff: boolean = false): PairedLine[] {
+function escapeHtml(str: string): string {
+  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+}
+
+// ============================================
+// Main Component
+// ============================================
+
+export const DiffViewer = memo(function DiffViewer({
+  before,
+  after,
+  language = 'text',
+  viewMode = 'split',
+  isResizing = false,
+}: DiffViewerProps) {
+  // 检测大文件
+  const totalLines = before.split('\n').length + after.split('\n').length
+  const isLargeFile = totalLines > LARGE_FILE_LINES || before.length + after.length > LARGE_FILE_CHARS
+
+  if (viewMode === 'split') {
+    return <SplitDiffView before={before} after={after} language={language} isResizing={isResizing} isLargeFile={isLargeFile} />
+  }
+  return <UnifiedDiffView before={before} after={after} language={language} isResizing={isResizing} />
+})
+
+// ============================================
+// Split Diff View - 整体垂直滚动，左右各自水平滚动
+// ============================================
+
+const SplitDiffView = memo(function SplitDiffView({ 
+  before, 
+  after, 
+  language,
+  isResizing,
+  isLargeFile,
+}: { 
+  before: string
+  after: string
+  language: string
+  isResizing: boolean
+  isLargeFile: boolean  // 仅用于跳过word-level diff
+}) {
+  const containerRef = useRef<HTMLDivElement>(null)
+  const leftPanelRef = useRef<HTMLDivElement>(null)
+  const rightPanelRef = useRef<HTMLDivElement>(null)
+  const leftScrollbarRef = useRef<HTMLDivElement>(null)
+  const rightScrollbarRef = useRef<HTMLDivElement>(null)
+  const [scrollTop, setScrollTop] = useState(0)
+  const [containerHeight, setContainerHeight] = useState(300)
+  const [leftContentWidth, setLeftContentWidth] = useState(0)
+  const [rightContentWidth, setRightContentWidth] = useState(0)
+  
+  // 缓存
+  const cachedRef = useRef<PairedLine[] | null>(null)
+  
+  // resize时禁用高亮
+  const shouldHighlight = !isResizing && language !== 'text'
+  const { output: beforeTokens } = useSyntaxHighlight(before, { lang: language, mode: 'tokens', enabled: shouldHighlight })
+  const { output: afterTokens } = useSyntaxHighlight(after, { lang: language, mode: 'tokens', enabled: shouldHighlight })
+  
+  // 计算diff
+  const skipWordDiff = isResizing || isLargeFile
+  const pairedLines = useMemo(() => {
+    if (isResizing && cachedRef.current) return cachedRef.current
+    const result = computePairedLines(before, after, skipWordDiff)
+    cachedRef.current = result
+    return result
+  }, [before, after, isResizing, skipWordDiff])
+  
+  const totalHeight = pairedLines.length * LINE_HEIGHT
+  
+  // 可见范围
+  const { startIndex, endIndex, offsetY } = useMemo(() => {
+    const start = Math.max(0, Math.floor(scrollTop / LINE_HEIGHT) - OVERSCAN)
+    const visibleCount = Math.ceil(containerHeight / LINE_HEIGHT)
+    const end = Math.min(pairedLines.length, start + visibleCount + OVERSCAN * 2)
+    return { startIndex: start, endIndex: end, offsetY: start * LINE_HEIGHT }
+  }, [scrollTop, containerHeight, pairedLines.length])
+  
+  // 监听容器大小
+  useEffect(() => {
+    const container = containerRef.current
+    if (!container || isResizing) return
+    
+    setContainerHeight(container.clientHeight)
+    const resizeObserver = new ResizeObserver(() => setContainerHeight(container.clientHeight))
+    resizeObserver.observe(container)
+    return () => resizeObserver.disconnect()
+  }, [isResizing])
+  
+  // 测量内容宽度（用于底部滚动条）
+  useEffect(() => {
+    const leftPanel = leftPanelRef.current
+    const rightPanel = rightPanelRef.current
+    if (!leftPanel || !rightPanel) return
+    
+    const updateWidths = () => {
+      const leftContent = leftPanel.firstElementChild as HTMLElement
+      const rightContent = rightPanel.firstElementChild as HTMLElement
+      if (leftContent) setLeftContentWidth(leftContent.scrollWidth)
+      if (rightContent) setRightContentWidth(rightContent.scrollWidth)
+    }
+    
+    updateWidths()
+    const observer = new MutationObserver(updateWidths)
+    observer.observe(leftPanel, { childList: true, subtree: true })
+    observer.observe(rightPanel, { childList: true, subtree: true })
+    return () => observer.disconnect()
+  }, [pairedLines, startIndex, endIndex])
+  
+  const handleScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
+    setScrollTop(e.currentTarget.scrollTop)
+  }, [])
+  
+  // 同步滚动条 -> 面板
+  const handleLeftScrollbar = useCallback((e: React.UIEvent<HTMLDivElement>) => {
+    if (leftPanelRef.current) {
+      leftPanelRef.current.scrollLeft = e.currentTarget.scrollLeft
+    }
+  }, [])
+  
+  const handleRightScrollbar = useCallback((e: React.UIEvent<HTMLDivElement>) => {
+    if (rightPanelRef.current) {
+      rightPanelRef.current.scrollLeft = e.currentTarget.scrollLeft
+    }
+  }, [])
+  
+  // 同步面板 -> 滚动条
+  const handleLeftPanelScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
+    if (leftScrollbarRef.current) {
+      leftScrollbarRef.current.scrollLeft = e.currentTarget.scrollLeft
+    }
+  }, [])
+  
+  const handleRightPanelScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
+    if (rightScrollbarRef.current) {
+      rightScrollbarRef.current.scrollLeft = e.currentTarget.scrollLeft
+    }
+  }, [])
+
+  if (pairedLines.length === 0) {
+    return <div className="h-full flex items-center justify-center text-text-400 text-sm">No changes</div>
+  }
+  
+  // 渲染可见行
+  const leftRows: React.ReactNode[] = []
+  const rightRows: React.ReactNode[] = []
+  
+  for (let i = startIndex; i < endIndex; i++) {
+    const pair = pairedLines[i]
+    
+    leftRows.push(
+      <div key={i} className={`flex ${getLineBgClass(pair.left.type)}`} style={{ height: LINE_HEIGHT }}>
+        <div className="w-10 shrink-0 px-1 text-right text-text-500 text-[11px] leading-5 select-none opacity-60">
+          {pair.left.lineNo}
+        </div>
+        <div className="px-2 leading-5 text-[11px] whitespace-pre">
+          {pair.left.type === 'delete' && <span className="text-danger-100 select-none mr-1">−</span>}
+          {pair.left.type !== 'empty' && <LineContent line={pair.left} tokens={beforeTokens as any[][] | null} />}
+        </div>
+      </div>
+    )
+    
+    rightRows.push(
+      <div key={i} className={`flex ${getLineBgClass(pair.right.type)}`} style={{ height: LINE_HEIGHT }}>
+        <div className="w-10 shrink-0 px-1 text-right text-text-500 text-[11px] leading-5 select-none opacity-60">
+          {pair.right.lineNo}
+        </div>
+        <div className="px-2 leading-5 text-[11px] whitespace-pre">
+          {pair.right.type === 'add' && <span className="text-success-100 select-none mr-1">+</span>}
+          {pair.right.type !== 'empty' && <LineContent line={pair.right} tokens={afterTokens as any[][] | null} />}
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="h-full flex flex-col">
+      {/* 主内容区域 */}
+      <div 
+        ref={containerRef}
+        className="flex-1 overflow-y-auto overflow-x-hidden panel-scrollbar font-mono min-h-0"
+        onScroll={handleScroll}
+      >
+        {/* 虚拟滚动占位 */}
+        <div style={{ height: totalHeight, position: 'relative' }}>
+          {/* 可见区域 - 左右并排，各自水平滚动 */}
+          <div 
+            className="absolute top-0 left-0 right-0 flex"
+            style={{ transform: `translateY(${offsetY}px)` }}
+          >
+            {/* Left Panel - 水平滚动 */}
+            <div 
+              ref={leftPanelRef}
+              className="flex-1 overflow-x-auto overflow-y-hidden scrollbar-none border-r border-border-100/50"
+              onScroll={handleLeftPanelScroll}
+            >
+              <div className="inline-block min-w-full">
+                {leftRows}
+              </div>
+            </div>
+            {/* Right Panel - 水平滚动 */}
+            <div 
+              ref={rightPanelRef}
+              className="flex-1 overflow-x-auto overflow-y-hidden scrollbar-none"
+              onScroll={handleRightPanelScroll}
+            >
+              <div className="inline-block min-w-full">
+                {rightRows}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      {/* 底部固定横向滚动条 */}
+      <div className="flex shrink-0 border-t border-border-100/50">
+        {/* 左侧滚动条 */}
+        <div 
+          ref={leftScrollbarRef}
+          className="flex-1 overflow-x-auto panel-scrollbar border-r border-border-100/50"
+          onScroll={handleLeftScrollbar}
+          style={{ height: 12 }}
+        >
+          <div style={{ width: leftContentWidth, height: 1 }} />
+        </div>
+        {/* 右侧滚动条 */}
+        <div 
+          ref={rightScrollbarRef}
+          className="flex-1 overflow-x-auto panel-scrollbar"
+          onScroll={handleRightScrollbar}
+          style={{ height: 12 }}
+        >
+          <div style={{ width: rightContentWidth, height: 1 }} />
+        </div>
+      </div>
+    </div>
+  )
+})
+
+// ============================================
+// Unified Diff View - 始终虚拟滚动
+// ============================================
+
+const UnifiedDiffView = memo(function UnifiedDiffView({ 
+  before, 
+  after, 
+  language,
+  isResizing,
+}: { 
+  before: string
+  after: string
+  language: string
+  isResizing: boolean
+}) {
+  const containerRef = useRef<HTMLDivElement>(null)
+  const [scrollTop, setScrollTop] = useState(0)
+  const [containerHeight, setContainerHeight] = useState(300)
+  
+  const cachedRef = useRef<UnifiedLine[] | null>(null)
+  
+  // resize时禁用高亮（大文件仍然高亮，因为useSyntaxHighlight是异步的不会阻塞）
+  const shouldHighlight = !isResizing && language !== 'text'
+  const { output: beforeTokens } = useSyntaxHighlight(before, { lang: language, mode: 'tokens', enabled: shouldHighlight })
+  const { output: afterTokens } = useSyntaxHighlight(after, { lang: language, mode: 'tokens', enabled: shouldHighlight })
+  
+  const lines = useMemo(() => {
+    if (isResizing && cachedRef.current) return cachedRef.current
+    const result = computeUnifiedLines(before, after)
+    cachedRef.current = result
+    return result
+  }, [before, after, isResizing])
+  
+  const totalHeight = lines.length * LINE_HEIGHT
+  
+  const { startIndex, endIndex, offsetY } = useMemo(() => {
+    const start = Math.max(0, Math.floor(scrollTop / LINE_HEIGHT) - OVERSCAN)
+    const visibleCount = Math.ceil(containerHeight / LINE_HEIGHT)
+    const end = Math.min(lines.length, start + visibleCount + OVERSCAN * 2)
+    return { startIndex: start, endIndex: end, offsetY: start * LINE_HEIGHT }
+  }, [scrollTop, containerHeight, lines.length])
+  
+  useEffect(() => {
+    const container = containerRef.current
+    if (!container || isResizing) return
+    
+    setContainerHeight(container.clientHeight)
+    const resizeObserver = new ResizeObserver(() => setContainerHeight(container.clientHeight))
+    resizeObserver.observe(container)
+    return () => resizeObserver.disconnect()
+  }, [isResizing])
+  
+  const handleScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
+    setScrollTop(e.currentTarget.scrollTop)
+  }, [])
+
+  if (lines.length === 0) {
+    return <div className="h-full flex items-center justify-center text-text-400 text-sm">No changes</div>
+  }
+  
+  const visibleRows: React.ReactNode[] = []
+  for (let i = startIndex; i < endIndex; i++) {
+    const line = lines[i]
+    let tokens: any[][] | null = null
+    let lineNo: number | undefined
+    if (line.type === 'delete' && line.oldLineNo) {
+      tokens = beforeTokens as any[][] | null
+      lineNo = line.oldLineNo
+    } else if ((line.type === 'add' || line.type === 'context') && line.newLineNo) {
+      tokens = afterTokens as any[][] | null
+      lineNo = line.newLineNo
+    }
+    
+    visibleRows.push(
+      <div key={i} className={`flex ${getLineBgClass(line.type)}`} style={{ height: LINE_HEIGHT }}>
+        <div className="w-10 shrink-0 px-1 text-right text-text-500 text-[11px] leading-5 select-none opacity-60">
+          {line.oldLineNo}
+        </div>
+        <div className="w-10 shrink-0 px-1 text-right text-text-500 text-[11px] leading-5 select-none opacity-60">
+          {line.newLineNo}
+        </div>
+        <div className="px-2 leading-5 text-[11px] whitespace-pre">
+          {line.type === 'add' && <span className="text-success-100 select-none mr-1">+</span>}
+          {line.type === 'delete' && <span className="text-danger-100 select-none mr-1">−</span>}
+          <LineContent line={{ ...line, lineNo }} tokens={tokens} />
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div 
+      ref={containerRef}
+      className="h-full overflow-auto panel-scrollbar font-mono"
+      onScroll={handleScroll}
+    >
+      <div style={{ height: totalHeight, position: 'relative' }}>
+        <div style={{ position: 'absolute', top: 0, left: 0, transform: `translateY(${offsetY}px)` }}>
+          {visibleRows}
+        </div>
+      </div>
+    </div>
+  )
+})
+
+// ============================================
+// Line Content Renderer
+// ============================================
+
+const LineContent = memo(function LineContent({ 
+  line, 
+  tokens 
+}: { 
+  line: DiffLine
+  tokens: any[][] | null 
+}) {
+  // 词级别diff高亮
+  if (line.highlightedContent) {
+    return <span className="text-text-100" dangerouslySetInnerHTML={{ __html: line.highlightedContent }} />
+  }
+  
+  // 语法高亮
+  if (tokens && line.lineNo && tokens[line.lineNo - 1]) {
+    const lineTokens = tokens[line.lineNo - 1]
+    return <>{lineTokens.map((token: any, i: number) => <span key={i} style={{ color: token.color }}>{token.content}</span>)}</>
+  }
+  
+  // 纯文本
+  return <span className="text-text-100">{line.content}</span>
+})
+
+// ============================================
+// Diff Computation
+// ============================================
+
+function computePairedLines(before: string, after: string, skipWordDiff: boolean): PairedLine[] {
   const changes = diffLines(before, after)
   const result: PairedLine[] = []
-  
   const beforeLines = before.split('\n')
   const afterLines = after.split('\n')
   
-  let oldIdx = 0
-  let newIdx = 0
-  let i = 0
+  let oldIdx = 0, newIdx = 0, i = 0
   
   while (i < changes.length) {
     const change = changes[i]
@@ -309,7 +457,7 @@ function computePairedLines(before: string, after: string, skipWordDiff: boolean
     
     if (change.removed) {
       const next = changes[i + 1]
-      if (next && next.added) {
+      if (next?.added) {
         const addCount = next.count || 0
         const maxCount = Math.max(count, addCount)
         
@@ -320,13 +468,12 @@ function computePairedLines(before: string, after: string, skipWordDiff: boolean
           let leftHighlight: string | undefined
           let rightHighlight: string | undefined
           
-          // resize 时跳过词级别 diff 计算以提高性能
           if (!skipWordDiff && oldLine !== undefined && newLine !== undefined) {
-             const wordDiff = computeWordDiff(oldLine, newLine)
-             if (!isTooFragmented(wordDiff.changes)) {
-               leftHighlight = wordDiff.left
-               rightHighlight = wordDiff.right
-             }
+            const wordDiff = computeWordDiff(oldLine, newLine)
+            if (!isTooFragmented(wordDiff.changes)) {
+              leftHighlight = wordDiff.left
+              rightHighlight = wordDiff.right
+            }
           }
           
           result.push({
@@ -352,7 +499,6 @@ function computePairedLines(before: string, after: string, skipWordDiff: boolean
         })
       }
       oldIdx += count
-      
     } else if (change.added) {
       for (let j = 0; j < count; j++) {
         result.push({
@@ -361,7 +507,6 @@ function computePairedLines(before: string, after: string, skipWordDiff: boolean
         })
       }
       newIdx += count
-      
     } else {
       for (let j = 0; j < count; j++) {
         result.push({
@@ -372,70 +517,36 @@ function computePairedLines(before: string, after: string, skipWordDiff: boolean
       oldIdx += count
       newIdx += count
     }
-    
     i++
   }
   
   return result
 }
 
-function isTooFragmented(changes: any[]): boolean {
-  let commonLength = 0
-  let totalLength = 0
-  
-  for (const change of changes) {
-    totalLength += change.value.length
-    if (!change.added && !change.removed) {
-      commonLength += change.value.length
-    }
-  }
-  
-  if (totalLength > 10 && commonLength / totalLength < 0.4) {
-    return true
-  }
-  
-  return false
-}
-
 function computeUnifiedLines(before: string, after: string): UnifiedLine[] {
   const changes = diffLines(before, after)
   const result: UnifiedLine[] = []
-  
   const beforeLines = before.split('\n')
   const afterLines = after.split('\n')
   
-  let oldIdx = 0
-  let newIdx = 0
+  let oldIdx = 0, newIdx = 0
   
   for (const change of changes) {
     const count = change.count || 0
     
     if (change.removed) {
       for (let j = 0; j < count; j++) {
-        result.push({
-          type: 'delete',
-          content: beforeLines[oldIdx + j] || '',
-          oldLineNo: oldIdx + j + 1,
-        })
+        result.push({ type: 'delete', content: beforeLines[oldIdx + j] || '', oldLineNo: oldIdx + j + 1 })
       }
       oldIdx += count
     } else if (change.added) {
       for (let j = 0; j < count; j++) {
-        result.push({
-          type: 'add',
-          content: afterLines[newIdx + j] || '',
-          newLineNo: newIdx + j + 1,
-        })
+        result.push({ type: 'add', content: afterLines[newIdx + j] || '', newLineNo: newIdx + j + 1 })
       }
       newIdx += count
     } else {
       for (let j = 0; j < count; j++) {
-        result.push({
-          type: 'context',
-          content: afterLines[newIdx + j] || '',
-          oldLineNo: oldIdx + j + 1,
-          newLineNo: newIdx + j + 1,
-        })
+        result.push({ type: 'context', content: afterLines[newIdx + j] || '', oldLineNo: oldIdx + j + 1, newLineNo: newIdx + j + 1 })
       }
       oldIdx += count
       newIdx += count
@@ -445,78 +556,61 @@ function computeUnifiedLines(before: string, after: string): UnifiedLine[] {
   return result
 }
 
+function isTooFragmented(changes: any[]): boolean {
+  let commonLength = 0, totalLength = 0
+  for (const change of changes) {
+    totalLength += change.value.length
+    if (!change.added && !change.removed) commonLength += change.value.length
+  }
+  return totalLength > 10 && commonLength / totalLength < 0.4
+}
+
 function computeWordDiff(oldLine: string, newLine: string): { left: string; right: string; changes: any[] } {
   const changes = diffWords(oldLine, newLine)
   
-  const mergedChanges = []
+  const mergedChanges: any[] = []
   for (let i = 0; i < changes.length; i++) {
     const current = changes[i]
-    const prev = mergedChanges.length > 0 ? mergedChanges[mergedChanges.length - 1] : null
+    const prev = mergedChanges[mergedChanges.length - 1]
     
     if (prev && !current.added && !current.removed && /^\s*$/.test(current.value)) {
-       const next = i + 1 < changes.length ? changes[i + 1] : null
-       if (prev.removed && next && next.removed) {
-         prev.value += current.value
-         continue 
-       }
-       if (prev.added && next && next.added) {
-         prev.value += current.value
-         continue
-       }
+      const next = changes[i + 1]
+      if ((prev.removed && next?.removed) || (prev.added && next?.added)) {
+        prev.value += current.value
+        continue
+      }
     }
     
     if (prev && ((prev.added && current.added) || (prev.removed && current.removed))) {
       prev.value += current.value
     } else {
-      mergedChanges.push({...current}) 
+      mergedChanges.push({ ...current })
     }
   }
 
-  let left = ''
-  let right = ''
-  
+  let left = '', right = ''
   for (const change of mergedChanges) {
     const escaped = escapeHtml(change.value)
-    
-    if (change.removed) {
-      left += `<span class="bg-danger-100/30">${escaped}</span>`
-    } else if (change.added) {
-      right += `<span class="bg-success-100/30">${escaped}</span>`
-    } else {
-      left += escaped
-      right += escaped
-    }
+    if (change.removed) left += `<span class="bg-danger-100/30">${escaped}</span>`
+    else if (change.added) right += `<span class="bg-success-100/30">${escaped}</span>`
+    else { left += escaped; right += escaped }
   }
   
   return { left, right, changes: mergedChanges }
 }
 
+// ============================================
+// Export helper
+// ============================================
+
 export function extractContentFromUnifiedDiff(diff: string): { before: string, after: string } {
   let before = '', after = ''
-  const lines = diff.split('\n')
-  
-  for (const line of lines) {
-    if (line.startsWith('---') || line.startsWith('+++') || 
-        line.startsWith('Index:') || line.startsWith('===') ||
-        line.startsWith('@@') || line.startsWith('\\ No newline')) {
-      continue
-    }
-    if (line.startsWith('-')) {
-      before += line.slice(1) + '\n'
-    } else if (line.startsWith('+')) {
-      after += line.slice(1) + '\n'
-    } else if (line.startsWith(' ')) {
-      before += line.slice(1) + '\n'
-      after += line.slice(1) + '\n'
-    }
+  for (const line of diff.split('\n')) {
+    if (line.startsWith('---') || line.startsWith('+++') || line.startsWith('Index:') || 
+        line.startsWith('===') || line.startsWith('@@') || line.startsWith('\\ No newline')) continue
+    if (line.startsWith('-')) before += line.slice(1) + '\n'
+    else if (line.startsWith('+')) after += line.slice(1) + '\n'
+    else if (line.startsWith(' ')) { before += line.slice(1) + '\n'; after += line.slice(1) + '\n' }
   }
-  
   return { before: before.trimEnd(), after: after.trimEnd() }
-}
-
-function escapeHtml(str: string): string {
-  return str
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
 }

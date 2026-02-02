@@ -1,4 +1,4 @@
-import { memo, useCallback } from 'react'
+import { memo, useCallback, useState, useEffect } from 'react'
 import { useLayoutStore, layoutStore, type PanelTab } from '../store/layoutStore'
 import { PanelContainer } from './PanelContainer'
 import { SessionChangesPanel } from './SessionChangesPanel'
@@ -14,6 +14,19 @@ export const RightPanel = memo(function RightPanel() {
   const { rightPanelOpen, rightPanelWidth, previewFile } = useLayoutStore()
   const { sessionId } = useMessageStore()
   const { currentDirectory } = useDirectory()
+  
+  // 追踪面板 resize 状态
+  const [isPanelResizing, setIsPanelResizing] = useState(false)
+  useEffect(() => {
+    const onStart = () => setIsPanelResizing(true)
+    const onEnd = () => setIsPanelResizing(false)
+    window.addEventListener('panel-resize-start', onStart)
+    window.addEventListener('panel-resize-end', onEnd)
+    return () => {
+      window.removeEventListener('panel-resize-start', onStart)
+      window.removeEventListener('panel-resize-end', onEnd)
+    }
+  }, [])
   
   // 关闭终端时清理 PTY 会话
   const handleCloseTerminal = useCallback(async (ptyId: string) => {
@@ -58,7 +71,7 @@ export const RightPanel = memo(function RightPanel() {
             directory={currentDirectory}
             previewFile={previewFile}
             position="right"
-            isPanelResizing={false} // Panel resizing is handled by ResizablePanel
+            isPanelResizing={isPanelResizing}
           />
         )
       case 'changes':
@@ -69,7 +82,7 @@ export const RightPanel = memo(function RightPanel() {
             </div>
           )
         }
-        return <SessionChangesPanel sessionId={sessionId} isResizing={false} />
+        return <SessionChangesPanel sessionId={sessionId} isResizing={isPanelResizing} />
       case 'terminal':
         return (
           <TerminalContent
@@ -80,7 +93,7 @@ export const RightPanel = memo(function RightPanel() {
       default:
         return null
     }
-  }, [currentDirectory, previewFile, sessionId])
+  }, [currentDirectory, previewFile, sessionId, isPanelResizing])
 
   return (
     <ResizablePanel
