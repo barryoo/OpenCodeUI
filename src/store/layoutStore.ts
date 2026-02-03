@@ -112,6 +112,19 @@ class LayoutStore {
   }
 
   // ============================================
+  // 辅助方法
+  // ============================================
+  
+  /** 设置指定位置面板的开关状态 */
+  private setPanelOpen(position: PanelPosition, open: boolean) {
+    if (position === 'bottom') {
+      this.state.bottomPanelOpen = open
+    } else {
+      this.state.rightPanelOpen = open
+    }
+  }
+
+  // ============================================
   // 新的统一 Panel Tab API
   // ============================================
 
@@ -144,94 +157,51 @@ class LayoutStore {
     this.state.activeTabId[tab.position] = id
     
     if (openPanel) {
-      if (tab.position === 'bottom') {
-        this.state.bottomPanelOpen = true
-      } else {
-        this.state.rightPanelOpen = true
-      }
+      this.setPanelOpen(tab.position, true)
     }
     this.notify()
     return id
   }
 
-  // 添加 Files 标签
-  addFilesTab(position: PanelPosition) {
-    // 检查该位置是否已有 files tab
+  /**
+   * 添加单例 tab（同一位置同类型只允许一个）
+   * 如果已存在则激活，否则创建新的
+   */
+  private addSingletonTab(
+    type: PanelTab['type'], 
+    position: PanelPosition, 
+    fixedId?: string
+  ): string {
     const existing = this.state.panelTabs.find(
-      t => t.type === 'files' && t.position === position
+      t => t.type === type && t.position === position
     )
     if (existing) {
-      // 已存在，直接激活
       this.setActiveTab(position, existing.id)
-      if (position === 'bottom') {
-        this.state.bottomPanelOpen = true
-      } else {
-        this.state.rightPanelOpen = true
-      }
+      this.setPanelOpen(position, true)
       this.notify()
       return existing.id
     }
-    return this.addTab({ type: 'files', position })
+    return this.addTab({ type, position, ...(fixedId && { id: fixedId }) })
+  }
+
+  // 添加 Files 标签
+  addFilesTab(position: PanelPosition) {
+    return this.addSingletonTab('files', position)
   }
 
   // 添加 Changes 标签
   addChangesTab(position: PanelPosition) {
-    // 检查该位置是否已有 changes tab
-    const existing = this.state.panelTabs.find(
-      t => t.type === 'changes' && t.position === position
-    )
-    if (existing) {
-      // 已存在，直接激活
-      this.setActiveTab(position, existing.id)
-      if (position === 'bottom') {
-        this.state.bottomPanelOpen = true
-      } else {
-        this.state.rightPanelOpen = true
-      }
-      this.notify()
-      return existing.id
-    }
-    return this.addTab({ type: 'changes', position })
+    return this.addSingletonTab('changes', position)
   }
 
   // 添加 MCP 标签
   addMcpTab(position: PanelPosition) {
-    // 检查该位置是否已有 mcp tab
-    const existing = this.state.panelTabs.find(
-      t => t.type === 'mcp' && t.position === position
-    )
-    if (existing) {
-      // 已存在，直接激活
-      this.setActiveTab(position, existing.id)
-      if (position === 'bottom') {
-        this.state.bottomPanelOpen = true
-      } else {
-        this.state.rightPanelOpen = true
-      }
-      this.notify()
-      return existing.id
-    }
-    return this.addTab({ type: 'mcp', position, id: 'mcp' })
+    return this.addSingletonTab('mcp', position, 'mcp')
   }
 
   // 添加 Skill 标签
   addSkillTab(position: PanelPosition) {
-    // 检查该位置是否已有 skill tab
-    const existing = this.state.panelTabs.find(
-      t => t.type === 'skill' && t.position === position
-    )
-    if (existing) {
-      // 已存在，直接激活
-      this.setActiveTab(position, existing.id)
-      if (position === 'bottom') {
-        this.state.bottomPanelOpen = true
-      } else {
-        this.state.rightPanelOpen = true
-      }
-      this.notify()
-      return existing.id
-    }
-    return this.addTab({ type: 'skill', position, id: 'skill' })
+    return this.addSingletonTab('skill', position, 'skill')
   }
 
   // 移除 tab
@@ -252,11 +222,7 @@ class LayoutStore {
 
     // 如果该位置没有 tab 了，关闭面板
     if (this.getTabsForPosition(position).length === 0) {
-      if (position === 'bottom') {
-        this.state.bottomPanelOpen = false
-      } else {
-        this.state.rightPanelOpen = false
-      }
+      this.setPanelOpen(position, false)
     }
 
     this.notify()
@@ -392,33 +358,23 @@ class LayoutStore {
   openFilePreview(file: PreviewFile, position?: PanelPosition) {
     this.state.previewFile = file
     
-    // 如果指定了位置，直接使用那个位置的面板
-    if (position) {
-      if (position === 'bottom') {
-        this.state.bottomPanelOpen = true
-        // 找到该位置的 files tab 并激活
-        const filesTab = this.state.panelTabs.find(t => t.type === 'files' && t.position === 'bottom')
-        if (filesTab) {
-          this.state.activeTabId.bottom = filesTab.id
-        }
-      } else {
-        this.state.rightPanelOpen = true
-        const filesTab = this.state.panelTabs.find(t => t.type === 'files' && t.position === 'right')
-        if (filesTab) {
-          this.state.activeTabId.right = filesTab.id
-        }
+    // 辅助函数：激活指定位置的 files tab
+    const activateFilesTab = (pos: PanelPosition) => {
+      this.setPanelOpen(pos, true)
+      const filesTab = this.state.panelTabs.find(t => t.type === 'files' && t.position === pos)
+      if (filesTab) {
+        this.state.activeTabId[pos] = filesTab.id
       }
+    }
+    
+    if (position) {
+      // 指定了位置，直接使用
+      activateFilesTab(position)
     } else {
       // 没有指定位置，找到第一个 Files tab
       const filesTab = this.state.panelTabs.find(t => t.type === 'files')
       if (filesTab) {
-        if (filesTab.position === 'bottom') {
-          this.state.bottomPanelOpen = true
-          this.state.activeTabId.bottom = filesTab.id
-        } else {
-          this.state.rightPanelOpen = true
-          this.state.activeTabId.right = filesTab.id
-        }
+        activateFilesTab(filesTab.position)
       } else {
         // 没有 Files tab，默认打开右侧面板并创建一个
         this.state.rightPanelOpen = true

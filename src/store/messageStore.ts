@@ -70,6 +70,20 @@ class MessageStore {
   private subscribers = new Set<Subscriber>()
   /** LRU 追踪：sessionId -> 最后访问时间 */
   private sessionAccessTime = new Map<string, number>()
+  
+  // ============================================
+  // 批量更新优化
+  // ============================================
+  
+  /** 是否有待处理的通知 */
+  private pendingNotify = false
+  /** 用于 RAF 的 ID */
+  private rafId: number | null = null
+  /** visibleMessages 缓存 */
+  private visibleMessagesCache: Message[] | null = null
+  private visibleMessagesCacheSessionId: string | null = null
+  private visibleMessagesCacheRevertId: string | null = null
+  private visibleMessagesCacheLength: number = 0
 
   // ============================================
   // Subscription
@@ -80,7 +94,46 @@ class MessageStore {
     return () => this.subscribers.delete(fn)
   }
 
+  /**
+   * 使用 requestAnimationFrame 合并多次 notify 调用
+   * 在 streaming 时可以避免每个 part 更新都触发重渲染
+   */
   private notify() {
+    // 清除 visibleMessages 缓存
+    this.visibleMessagesCache = null
+    
+    if (this.pendingNotify) return
+    
+    this.pendingNotify = true
+    
+    // 使用 RAF 批量处理
+    if (typeof requestAnimationFrame !== 'undefined') {
+      this.rafId = requestAnimationFrame(() => {
+        this.pendingNotify = false
+        this.rafId = null
+        this.subscribers.forEach(fn => fn())
+      })
+    } else {
+      // SSR 或不支持 RAF 的环境，直接同步通知
+      this.pendingNotify = false
+      this.subscribers.forEach(fn => fn())
+    }
+  }
+  
+  /**
+   * 立即通知（用于关键操作，如 session 切换）
+   */
+  private notifyImmediate() {
+    // 清除缓存
+    this.visibleMessagesCache = null
+    
+    // 取消待处理的 RAF
+    if (this.rafId !== null) {
+      cancelAnimationFrame(this.rafId)
+      this.rafId = null
+    }
+    this.pendingNotify = false
+    
     this.subscribers.forEach(fn => fn())
   }
 
@@ -103,6 +156,7 @@ class MessageStore {
 
   /**
    * 获取当前 session 的可见消息（基于 revert 状态过滤）
+   * 带缓存优化，避免频繁创建新数组
    */
   getVisibleMessages(): Message[] {
     const state = this.getCurrentSessionState()
@@ -111,19 +165,43 @@ class MessageStore {
     }
 
     const { messages, revertState } = state
+    const sessionId = this.currentSessionId
+    const revertId = revertState?.messageId ?? null
 
+    // 检查缓存是否有效
+    if (
+      this.visibleMessagesCache !== null &&
+      this.visibleMessagesCacheSessionId === sessionId &&
+      this.visibleMessagesCacheRevertId === revertId &&
+      this.visibleMessagesCacheLength === messages.length
+    ) {
+      // 缓存命中，直接返回
+      return this.visibleMessagesCache
+    }
+
+    // 计算可见消息
+    let visibleMessages: Message[]
+    
     if (!revertState) {
-      return messages
+      visibleMessages = messages
+    } else {
+      // 找到 revert 点，只返回之前的消息
+      const revertIndex = messages.findIndex(m => m.info.id === revertState.messageId)
+      if (revertIndex === -1) {
+        // 找不到 revert 点，返回所有消息
+        visibleMessages = messages
+      } else {
+        visibleMessages = messages.slice(0, revertIndex)
+      }
     }
 
-    // 找到 revert 点，只返回之前的消息
-    const revertIndex = messages.findIndex(m => m.info.id === revertState.messageId)
-    if (revertIndex === -1) {
-      // 找不到 revert 点，返回所有消息
-      return messages
-    }
+    // 更新缓存
+    this.visibleMessagesCache = visibleMessages
+    this.visibleMessagesCacheSessionId = sessionId
+    this.visibleMessagesCacheRevertId = revertId
+    this.visibleMessagesCacheLength = messages.length
 
-    return messages.slice(0, revertIndex)
+    return visibleMessages
   }
 
   getIsStreaming(): boolean {
@@ -161,7 +239,8 @@ class MessageStore {
     if (this.currentSessionId === sessionId) return
     
     this.currentSessionId = sessionId
-    this.notify()
+    // 使用立即通知，确保 session 切换立即生效
+    this.notifyImmediate()
   }
 
   /**

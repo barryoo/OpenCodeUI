@@ -2,6 +2,154 @@ import { useState, useEffect } from 'react'
 import { codeToHtml, codeToTokens, type BundledTheme } from 'shiki'
 import { normalizeLanguage } from '../utils/languageUtils'
 
+// ============================================
+// LRU 缓存层 - 避免重复高亮相同代码
+// ============================================
+
+interface CacheEntry<T> {
+  value: T
+  timestamp: number
+}
+
+class LRUCache<T> {
+  private cache = new Map<string, CacheEntry<T>>()
+  private maxSize: number
+  
+  constructor(maxSize: number = 100) {
+    this.maxSize = maxSize
+  }
+  
+  get(key: string): T | undefined {
+    const entry = this.cache.get(key)
+    if (entry) {
+      // 更新时间戳（LRU）
+      entry.timestamp = Date.now()
+      return entry.value
+    }
+    return undefined
+  }
+  
+  set(key: string, value: T): void {
+    // 如果已存在，更新
+    if (this.cache.has(key)) {
+      this.cache.get(key)!.value = value
+      this.cache.get(key)!.timestamp = Date.now()
+      return
+    }
+    
+    // 如果满了，删除最老的
+    if (this.cache.size >= this.maxSize) {
+      let oldestKey: string | null = null
+      let oldestTime = Infinity
+      for (const [k, v] of this.cache) {
+        if (v.timestamp < oldestTime) {
+          oldestTime = v.timestamp
+          oldestKey = k
+        }
+      }
+      if (oldestKey) this.cache.delete(oldestKey)
+    }
+    
+    this.cache.set(key, { value, timestamp: Date.now() })
+  }
+  
+  clear(): void {
+    this.cache.clear()
+  }
+  
+  get size(): number {
+    return this.cache.size
+  }
+}
+
+// 全局缓存实例 - HTML 和 Tokens 分开缓存
+const htmlCache = new LRUCache<string>(150)
+const tokensCache = new LRUCache<any[][]>(100)
+
+// 代码长度限制 - 超过此长度跳过高亮
+const MAX_CODE_LENGTH = 50000 // 50KB
+const MAX_LINES_FOR_HIGHLIGHT = 1000
+
+// 生成缓存 key
+function getCacheKey(code: string, lang: string, theme: string): string {
+  // 使用简单 hash 减少 key 长度
+  const codeHash = simpleHash(code)
+  return `${codeHash}:${lang}:${theme}`
+}
+
+// 简单的字符串 hash
+function simpleHash(str: string): number {
+  let hash = 0
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i)
+    hash = ((hash << 5) - hash) + char
+    hash = hash & hash // Convert to 32bit integer
+  }
+  return hash
+}
+
+// 检查代码是否应该跳过高亮
+function shouldSkipHighlight(code: string): boolean {
+  if (code.length > MAX_CODE_LENGTH) return true
+  const lineCount = code.split('\n').length
+  if (lineCount > MAX_LINES_FOR_HIGHLIGHT) return true
+  return false
+}
+
+// 带缓存的高亮函数
+async function highlightWithCache(
+  code: string,
+  lang: string,
+  theme: BundledTheme,
+  mode: 'html' | 'tokens'
+): Promise<string | any[][] | null> {
+  // 检查是否应该跳过
+  if (shouldSkipHighlight(code)) {
+    if (import.meta.env.DEV) {
+      console.debug('[Syntax] Skipping highlight for large code block:', code.length, 'chars')
+    }
+    return null
+  }
+  
+  const cacheKey = getCacheKey(code, lang, theme)
+  
+  if (mode === 'html') {
+    const cached = htmlCache.get(cacheKey)
+    if (cached !== undefined) {
+      return cached
+    }
+    
+    const html = await codeToHtml(code, { lang: lang as any, theme })
+    htmlCache.set(cacheKey, html)
+    return html
+  } else {
+    const cached = tokensCache.get(cacheKey)
+    if (cached !== undefined) {
+      return cached
+    }
+    
+    const result = await codeToTokens(code, { lang: lang as any, theme })
+    tokensCache.set(cacheKey, result.tokens)
+    return result.tokens
+  }
+}
+
+// 导出缓存统计（调试用）
+export function getHighlightCacheStats() {
+  return {
+    htmlCacheSize: htmlCache.size,
+    tokensCacheSize: tokensCache.size
+  }
+}
+
+// 清除缓存（主题切换时可能需要）
+export function clearHighlightCache() {
+  htmlCache.clear()
+  tokensCache.clear()
+}
+
+// ============================================
+
 // 根据主题模式选择 shiki 主题
 export function getShikiTheme(isDark: boolean): BundledTheme {
   return isDark ? 'github-dark' : 'github-light'
@@ -85,19 +233,26 @@ export function useSyntaxHighlight(code: string, options: HighlightOptions & { m
 
     let cancelled = false
     
-    // Reset immediately to prevent stale content
+    // 先检查缓存 - 同步返回避免闪烁
+    const cacheKey = getCacheKey(code, normalizedLang, selectedTheme)
+    const cachedResult = mode === 'html' 
+      ? htmlCache.get(cacheKey) 
+      : tokensCache.get(cacheKey)
+    
+    if (cachedResult !== undefined) {
+      setOutput(cachedResult)
+      setIsLoading(false)
+      return
+    }
+    
+    // 没有缓存，异步高亮
     setOutput(null)
     setIsLoading(true)
 
     async function highlight() {
       try {
-        if (mode === 'html') {
-          const html = await codeToHtml(code, { lang: normalizedLang as any, theme: selectedTheme })
-          if (!cancelled) setOutput(html)
-        } else {
-          const result = await codeToTokens(code, { lang: normalizedLang as any, theme: selectedTheme })
-          if (!cancelled) setOutput(result.tokens)
-        }
+        const result = await highlightWithCache(code, normalizedLang, selectedTheme, mode)
+        if (!cancelled) setOutput(result)
       } catch (err) {
         // Syntax highlighting error - silently fallback
         if (import.meta.env.DEV) {

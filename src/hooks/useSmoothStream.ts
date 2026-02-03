@@ -103,6 +103,18 @@ export function useSmoothStream(
     wasStreamingRef.current = isStreaming
   }, [isStreaming, fullText.length])
 
+  // 使用 ref 存储最新值，避免 useEffect 依赖变化导致频繁重启动画
+  const fullTextLengthRef = useRef(fullText.length)
+  const charDelayRef = useRef(charDelay)
+  
+  useEffect(() => {
+    fullTextLengthRef.current = fullText.length
+  }, [fullText.length])
+  
+  useEffect(() => {
+    charDelayRef.current = charDelay
+  }, [charDelay])
+
   // 动画逻辑：只在 streaming 且还有内容未显示时运行
   useEffect(() => {
     // 不是 streaming，不需要动画
@@ -110,51 +122,56 @@ export function useSmoothStream(
       return
     }
 
-    // 已经显示完了
-    if (displayIndex >= fullText.length) {
-      return
-    }
+    // 已经显示完了 - 但 fullText 可能还在更新，需要继续监听
+    // 所以不在这里返回，让动画循环自己检查
+    
+    let isRunning = true
 
     const animate = (time: number) => {
+      if (!isRunning) return
+      
+      const fullTextLength = fullTextLengthRef.current
+      const charDelay = charDelayRef.current
       const elapsed = time - lastTimeRef.current
       
-      // 计算落后了多少字符
-      const lag = fullText.length - displayIndex
-      
-      // 动态调速：落后越多，速度越快
-      // - lag < 50: 正常速度 (charDelay)
-      // - lag 50-150: 加速 (charDelay / 2)
-      // - lag 150-300: 快速 (charDelay / 4)
-      // - lag > 300: 直接追上
-      let effectiveDelay = charDelay
-      let charsPerFrame = 1
-      
-      if (lag > 300) {
-        // 落后太多，直接追上
-        setDisplayIndex(fullText.length)
-        lastTimeRef.current = time
+      // 获取当前 displayIndex（需要用 callback 形式）
+      setDisplayIndex(currentIndex => {
+        // 已经显示完了，继续等待新内容
+        if (currentIndex >= fullTextLength) {
+          frameRef.current = requestAnimationFrame(animate)
+          return currentIndex
+        }
+        
+        // 计算落后了多少字符
+        const lag = fullTextLength - currentIndex
+        
+        // 动态调速：落后越多，速度越快
+        let effectiveDelay = charDelay
+        let charsPerFrame = 1
+        
+        if (lag > 300) {
+          // 落后太多，直接追上
+          lastTimeRef.current = time
+          frameRef.current = requestAnimationFrame(animate)
+          return fullTextLength
+        } else if (lag > 150) {
+          effectiveDelay = charDelay / 4
+          charsPerFrame = 4
+        } else if (lag > 50) {
+          effectiveDelay = charDelay / 2
+          charsPerFrame = 2
+        }
+        
+        if (elapsed >= effectiveDelay) {
+          const charsToAdd = Math.max(charsPerFrame, Math.floor(elapsed / effectiveDelay) * charsPerFrame)
+          lastTimeRef.current = time
+          frameRef.current = requestAnimationFrame(animate)
+          return Math.min(currentIndex + charsToAdd, fullTextLength)
+        }
+        
         frameRef.current = requestAnimationFrame(animate)
-        return
-      } else if (lag > 150) {
-        effectiveDelay = charDelay / 4
-        charsPerFrame = 4
-      } else if (lag > 50) {
-        effectiveDelay = charDelay / 2
-        charsPerFrame = 2
-      }
-      
-      if (elapsed >= effectiveDelay) {
-        const charsToAdd = Math.max(charsPerFrame, Math.floor(elapsed / effectiveDelay) * charsPerFrame)
-        
-        setDisplayIndex(prev => {
-          const next = Math.min(prev + charsToAdd, fullText.length)
-          return next
-        })
-        
-        lastTimeRef.current = time
-      }
-
-      frameRef.current = requestAnimationFrame(animate)
+        return currentIndex
+      })
     }
 
     // 初始化时间
@@ -165,12 +182,13 @@ export function useSmoothStream(
     frameRef.current = requestAnimationFrame(animate)
 
     return () => {
+      isRunning = false
       if (frameRef.current) {
         cancelAnimationFrame(frameRef.current)
         frameRef.current = null
       }
     }
-  }, [fullText.length, displayIndex, isStreaming, charDelay])
+  }, [isStreaming]) // 只依赖 isStreaming，减少重启次数
 
   // 强制立即显示全部
   const flush = useCallback(() => {
