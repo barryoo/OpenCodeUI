@@ -170,12 +170,7 @@ function App() {
                   modelsLoading={modelsLoading}
                   selectedModelKey={selectedModelKey}
                   onModelChange={handleModelChange}
-                  themeMode={themeMode}
-                  onThemeChange={setThemeWithAnimation}
-                  isWideMode={isWideMode}
-                  onToggleWideMode={toggleWideMode}
                   onOpenSidebar={() => setSidebarExpanded(true)}
-                  onOpenSettings={openSettings}
                 />
               </div>
             </div>

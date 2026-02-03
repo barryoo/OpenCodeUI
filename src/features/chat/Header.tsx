@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useMemo } from 'react'
-import { CogIcon, MoreHorizontalIcon, TeachIcon, MaximizeIcon, MinimizeIcon, SunIcon, MoonIcon, SystemIcon, ShareIcon, PanelRightIcon, PanelBottomIcon, ChevronDownIcon, SidebarIcon } from '../../components/Icons'
-import { DropdownMenu, MenuItem, IconButton } from '../../components/ui'
+import { PanelRightIcon, PanelBottomIcon, ChevronDownIcon, SidebarIcon } from '../../components/Icons'
+import { IconButton } from '../../components/ui'
 import { ModelSelector } from './ModelSelector'
 import { ShareDialog } from './ShareDialog'
 import { useMessageStore } from '../../store'
@@ -8,7 +8,6 @@ import { useLayoutStore, layoutStore } from '../../store/layoutStore'
 import { useSessionContext } from '../../contexts/SessionContext'
 import { updateSession } from '../../api'
 import { uiErrorHandler } from '../../utils'
-import type { ThemeMode } from '../../hooks'
 import type { ModelInfo } from '../../api'
 
 interface HeaderProps {
@@ -16,12 +15,7 @@ interface HeaderProps {
   modelsLoading: boolean
   selectedModelKey: string | null
   onModelChange: (modelKey: string, model: ModelInfo) => void
-  themeMode: ThemeMode
-  onThemeChange: (mode: ThemeMode, event?: React.MouseEvent) => void
-  isWideMode?: boolean
-  onToggleWideMode?: () => void
   onOpenSidebar?: () => void
-  onOpenSettings?: () => void
 }
 
 export function Header({
@@ -29,26 +23,17 @@ export function Header({
   modelsLoading,
   selectedModelKey,
   onModelChange,
-  themeMode,
-  onThemeChange,
-  isWideMode,
-  onToggleWideMode,
   onOpenSidebar,
-  onOpenSettings,
 }: HeaderProps) {
-  const { shareUrl, sessionId } = useMessageStore()
+  const { sessionId } = useMessageStore()
   const { rightPanelOpen, bottomPanelOpen } = useLayoutStore()
   const { sessions, refresh } = useSessionContext()
   
-  const [settingsMenuOpen, setSettingsMenuOpen] = useState(false)
   const [shareDialogOpen, setShareDialogOpen] = useState(false)
   
   const [isEditingTitle, setIsEditingTitle] = useState(false)
   const [editTitle, setEditTitle] = useState('')
   const titleInputRef = useRef<HTMLInputElement>(null)
-  
-  const settingsTriggerRef = useRef<HTMLButtonElement>(null)
-  const settingsMenuRef = useRef<HTMLDivElement>(null)
 
   // Session Data
   const currentSession = useMemo(() => 
@@ -89,21 +74,6 @@ export function Header({
       setIsEditingTitle(false)
     }
   }
-
-  // Close menu on click outside
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (
-        settingsMenuRef.current &&
-        !settingsMenuRef.current.contains(e.target as Node) &&
-        !settingsTriggerRef.current?.contains(e.target as Node)
-      ) {
-        setSettingsMenuOpen(false)
-      }
-    }
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [])
 
   return (
     <div className="h-14 flex justify-between items-center px-4 z-20 bg-bg-100 transition-colors duration-200 relative">
@@ -170,86 +140,8 @@ export function Header({
         </div>
       </div>
 
-      {/* Right: Settings, Panels (z-20) */}
+      {/* Right: Panel Toggles (z-20) */}
       <div className="flex items-center gap-1 pointer-events-auto shrink-0 z-20">
-
-        <div className="w-px h-4 bg-border-200/50 mx-1 hidden sm:block" />
-
-        {/* Settings Button */}
-        <div className="relative">
-          <IconButton
-            ref={settingsTriggerRef}
-            aria-label="Menu"
-            onClick={() => setSettingsMenuOpen(!settingsMenuOpen)}
-            className="hover:bg-bg-200/50 text-text-400 hover:text-text-100"
-          >
-            <MoreHorizontalIcon size={18} />
-          </IconButton>
-
-          <DropdownMenu
-            triggerRef={settingsTriggerRef}
-            isOpen={settingsMenuOpen}
-            position="bottom"
-            align="right"
-            width={200}
-          >
-            <div ref={settingsMenuRef} className="py-1">
-              {/* Theme Selector */}
-              <div className="px-2 pt-2 pb-1">
-                <div className="text-[10px] font-bold text-text-400 uppercase tracking-wider px-2 mb-1.5">Appearance</div>
-                <div className="flex bg-bg-100/50 p-1 rounded-lg border border-border-200/50 relative isolate">
-                  <div
-                    className="absolute top-1 bottom-1 left-1 w-[calc((100%-8px)/3)] bg-bg-000 rounded-md shadow-md ring-1 ring-border-200/50 transition-transform duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] -z-10"
-                    style={{
-                      transform: themeMode === 'system' ? 'translateX(0%)' : themeMode === 'light' ? 'translateX(100%)' : 'translateX(200%)'
-                    }}
-                  />
-                  {(['system', 'light', 'dark'] as const).map((m) => (
-                    <button
-                      key={m}
-                      onClick={(e) => onThemeChange(m, e)}
-                      className={`flex-1 flex items-center justify-center py-1.5 rounded-md text-xs font-medium transition-colors duration-300 ${
-                        themeMode === m ? 'text-text-100' : 'text-text-400 hover:text-text-200'
-                      }`}
-                    >
-                      {m === 'system' && <SystemIcon size={14} />}
-                      {m === 'light' && <SunIcon size={14} />}
-                      {m === 'dark' && <MoonIcon size={14} />}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              
-              <div className="my-1 border-t border-border-200/50" />
-              
-              {onToggleWideMode && (
-                <MenuItem
-                  icon={isWideMode ? <MinimizeIcon size={16} /> : <MaximizeIcon size={16} />}
-                  label={isWideMode ? "Standard Width" : "Wide Mode"}
-                  onClick={() => { onToggleWideMode(); setSettingsMenuOpen(false); }}
-                />
-              )}
-
-              <MenuItem
-                icon={<ShareIcon />}
-                label={shareUrl ? "Share Settings" : "Share Chat"}
-                onClick={() => { setSettingsMenuOpen(false); setShareDialogOpen(true); }}
-              />
-
-              <MenuItem
-                icon={<CogIcon />}
-                label="Settings"
-                onClick={() => { setSettingsMenuOpen(false); onOpenSettings?.(); }}
-              />
-              <MenuItem
-                icon={<TeachIcon />}
-                label="Help & Feedback"
-                onClick={() => { setSettingsMenuOpen(false); }}
-              />
-            </div>
-          </DropdownMenu>
-        </div>
-
         {/* Panel Toggles Group */}
         <div className="flex items-center gap-0.5 ml-1">
           <IconButton
