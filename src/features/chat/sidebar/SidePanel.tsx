@@ -10,7 +10,9 @@ import {
   SearchIcon,
   ChevronDownIcon,
   CogIcon,
-  TerminalIcon
+  TeachIcon,
+  TerminalIcon,
+  BoltIcon
 } from '../../../components/Icons'
 import { useDirectory, useSessionStats, formatTokens, formatCost } from '../../../hooks'
 import { useSessionContext } from '../../../contexts/SessionContext'
@@ -422,8 +424,15 @@ function SidebarFooter({
   hasMessages,
   onOpenSettings 
 }: SidebarFooterProps) {
-  const [showTooltip, setShowTooltip] = useState(false)
+  const [menuOpen, setMenuOpen] = useState(false)
   
+  // Close menu when sidebar collapses
+  useEffect(() => {
+    if (!showLabels) {
+      setMenuOpen(false)
+    }
+  }, [showLabels])
+
   // Connection Status Color
   const statusColor = {
     connected: 'bg-success-100',
@@ -436,108 +445,120 @@ function SidebarFooter({
                      stats.contextPercent >= 70 ? 'bg-warning-100' : 
                      'bg-accent-main-100'
 
-  // ========== 收起状态 (Rail Mode) ==========
-  if (!showLabels) {
-    return (
-      <div className="shrink-0 border-t border-border-200/30 p-2 flex flex-col items-center gap-1">
+  return (
+    <div className="shrink-0 border-t border-border-200/30">
+      
+      {/* Context Usage Bar - Separate from button, Visible when expanded */}
+      {hasMessages && showLabels && (
+        <div className="px-4 pt-3 pb-1">
+          <div className="flex justify-between items-center text-[10px] text-text-400 mb-1">
+            <span className="font-medium">Context</span>
+            <span className="font-mono">{Math.round(stats.contextPercent)}%</span>
+          </div>
+          <div className="w-full h-1 bg-bg-300 rounded-full overflow-hidden relative">
+            <div 
+              className={`absolute inset-0 ${statsColor} transition-transform duration-500 ease-out origin-left`} 
+              style={{ transform: `scaleX(${Math.min(100, stats.contextPercent) / 100})` }}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Main Profile Button Area */}
+      <div className="p-2">
+        
+        {/* Menu Popup - Positioned above button (Inline expansion) */}
         <div 
-          className="relative w-8 h-8 flex items-center justify-center rounded-lg hover:bg-bg-200/50 transition-colors cursor-pointer group"
-          onMouseEnter={() => setShowTooltip(true)}
-          onMouseLeave={() => setShowTooltip(false)}
-          onClick={onOpenSettings}
+          className={`
+            overflow-hidden transition-all duration-300 ease-[cubic-bezier(0.25,1,0.5,1)]
+            ${menuOpen && showLabels ? 'max-h-40 opacity-100 mb-1' : 'max-h-0 opacity-0'}
+          `}
         >
-          {/* Terminal Icon */}
-          <TerminalIcon size={18} className="text-text-300 group-hover:text-text-100 transition-colors" />
-          
-          {/* Connection Status Dot (Top Right) */}
-          <div className={`absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full border border-bg-100 ${statusColor}`} />
-          
-          {/* Hover Tooltip */}
-          {showTooltip && (
-             <div className="absolute left-full ml-3 bottom-0 z-[100] bg-bg-100 border border-border-200 p-2 rounded-lg shadow-xl whitespace-nowrap">
-                <div className="text-xs font-medium text-text-200">Local Environment</div>
-                {hasMessages && (
-                  <div className="text-[10px] text-text-400 font-mono mt-1">
-                    Context: {Math.round(stats.contextPercent)}%
-                  </div>
-                )}
-             </div>
-          )}
+          <div className="rounded-lg border border-border-200/50 bg-bg-100/80 overflow-hidden mx-1">
+            {/* Context Info (Detailed) */}
+            {hasMessages && (
+              <div className="px-3 py-1.5 border-b border-border-200/50 bg-bg-200/30">
+                <div className="flex justify-between text-[10px] text-text-400 font-mono">
+                  <span>{formatTokens(stats.contextUsed)} / {formatTokens(stats.contextLimit)}</span>
+                  <span>{formatCost(stats.totalCost)}</span>
+                </div>
+              </div>
+            )}
+            
+            <button
+              onClick={() => { setMenuOpen(false); onOpenSettings?.(); }}
+              className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-text-300 hover:text-text-100 hover:bg-bg-200/50 transition-colors text-left"
+            >
+              <CogIcon size={14} />
+              <span>Settings</span>
+            </button>
+            <button
+              onClick={() => setMenuOpen(false)}
+              className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-text-300 hover:text-text-100 hover:bg-bg-200/50 transition-colors text-left"
+            >
+              <TeachIcon size={14} />
+              <span>Help & Feedback</span>
+            </button>
+            <div className="flex items-center gap-2 px-3 py-1.5 text-xs text-text-400 cursor-default">
+              <BoltIcon size={14} />
+              <span className="capitalize">{connectionState}</span>
+            </div>
+          </div>
         </div>
 
-        {/* Micro Progress Bar (Always Visible) */}
-        {hasMessages && (
-          <div className="w-6 h-1 bg-bg-300 rounded-full overflow-hidden" title={`${Math.round(stats.contextPercent)}% Used`}>
+        {/* Profile Button - Matches Project/New Chat style */}
+        <button
+          onClick={() => setMenuOpen(!menuOpen)}
+          className={`
+            w-full h-8 flex items-center rounded-lg transition-all duration-200 group
+            ${menuOpen ? 'bg-bg-200 text-text-100' : 'text-text-300 hover:text-text-100 hover:bg-bg-200'}
+          `}
+          style={{ 
+            paddingLeft: 6, 
+            paddingRight: 6,
+            justifyContent: showLabels ? 'flex-start' : 'center'
+          }}
+          title="Local Environment"
+        >
+          {/* Icon Area */}
+          <div className="relative w-5 h-5 flex items-center justify-center shrink-0">
+            <TerminalIcon size={16} />
+            {/* Status Dot */}
+            <div className={`absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full border border-bg-100 ${statusColor}`} />
+          </div>
+
+          {/* Label Area */}
+          <div 
+            className="ml-2 flex-1 flex items-center min-w-0 overflow-hidden transition-opacity duration-200"
+            style={{ 
+              opacity: showLabels ? 1 : 0,
+              width: showLabels ? 'auto' : 0
+            }}
+          >
+            <span className="text-sm truncate">Local Env</span>
+            <span className="ml-auto text-[10px] text-text-500 border border-border-200 rounded px-1 hidden group-hover:inline-block">
+              Free
+            </span>
+          </div>
+
+          {/* Chevron */}
+          {showLabels && (
+            <ChevronDownIcon 
+              size={14} 
+              className={`ml-auto text-text-400 transition-transform duration-200 shrink-0 ${menuOpen ? '' : '-rotate-90'}`}
+            />
+          )}
+        </button>
+
+        {/* Collapsed Context Indicator (Micro Bar) */}
+        {!showLabels && hasMessages && (
+          <div className="mt-1.5 mx-1.5 h-0.5 bg-bg-300 rounded-full overflow-hidden opacity-50 hover:opacity-100 transition-opacity relative">
             <div 
-              className={`h-full ${statsColor} transition-all duration-300`} 
-              style={{ width: `${Math.min(100, stats.contextPercent)}%` }}
+              className={`absolute inset-0 ${statsColor} origin-left`} 
+              style={{ transform: `scaleX(${Math.min(100, stats.contextPercent) / 100})` }}
             />
           </div>
         )}
-      </div>
-    )
-  }
-
-  // ========== 展开状态 (Dashboard Mode) ==========
-  return (
-    <div className="shrink-0 border-t border-border-200/30 bg-bg-100/50">
-      <div className="px-4 py-3 space-y-3">
-        
-        {/* Top Row: Identity & Actions */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2 overflow-hidden">
-            <div className="w-8 h-8 rounded-lg bg-bg-200/50 flex items-center justify-center shrink-0">
-               <TerminalIcon size={16} className="text-text-300" />
-            </div>
-            <div className="flex flex-col min-w-0">
-              <span className="text-sm font-medium text-text-100 truncate">Local Env</span>
-              <div className="flex items-center gap-1.5">
-                <div className={`w-1.5 h-1.5 rounded-full ${statusColor}`} />
-                <span className="text-[10px] text-text-400 truncate capitalize">{connectionState}</span>
-              </div>
-            </div>
-          </div>
-          
-          <div className="flex items-center gap-1 shrink-0">
-             {/* Settings Button */}
-             <button 
-               onClick={onOpenSettings}
-               className="p-1.5 text-text-400 hover:text-text-100 hover:bg-bg-200 rounded-md transition-colors"
-               title="Settings"
-             >
-               <CogIcon size={16} />
-             </button>
-          </div>
-        </div>
-
-        {/* Stats Section (Always Visible if messages exist) */}
-        {hasMessages && (
-          <div className="bg-bg-200/30 rounded-lg p-2.5 border border-border-200/30">
-            <div className="flex justify-between items-end mb-1.5">
-              <span className="text-[10px] font-bold text-text-400 uppercase tracking-wider">Context Usage</span>
-              <span className={`text-xs font-mono font-medium ${
-                 stats.contextPercent > 90 ? 'text-danger-100' : 'text-text-200'
-              }`}>
-                {Math.round(stats.contextPercent)}%
-              </span>
-            </div>
-            
-            <div className="w-full h-2 bg-bg-300/50 rounded-full overflow-hidden mb-2">
-              <div 
-                className={`h-full ${statsColor} transition-all duration-500`} 
-                style={{ width: `${Math.min(100, stats.contextPercent)}%` }}
-              />
-            </div>
-            
-            <div className="flex justify-between text-[10px] text-text-400 font-mono">
-              <span>{formatTokens(stats.contextUsed)} / {formatTokens(stats.contextLimit)}</span>
-              {stats.totalCost > 0 && (
-                <span>{formatCost(stats.totalCost)}</span>
-              )}
-            </div>
-          </div>
-        )}
-        
       </div>
     </div>
   )
