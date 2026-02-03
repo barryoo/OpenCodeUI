@@ -187,7 +187,7 @@ export function SessionList({
                 session={session}
                 isSelected={session.id === selectedId}
                 onSelect={() => onSelect(session)}
-                onDelete={() => onDelete(session.id)}
+                onDelete={() => setDeleteConfirm({ isOpen: true, sessionId: session.id })}
                 onRename={(newTitle) => onRename(session.id, newTitle)}
                 density={density}
                 showStats={showStats}
