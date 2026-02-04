@@ -2,10 +2,18 @@
 // ChatArea - 聊天消息显示区域
 // ============================================
 
-import { useRef, useImperativeHandle, forwardRef, useState, memo, useCallback, useEffect } from 'react'
+import { useRef, useImperativeHandle, forwardRef, useState, memo, useCallback, useEffect, useMemo } from 'react'
 import { Virtuoso, type VirtuosoHandle } from 'react-virtuoso'
 import { MessageRenderer } from '../message'
 import type { Message } from '../../types/message'
+import {
+  VIRTUOSO_START_INDEX,
+  AUTO_SCROLL_THRESHOLD_PX,
+  SCROLL_CHECK_INTERVAL_MS,
+  SCROLL_RESUME_DELAY_MS,
+  AT_BOTTOM_THRESHOLD_PX,
+  VIRTUOSO_OVERSCAN_PX,
+} from '../../constants'
 
 interface ChatAreaProps {
   messages: Message[]
@@ -53,7 +61,7 @@ function messageHasContent(msg: Message): boolean {
 }
 
 // 大数字作为起始索引，允许向前 prepend
-const START_INDEX = 1000000
+const START_INDEX = VIRTUOSO_START_INDEX
 
 export const ChatArea = memo(forwardRef<ChatAreaHandle, ChatAreaProps>(({ 
   messages, 
@@ -81,8 +89,8 @@ export const ChatArea = memo(forwardRef<ChatAreaHandle, ChatAreaProps>(({
   // 使用 sessionId 作为 key，切换时会触发组件重新挂载从而产生 CSS 动画
   const transitionKey = sessionId || 'empty'
   
-  // 过滤空消息
-  const visibleMessages = messages.filter(messageHasContent)
+  // 过滤空消息（有 memo 避免每次 render 都创建新数组）
+  const visibleMessages = useMemo(() => messages.filter(messageHasContent), [messages])
   
   // 用 ref 追踪最新的消息数量，确保回调和 effect 中能获取到
   const visibleMessagesCountRef = useRef(visibleMessages.length)
@@ -106,7 +114,7 @@ export const ChatArea = memo(forwardRef<ChatAreaHandle, ChatAreaProps>(({
         // 1. 如果 Virtuoso 认为在底部，那就滚
         // 2. 如果 Virtuoso 认为不在底部，但实际距离 < 150px，那说明是打字机导致的"假"脱离底部，强制拉回来
         // 3. 只有当用户真的往上翻了很多（> 150px），才停止滚动
-        return isUserAtBottomRef.current || distanceToBottom < 150
+        return isUserAtBottomRef.current || distanceToBottom < AUTO_SCROLL_THRESHOLD_PX
       })()
 
       if (!shouldForceScroll) return
@@ -125,10 +133,10 @@ export const ChatArea = memo(forwardRef<ChatAreaHandle, ChatAreaProps>(({
            scrollParent.scrollTop = scrollParent.scrollHeight
         }
       }
-    }, 50)  // 加快检查频率到 50ms
+    }, SCROLL_CHECK_INTERVAL_MS)  // 加快检查频率
     
     return () => clearInterval(scrollInterval)
-  }, [isStreaming])
+  }, [isStreaming, scrollParent])
   
   // 清理 scrollingTimeoutRef 防止内存泄漏
   useEffect(() => {
@@ -206,7 +214,7 @@ export const ChatArea = memo(forwardRef<ChatAreaHandle, ChatAreaProps>(({
       // 给用户足够的缓冲时间
       scrollingTimeoutRef.current = setTimeout(() => {
         isUserScrollingRef.current = false
-      }, 500)
+      }, SCROLL_RESUME_DELAY_MS)
     }
   }, [])
 
@@ -257,12 +265,12 @@ export const ChatArea = memo(forwardRef<ChatAreaHandle, ChatAreaProps>(({
             followOutput={handleFollowOutput}
             atBottomStateChange={handleAtBottomStateChange}
             isScrolling={handleIsScrolling}
-            atBottomThreshold={60}
+            atBottomThreshold={AT_BOTTOM_THRESHOLD_PX}
             // 减少 prepend 时的闪烁，跳过 ResizeObserver 的 requestAnimationFrame
             // 可能产生 console 警告但能改善体验
             skipAnimationFrameInResizeObserver
             // 增加 overscan 预渲染更多内容，减少滚动时的实时渲染压力
-            overscan={{ main: 500, reverse: 500 }}
+            overscan={{ main: VIRTUOSO_OVERSCAN_PX, reverse: VIRTUOSO_OVERSCAN_PX }}
             components={{
               Header: () => <div className="h-20" />,
               Footer: () => <div className="h-64" />

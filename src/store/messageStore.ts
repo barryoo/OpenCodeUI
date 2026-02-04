@@ -16,6 +16,7 @@ import type {
   ApiSession,
   Attachment,
 } from '../api/types'
+import { MAX_HISTORY_MESSAGES } from '../constants'
 
 // ============================================
 // Types
@@ -84,6 +85,35 @@ class MessageStore {
   private visibleMessagesCacheSessionId: string | null = null
   private visibleMessagesCacheRevertId: string | null = null
   private visibleMessagesCacheLength: number = 0
+
+  // ============================================
+  // Message Trimming (Memory Guard)
+  // ============================================
+
+  private trimMessagesIfNeeded(sessionId: string, state: SessionState) {
+    const excess = state.messages.length - MAX_HISTORY_MESSAGES
+    if (excess <= 0) return
+
+    if (import.meta.env.DEV) {
+      console.warn('[MessageStore] Trimming messages for session:', sessionId, 'excess:', excess)
+    }
+
+    state.messages = state.messages.slice(excess)
+    state.prependedCount = Math.max(0, state.prependedCount - excess)
+    state.hasMoreHistory = false
+
+    if (state.revertState) {
+      const remainingIds = new Set(state.messages.map(m => m.info.id))
+      if (!remainingIds.has(state.revertState.messageId)) {
+        state.revertState = null
+      } else if (state.revertState.history.length > 0) {
+        state.revertState.history = state.revertState.history.filter(item => remainingIds.has(item.messageId))
+        if (state.revertState.history.length === 0) {
+          state.revertState = null
+        }
+      }
+    }
+  }
 
   // ============================================
   // Subscription
@@ -381,6 +411,8 @@ class MessageStore {
       state.isStreaming = false
     }
 
+    this.trimMessagesIfNeeded(sessionId, state)
+
     this.notify()
   }
 
@@ -395,6 +427,8 @@ class MessageStore {
     state.messages = [...newMessages, ...state.messages]
     state.prependedCount += newMessages.length
     state.hasMoreHistory = hasMore
+
+    this.trimMessagesIfNeeded(sessionId, state)
 
     this.notify()
   }
@@ -453,6 +487,8 @@ class MessageStore {
       if (apiMsg.role === 'assistant') {
         state.isStreaming = true
       }
+
+      this.trimMessagesIfNeeded(apiMsg.sessionID, state)
     }
 
     this.notify()
@@ -540,6 +576,8 @@ class MessageStore {
       )
     }
 
+    this.trimMessagesIfNeeded(sessionId, state)
+
     this.notify()
   }
 
@@ -559,6 +597,8 @@ class MessageStore {
         m.isStreaming ? { ...m, isStreaming: false } : m
       )
     }
+
+    this.trimMessagesIfNeeded(sessionId, state)
 
     this.notify()
   }
@@ -664,6 +704,9 @@ class MessageStore {
     if (!state) return
 
     state.isStreaming = isStreaming
+    if (!isStreaming) {
+      this.trimMessagesIfNeeded(sessionId, state)
+    }
     this.notify()
   }
 

@@ -15,12 +15,10 @@ import {
   revertMessage,
   unrevertSession,
   extractUserMessageContent,
-  type ApiMessageWithParts,
   type ApiUserMessage,
 } from '../api'
 import { sessionErrorHandler } from '../utils'
-
-const INITIAL_MESSAGE_LIMIT = 50
+import { INITIAL_MESSAGE_LIMIT, HISTORY_LOAD_BATCH_SIZE, MAX_HISTORY_MESSAGES } from '../constants'
 
 interface UseSessionManagerOptions {
   sessionId: string | null
@@ -36,7 +34,6 @@ export function useSessionManager({
   onError,
 }: UseSessionManagerOptions) {
   const loadingRef = useRef(false)
-  const fullHistoryRef = useRef<Map<string, ApiMessageWithParts[]>>(new Map())
   
   // 使用 ref 保存 directory，避免依赖变化
   const directoryRef = useRef(directory)
@@ -110,40 +107,38 @@ export function useSessionManager({
     const state = messageStore.getSessionState(sessionId)
     if (!state || !state.hasMoreHistory) return
 
+    if (state.messages.length >= MAX_HISTORY_MESSAGES) {
+      messageStore.prependMessages(sessionId, [], false)
+      return
+    }
+
     const dir = state.directory || directoryRef.current
 
     try {
-      // 获取或缓存完整历史
-      let allMessages = fullHistoryRef.current.get(sessionId)
-      if (!allMessages) {
-        allMessages = await getSessionMessages(sessionId, undefined, dir)
-        fullHistoryRef.current.set(sessionId, allMessages)
-      }
+      const targetLimit = Math.min(
+        state.messages.length + HISTORY_LOAD_BATCH_SIZE,
+        MAX_HISTORY_MESSAGES
+      )
 
-      // 找到当前最老的消息
-      const currentMessages = state.messages
-      const oldestId = currentMessages[0]?.info.id
-      
+      const apiMessages = await getSessionMessages(sessionId, targetLimit, dir)
+
+      const oldestId = state.messages[0]?.info.id
       if (!oldestId) {
-        // 没有当前消息，直接设置所有历史
-        messageStore.setMessages(sessionId, allMessages, {
+        messageStore.setMessages(sessionId, apiMessages, {
           directory: state.directory,
-          hasMoreHistory: false,
+          hasMoreHistory: apiMessages.length >= targetLimit,
         })
         return
       }
 
-      const oldestIndex = allMessages.findIndex(m => m.info.id === oldestId)
+      const oldestIndex = apiMessages.findIndex(m => m.info.id === oldestId)
       if (oldestIndex <= 0) {
-        // 已经加载完所有历史
         messageStore.prependMessages(sessionId, [], false)
         return
       }
 
-      // 向前加载 15 条
-      const startIndex = Math.max(0, oldestIndex - 15)
-      const newMessages = allMessages.slice(startIndex, oldestIndex)
-      const hasMore = startIndex > 0
+      const newMessages = apiMessages.slice(0, oldestIndex)
+      const hasMore = apiMessages.length >= targetLimit && targetLimit < MAX_HISTORY_MESSAGES
 
       messageStore.prependMessages(sessionId, newMessages, hasMore)
     } catch (error) {
@@ -285,12 +280,6 @@ export function useSessionManager({
       }
     }
 
-    // 清理缓存
-    return () => {
-      if (sessionId) {
-        fullHistoryRef.current.delete(sessionId)
-      }
-    }
   }, [sessionId, loadSession])
 
   return {

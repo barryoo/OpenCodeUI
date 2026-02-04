@@ -152,6 +152,8 @@ export const Terminal = memo(function Terminal({
     mountedRef.current = true
     let ws: WebSocket | null = null
     let wsConnectTimeout: number | null = null
+    let disposeData: { dispose: () => void } | null = null
+    let disposeTitle: { dispose: () => void } | null = null
 
     const isMobile = isMobileDevice()
     const theme = getTerminalTheme(isDarkMode())
@@ -229,7 +231,8 @@ export const Terminal = memo(function Terminal({
         layoutStore.updateTerminalTab(ptyId, { status: 'disconnected' })
       }
 
-      terminal.onData((data) => {
+      disposeData?.dispose()
+      disposeData = terminal.onData((data) => {
         if (ws && ws.readyState === WebSocket.OPEN) {
           ws.send(data)
         }
@@ -238,7 +241,7 @@ export const Terminal = memo(function Terminal({
     
     wsConnectTimeout = requestAnimationFrame(connectWs) as unknown as number
 
-    terminal.onTitleChange((title) => {
+    disposeTitle = terminal.onTitleChange((title) => {
       if (!mountedRef.current) return
       layoutStore.updateTerminalTab(ptyId, { title })
     })
@@ -255,6 +258,8 @@ export const Terminal = memo(function Terminal({
       if (ws) {
         ws.close()
       }
+      disposeData?.dispose()
+      disposeTitle?.dispose()
       // 置空 refs 防止内存泄漏
       wsRef.current = null
       // 显式 dispose addons
@@ -304,6 +309,7 @@ export const Terminal = memo(function Terminal({
       resizeObserver.disconnect()
       if (resizeTimeoutRef.current) {
         clearTimeout(resizeTimeoutRef.current)
+        resizeTimeoutRef.current = null
       }
     }
   }, [isActive, ptyId, directory])

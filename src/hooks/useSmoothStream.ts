@@ -43,6 +43,7 @@ export function useSmoothStream(
   // Refs for animation control
   const frameRef = useRef<number | null>(null)
   const lastTimeRef = useRef<number>(0)
+  const waitTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   
   // 追踪 streaming 状态变化
   const wasStreamingRef = useRef(isStreaming)
@@ -98,6 +99,10 @@ export function useSmoothStream(
         cancelAnimationFrame(frameRef.current)
         frameRef.current = null
       }
+      if (waitTimeoutRef.current) {
+        clearTimeout(waitTimeoutRef.current)
+        waitTimeoutRef.current = null
+      }
     }
     
     wasStreamingRef.current = isStreaming
@@ -145,7 +150,10 @@ export function useSmoothStream(
         if (currentIndex >= fullTextLength) {
           // 使用 setTimeout 代替持续 RAF，减少 CPU 占用
           // 只有在 streaming 状态下才继续等待
-          setTimeout(() => {
+          if (waitTimeoutRef.current) {
+            clearTimeout(waitTimeoutRef.current)
+          }
+          waitTimeoutRef.current = setTimeout(() => {
             if (isRunning && fullTextLengthRef.current > currentIndex) {
               frameRef.current = requestAnimationFrame(animate)
             }
@@ -198,6 +206,10 @@ export function useSmoothStream(
         cancelAnimationFrame(frameRef.current)
         frameRef.current = null
       }
+      if (waitTimeoutRef.current) {
+        clearTimeout(waitTimeoutRef.current)
+        waitTimeoutRef.current = null
+      }
     }
   }, [isStreaming]) // 只依赖 isStreaming，减少重启次数
 
@@ -206,6 +218,10 @@ export function useSmoothStream(
     if (frameRef.current) {
       cancelAnimationFrame(frameRef.current)
       frameRef.current = null
+    }
+    if (waitTimeoutRef.current) {
+      clearTimeout(waitTimeoutRef.current)
+      waitTimeoutRef.current = null
     }
     setDisplayIndex(fullText.length)
   }, [fullText.length])
