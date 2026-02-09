@@ -7,8 +7,8 @@ import type { ThemeMode } from '../../hooks'
 
 const MIN_WIDTH = 240
 const MAX_WIDTH = 480
-const DEFAULT_WIDTH = 288  // Claude.ai: 18rem = 288px
-const RAIL_WIDTH = 49      // Claude.ai: 3.05rem ≈ 49px
+const DEFAULT_WIDTH = 288  // 18rem = 288px
+const RAIL_WIDTH = 49      // 3.05rem ≈ 49px
 
 interface SidebarProps {
   isOpen: boolean

@@ -37,7 +37,7 @@ export const TextPartView = memo(function TextPartView({ part, isStreaming = fal
   const shouldUseMarkdown = displayText.length < STREAMING_MARKDOWN_THRESHOLD
 
   return (
-    <div className="font-claude-response">
+    <div className="font-response">
       {shouldUseMarkdown ? (
         <MarkdownRenderer content={displayText} />
       ) : (

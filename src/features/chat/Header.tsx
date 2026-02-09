@@ -44,6 +44,16 @@ export function Header({
   )
   const sessionTitle = currentSession?.title || 'New Chat'
 
+  // 同步 document.title - 有 session 标题时显示 "标题 - OpenCode"，否则只显示 "OpenCode"
+  useEffect(() => {
+    if (currentSession?.title) {
+      document.title = `${currentSession.title} - OpenCode`
+    } else {
+      document.title = 'OpenCode'
+    }
+    return () => { document.title = 'OpenCode' }
+  }, [currentSession?.title])
+
   // Editing Logic
   useEffect(() => {
     setIsEditingTitle(false)

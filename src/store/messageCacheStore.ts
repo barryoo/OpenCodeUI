@@ -11,7 +11,7 @@ interface CachedMessageParts {
   updatedAt: number
 }
 
-const DB_NAME = 'claude-chat-cache'
+const DB_NAME = 'opencode-webui-cache'
 const DB_VERSION = 1
 const STORE_NAME = 'messageParts'
 
