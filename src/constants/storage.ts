@@ -16,3 +16,9 @@ export const STORAGE_KEY_SIDEBAR_WIDTH = 'sidebar-width'
 
 /** 模型 variant 偏好前缀 */
 export const STORAGE_KEY_MODEL_VARIANT_PREFIX = 'model-variant-'
+
+/** 上次使用的项目目录 */
+export const STORAGE_KEY_LAST_DIRECTORY = 'last-directory'
+
+/** 浏览器通知开关 */
+export const STORAGE_KEY_NOTIFICATIONS_ENABLED = 'notifications-enabled'

@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { normalizeToForwardSlash } from '../utils'
+import { STORAGE_KEY_LAST_DIRECTORY } from '../constants/storage'
 
 /**
  * Hash 路由，支持 directory 参数
@@ -28,6 +29,14 @@ function parseHash(): RouteState {
       // 入口标准化：统一转为正斜杠
       directory = normalizeToForwardSlash(dirMatch[1]) || undefined
     }
+  }
+  
+  // URL 没有 dir 参数时，从 localStorage 恢复上次目录
+  if (!directory) {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY_LAST_DIRECTORY)
+      if (saved) directory = saved
+    } catch { /* ignore */ }
   }
   
   // 匹配 #/session/{id}
@@ -83,6 +92,14 @@ export function useRouter() {
     // 入口标准化：统一转为正斜杠
     const normalized = directory ? normalizeToForwardSlash(directory) : undefined
     const newHash = buildHash(route.sessionId, normalized || undefined)
+    // 持久化到 localStorage
+    try {
+      if (normalized) {
+        localStorage.setItem(STORAGE_KEY_LAST_DIRECTORY, normalized)
+      } else {
+        localStorage.removeItem(STORAGE_KEY_LAST_DIRECTORY)
+      }
+    } catch { /* ignore */ }
     window.location.hash = newHash
   }, [route.sessionId])
 
@@ -91,6 +108,14 @@ export function useRouter() {
     // 入口标准化：统一转为正斜杠
     const normalized = directory ? normalizeToForwardSlash(directory) : undefined
     const newHash = buildHash(route.sessionId, normalized || undefined)
+    // 持久化到 localStorage
+    try {
+      if (normalized) {
+        localStorage.setItem(STORAGE_KEY_LAST_DIRECTORY, normalized)
+      } else {
+        localStorage.removeItem(STORAGE_KEY_LAST_DIRECTORY)
+      }
+    } catch { /* ignore */ }
     window.history.replaceState(null, '', newHash)
     setRoute({ sessionId: route.sessionId, directory: normalized || undefined })
   }, [route.sessionId])
