@@ -32,7 +32,11 @@ function App() {
   // ============================================
   // Theme
   // ============================================
-  const { mode: themeMode, setThemeWithAnimation } = useTheme()
+  const { 
+    mode: themeMode, setThemeWithAnimation,
+    presetId, setPresetWithAnimation, availablePresets,
+    customCSS, setCustomCSS,
+  } = useTheme()
 
   // ============================================
   // Models
@@ -447,6 +451,11 @@ function App() {
         isWideMode={isWideMode}
         onToggleWideMode={toggleWideMode}
         initialTab={settingsInitialTab}
+        presetId={presetId}
+        onPresetChange={setPresetWithAnimation}
+        availablePresets={availablePresets}
+        customCSS={customCSS}
+        onCustomCSSChange={setCustomCSS}
       />
 
       {/* Command Palette */}

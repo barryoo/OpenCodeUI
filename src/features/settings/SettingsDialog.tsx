@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { Dialog } from '../../components/ui/Dialog'
 import { Button } from '../../components/ui/Button'
 import { 
@@ -28,6 +28,13 @@ interface SettingsDialogProps {
   isWideMode?: boolean
   onToggleWideMode?: () => void
   initialTab?: SettingsTab
+  // Theme preset
+  presetId?: string
+  onPresetChange?: (presetId: string, event?: React.MouseEvent) => void
+  availablePresets?: { id: string; name: string; description: string }[]
+  // Custom CSS
+  customCSS?: string
+  onCustomCSSChange?: (css: string) => void
 }
 
 // ============================================
@@ -276,11 +283,130 @@ function AddServerForm({ onAdd, onCancel }: {
 // General Settings
 // ============================================
 
-function GeneralSettings({ themeMode, onThemeChange, isWideMode, onToggleWideMode }: {
+// ============================================
+// Theme Preset Card
+// ============================================
+
+const PRESET_PREVIEW_COLORS: Record<string, { bg: string; accent: string; text: string }> = {
+  claude: { bg: '#f3f0eb', accent: '#e87c2a', text: '#2d2a26' },
+  breeze: { bg: '#f3f5f7', accent: '#2ba5a5', text: '#212d36' },
+  custom: { bg: '#f0f0f0', accent: '#888888', text: '#333333' },
+}
+
+function PresetCard({ id, name, description, isActive, onClick }: {
+  id: string; name: string; description: string; isActive: boolean
+  onClick: (e: React.MouseEvent) => void
+}) {
+  const colors = PRESET_PREVIEW_COLORS[id] || PRESET_PREVIEW_COLORS.custom
+  return (
+    <button
+      onClick={onClick}
+      className={`flex items-start gap-3 p-3 rounded-lg border transition-all text-left w-full
+        ${isActive
+          ? 'border-accent-main-100/60 bg-accent-main-100/5 ring-1 ring-accent-main-100/20'
+          : 'border-border-200/50 hover:border-border-300 hover:bg-bg-100/50'
+        }`}
+    >
+      {/* Color preview swatch */}
+      <div
+        className="shrink-0 w-8 h-8 rounded-md border border-border-200/30 overflow-hidden relative mt-0.5"
+        style={{ backgroundColor: colors.bg }}
+      >
+        <div className="absolute bottom-0 left-0 right-0 h-2" style={{ backgroundColor: colors.accent }} />
+        <div className="absolute top-1.5 left-1.5 w-3 h-0.5 rounded-full" style={{ backgroundColor: colors.text, opacity: 0.6 }} />
+        <div className="absolute top-3 left-1.5 w-2 h-0.5 rounded-full" style={{ backgroundColor: colors.text, opacity: 0.3 }} />
+      </div>
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-1.5">
+          <span className="text-[13px] font-medium text-text-100">{name}</span>
+          {isActive && <CheckIcon size={12} className="text-accent-main-100 shrink-0" />}
+        </div>
+        <div className="text-[11px] text-text-400 mt-0.5">{description}</div>
+      </div>
+    </button>
+  )
+}
+
+// ============================================
+// Custom CSS Editor
+// ============================================
+
+function CustomCSSEditor({ value, onChange }: { value: string; onChange: (css: string) => void }) {
+  const [localValue, setLocalValue] = useState(value)
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  
+  // Sync external changes
+  useEffect(() => { setLocalValue(value) }, [value])
+  
+  const handleChange = (newVal: string) => {
+    setLocalValue(newVal)
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+    debounceRef.current = setTimeout(() => onChange(newVal), 400)
+  }
+  
+  const placeholder = `/* Override CSS variables to create your theme */
+:root:root {
+  /* Backgrounds */
+  --bg-000: 220 20% 98%;
+  --bg-100: 220 15% 95%;
+  --bg-200: 220 12% 92%;
+  --bg-300: 220 10% 88%;
+  --bg-400: 220 8% 84%;
+
+  /* Text */
+  --text-100: 220 15% 15%;
+  --text-200: 220 10% 35%;
+
+  /* Accent */
+  --accent-brand: 260 70% 55%;
+  --accent-main-100: 260 70% 55%;
+}`
+
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between">
+        <div className="text-[11px] text-text-400">
+          Custom CSS applied globally. Use <code className="text-[10px] px-1 py-0.5 bg-bg-200 rounded font-mono">:root:root</code> to override theme variables.
+        </div>
+      </div>
+      <textarea
+        value={localValue}
+        onChange={(e) => handleChange(e.target.value)}
+        placeholder={placeholder}
+        spellCheck={false}
+        className="w-full h-48 px-3 py-2 text-[12px] font-mono bg-bg-200/50 border border-border-200 rounded-lg 
+          focus:outline-none focus:border-accent-main-100/50 text-text-100 placeholder:text-text-500 
+          resize-y custom-scrollbar leading-relaxed"
+      />
+      {localValue.trim() && (
+        <div className="flex justify-end">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => { setLocalValue(''); onChange('') }}
+          >
+            Clear
+          </Button>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ============================================
+// General Settings
+// ============================================
+
+function GeneralSettings({ themeMode, onThemeChange, isWideMode, onToggleWideMode, presetId, onPresetChange, availablePresets, customCSS, onCustomCSSChange }: {
   themeMode: ThemeMode
   onThemeChange: (mode: ThemeMode, event?: React.MouseEvent) => void
   isWideMode?: boolean
   onToggleWideMode?: () => void
+  presetId?: string
+  onPresetChange?: (presetId: string, event?: React.MouseEvent) => void
+  availablePresets?: { id: string; name: string; description: string }[]
+  customCSS?: string
+  onCustomCSSChange?: (css: string) => void
 }) {
   const { pathMode, setPathMode, effectiveStyle, detectedStyle, isAutoMode } = usePathMode()
   const [autoApprove, setAutoApprove] = useState(autoApproveStore.enabled)
@@ -299,8 +425,32 @@ function GeneralSettings({ themeMode, onThemeChange, isWideMode, onToggleWideMod
 
   return (
     <div>
-      {/* Theme */}
-      <SectionLabel>Theme</SectionLabel>
+      {/* Theme Preset */}
+      {availablePresets && availablePresets.length > 0 && (
+        <>
+          <SectionLabel>Theme</SectionLabel>
+          <div className="space-y-1.5 mb-3">
+            {availablePresets.map(p => (
+              <PresetCard
+                key={p.id}
+                id={p.id}
+                name={p.name}
+                description={p.description}
+                isActive={presetId === p.id}
+                onClick={(e) => onPresetChange?.(p.id, e)}
+              />
+            ))}
+          </div>
+          
+          {/* Custom CSS Editor - only show when custom preset is selected */}
+          {presetId === 'custom' && onCustomCSSChange && (
+            <CustomCSSEditor value={customCSS || ''} onChange={onCustomCSSChange} />
+          )}
+        </>
+      )}
+
+      {/* Color Mode (Light/Dark/Auto) */}
+      <SectionLabel>Appearance</SectionLabel>
       <SegmentedControl
         value={themeMode}
         options={[
@@ -409,6 +559,7 @@ const TABS: { id: SettingsTab; label: string; icon: React.ReactNode }[] = [
 
 export function SettingsDialog({
   isOpen, onClose, themeMode, onThemeChange, isWideMode, onToggleWideMode, initialTab = 'general',
+  presetId, onPresetChange, availablePresets, customCSS, onCustomCSSChange,
 }: SettingsDialogProps) {
   const [tab, setTab] = useState<SettingsTab>(initialTab)
   const isMobile = useIsMobile()
@@ -467,6 +618,11 @@ export function SettingsDialog({
                 onThemeChange={onThemeChange}
                 isWideMode={isWideMode}
                 onToggleWideMode={onToggleWideMode}
+                presetId={presetId}
+                onPresetChange={onPresetChange}
+                availablePresets={availablePresets}
+                customCSS={customCSS}
+                onCustomCSSChange={onCustomCSSChange}
               />
             )}
             {tab === 'keybindings' && <KeybindingsSection />}
@@ -511,6 +667,11 @@ export function SettingsDialog({
               onThemeChange={onThemeChange}
               isWideMode={isWideMode}
               onToggleWideMode={onToggleWideMode}
+              presetId={presetId}
+              onPresetChange={onPresetChange}
+              availablePresets={availablePresets}
+              customCSS={customCSS}
+              onCustomCSSChange={onCustomCSSChange}
             />
           )}
           {tab === 'keybindings' && <KeybindingsSection />}

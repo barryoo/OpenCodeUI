@@ -1,89 +1,57 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, useSyncExternalStore } from 'react'
 import { flushSync } from 'react-dom'
-import { STORAGE_KEY_THEME_MODE, THEME_SWITCH_DISABLE_MS } from '../constants'
+import { THEME_SWITCH_DISABLE_MS } from '../constants'
+import { themeStore, type ColorMode } from '../store/themeStore'
 
-export type ThemeMode = 'system' | 'light' | 'dark'
+// 保持向后兼容的类型别名
+export type ThemeMode = ColorMode
 
 export function useTheme() {
-  const [mode, setMode] = useState<ThemeMode>(() => {
-    const saved = localStorage.getItem(STORAGE_KEY_THEME_MODE)
-    return (saved as ThemeMode) || 'system'
-  })
+  // 订阅 themeStore 变化
+  const state = useSyncExternalStore(themeStore.subscribe, themeStore.getSnapshot)
   
   const skipNextTransitionRef = useRef(false)
-
-  // 获取系统偏好
-  const getSystemPreference = useCallback(() => {
-    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
-  }, [])
-
-  // 实际应用的主题
-  const resolvedTheme = mode === 'system' ? getSystemPreference() : mode
-
-  // 应用主题到 DOM
+  
+  // 解析实际生效的亮/暗模式
+  const [resolvedTheme, setResolvedTheme] = useState<'light' | 'dark'>(() => themeStore.getResolvedMode())
+  
+  // 同步 resolvedTheme
   useEffect(() => {
-    const root = document.documentElement
-    if (skipNextTransitionRef.current) {
-      skipNextTransitionRef.current = false
-    }
-    
-    if (mode === 'system') {
-      root.removeAttribute('data-mode')
-    } else {
-      root.setAttribute('data-mode', mode)
-    }
-
-
-    localStorage.setItem(STORAGE_KEY_THEME_MODE, mode)
-
-    // 同步更新 theme-color meta 标签，从实际 CSS 变量取值
-    requestAnimationFrame(() => {
-      const bg = getComputedStyle(root).getPropertyValue('--color-bg-100').trim()
-      if (bg) {
-        const meta = document.querySelector('meta[name="theme-color"]')
-        if (meta) meta.setAttribute('content', bg)
-      }
-    })
-  }, [mode])
-
-  // 监听系统主题变化
+    setResolvedTheme(themeStore.getResolvedMode())
+  }, [state])
+  
+  // 监听系统主题变化（仅 system 模式下需要）
   useEffect(() => {
     const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
-    
     const handleChange = () => {
-      // 仅在 system 模式下需要触发重渲染
-      if (mode === 'system') {
-        // 强制重渲染
-        skipNextTransitionRef.current = true
-        setMode('system')
+      if (state.colorMode === 'system') {
+        setResolvedTheme(mediaQuery.matches ? 'dark' : 'light')
       }
     }
-
     mediaQuery.addEventListener('change', handleChange)
     return () => mediaQuery.removeEventListener('change', handleChange)
-  }, [mode])
+  }, [state.colorMode])
 
+  // ---- Color Mode (日夜模式) ----
+  
   const setTheme = useCallback((newMode: ThemeMode) => {
     skipNextTransitionRef.current = true
-    setMode(newMode)
+    themeStore.setColorMode(newMode)
   }, [])
 
   const toggleTheme = useCallback(() => {
     skipNextTransitionRef.current = true
-    setMode(prev => {
-      if (prev === 'system') return 'dark'
-      if (prev === 'dark') return 'light'
-      return 'system'
-    })
+    const current = themeStore.colorMode
+    if (current === 'system') themeStore.setColorMode('dark')
+    else if (current === 'dark') themeStore.setColorMode('light')
+    else themeStore.setColorMode('system')
   }, [])
 
   const setThemeWithAnimation = useCallback((newMode: ThemeMode, event?: React.MouseEvent) => {
-    const shouldDisableAnimation = false
-
-    // @ts-ignore - View Transitions API types might not be available
-    if (shouldDisableAnimation || !document.startViewTransition || !event) {
+    // @ts-ignore - View Transitions API
+    if (!document.startViewTransition || !event) {
       skipNextTransitionRef.current = true
-      setMode(newMode)
+      themeStore.setColorMode(newMode)
       return
     }
 
@@ -101,39 +69,106 @@ export function useTheme() {
     const transition = document.startViewTransition(() => {
       skipNextTransitionRef.current = true
       flushSync(() => {
-        setMode(newMode)
+        themeStore.setColorMode(newMode)
       })
     })
 
-     transition.ready.then(() => {
-        // 使用 GPU 加速的动画配置
-        document.documentElement.animate(
-          {
-            clipPath: [
-              `circle(0px at ${x}px ${y}px)`,
-              `circle(${endRadius}px at ${x}px ${y}px)`,
-            ],
-          },
-          {
-            duration: 380, // 缩短动画时长，更干脆
-            easing: 'cubic-bezier(0.4, 0, 0.2, 1)', // Material Design 标准 easing，更流畅
-            pseudoElement: '::view-transition-new(root)',
-          }
-        )
-      }).finally(() => {
+    transition.ready.then(() => {
+      document.documentElement.animate(
+        {
+          clipPath: [
+            `circle(0px at ${x}px ${y}px)`,
+            `circle(${endRadius}px at ${x}px ${y}px)`,
+          ],
+        },
+        {
+          duration: 380,
+          easing: 'cubic-bezier(0.4, 0, 0.2, 1)',
+          pseudoElement: '::view-transition-new(root)',
+        }
+      )
+    }).finally(() => {
+      setTimeout(() => {
+        root.removeAttribute('data-theme-transition')
+      }, THEME_SWITCH_DISABLE_MS)
+    })
+  }, [])
+  
+  // ---- Theme Preset (主题风格) ----
+  
+  const setPreset = useCallback((presetId: string) => {
+    themeStore.setPreset(presetId)
+  }, [])
+  
+  const setPresetWithAnimation = useCallback((presetId: string, event?: React.MouseEvent) => {
+    // @ts-ignore
+    if (!document.startViewTransition || !event) {
+      themeStore.setPreset(presetId)
+      return
+    }
+
+    const x = event.clientX
+    const y = event.clientY
+    const endRadius = Math.hypot(
+      Math.max(x, window.innerWidth - x),
+      Math.max(y, window.innerHeight - y)
+    )
+
+    const root = document.documentElement
+    root.setAttribute('data-theme-transition', 'off')
+
+    // @ts-ignore
+    const transition = document.startViewTransition(() => {
+      flushSync(() => {
+        themeStore.setPreset(presetId)
+      })
+    })
+
+    transition.ready.then(() => {
+      document.documentElement.animate(
+        {
+          clipPath: [
+            `circle(0px at ${x}px ${y}px)`,
+            `circle(${endRadius}px at ${x}px ${y}px)`,
+          ],
+        },
+        {
+          duration: 380,
+          easing: 'cubic-bezier(0.4, 0, 0.2, 1)',
+          pseudoElement: '::view-transition-new(root)',
+        }
+      )
+    }).finally(() => {
       setTimeout(() => {
         root.removeAttribute('data-theme-transition')
       }, THEME_SWITCH_DISABLE_MS)
     })
   }, [])
 
+  // ---- Custom CSS ----
+  
+  const setCustomCSS = useCallback((css: string) => {
+    themeStore.setCustomCSS(css)
+  }, [])
+
   return {
-    mode,
+    // 日夜模式（向后兼容）
+    mode: state.colorMode,
     resolvedTheme,
+    isDark: resolvedTheme === 'dark',
     setTheme,
     toggleTheme,
     setThemeWithAnimation,
     setThemeImmediate: setTheme,
-    isDark: resolvedTheme === 'dark',
+    
+    // 主题风格
+    presetId: state.presetId,
+    setPreset,
+    setPresetWithAnimation,
+    availablePresets: themeStore.getAvailablePresets(),
+    
+    // 自定义 CSS
+    customCSS: state.customCSS,
+    setCustomCSS,
   }
 }

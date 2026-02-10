@@ -3,6 +3,10 @@ import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.tsx'
 import { DirectoryProvider, SessionProvider } from './contexts'
+import { themeStore } from './store/themeStore'
+
+// 初始化主题系统（在 React 渲染前注入 CSS 变量，避免闪烁）
+themeStore.init()
 
 // 全局错误处理 - 防止未捕获错误导致页面刷新
 window.addEventListener('error', (event) => {
