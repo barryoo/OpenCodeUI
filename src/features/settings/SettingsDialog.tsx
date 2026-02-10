@@ -5,7 +5,7 @@ import {
   SunIcon, MoonIcon, SystemIcon, MaximizeIcon, MinimizeIcon, 
   PathAutoIcon, PathUnixIcon, PathWindowsIcon,
   GlobeIcon, PlusIcon, TrashIcon, CheckIcon, WifiIcon, WifiOffIcon, SpinnerIcon, KeyIcon,
-  SettingsIcon, KeyboardIcon, CloseIcon, BellIcon
+  SettingsIcon, KeyboardIcon, CloseIcon, BellIcon, BoltIcon
 } from '../../components/Icons'
 import { usePathMode, useServerStore, useIsMobile, useNotification } from '../../hooks'
 import { autoApproveStore } from '../../store'
@@ -499,6 +499,7 @@ function GeneralSettings({ themeMode, onThemeChange, isWideMode, onToggleWideMod
       <SettingRow
         label="Auto-Approve"
         description="Use local rules for always, send once to server"
+        icon={<BoltIcon size={14} />}
         onClick={handleAutoApprove}
       >
         <Toggle enabled={autoApprove} onChange={handleAutoApprove} />
