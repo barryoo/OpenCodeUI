@@ -1,73 +1,108 @@
-# React + TypeScript + Vite
+# OpenCode WebUI
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+一个为 [OpenCode](https://github.com/opencode-ai/opencode) 打造的第三方 Web 前端界面。
 
-Currently, two official plugins are available:
+**本项目完全由 AI 辅助编程（Vibe Coding）完成**——从第一行代码到最终发布，所有功能均通过与 AI 对话驱动开发，累计 162 次提交。
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+> **免责声明**：本项目仅供学习交流使用，不对因使用本项目导致的任何问题承担责任。项目处于早期阶段，可能存在 bug 和不稳定之处。
 
-## React Compiler
+## 特性
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- **完整的 Chat 界面** — 消息流、Markdown 渲染、代码高亮（Shiki）
+- **内置终端** — 基于 xterm.js 的 Web 终端，支持 WebGL 渲染
+- **文件浏览与 Diff** — 查看工作区文件、多文件 diff 对比
+- **主题系统** — 3 套内置主题（Eucalyptus / Claude / Breeze），支持明暗模式切换和自定义 CSS
+- **PWA 支持** — 可安装为桌面/移动端应用，支持离线缓存
+- **移动端适配** — 安全区域、触摸优化、响应式布局
+- **浏览器通知** — AI 回复完成时推送通知
+- **@ 提及与 / 斜杠命令** — 对话中快速引用文件和执行命令
+- **自定义快捷键** — 可配置的键位绑定
+- **Docker 部署** — 前后端分离容器化，开箱即用
+- **View Transitions** — 主题切换时的圆形揭幕动画
 
-## Expanding the ESLint configuration
+## 技术栈
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+| 类别 | 技术 |
+|------|------|
+| 框架 | React 19 + TypeScript |
+| 构建 | Vite 7 |
+| 样式 | Tailwind CSS v4 |
+| 代码高亮 | Shiki |
+| 终端 | xterm.js (WebGL) |
+| Markdown | react-markdown + remark-gfm |
+| 虚拟列表 | react-virtuoso |
+| 部署 | Docker (Caddy + Ubuntu) |
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+## 字体
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+- **UI 正文**：Inter（系统回退：system-ui, sans-serif）
+- **衬线**：Georgia
+- **代码/终端**：JetBrains Mono（项目内置 woff2），回退 Fira Code
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+## 设计说明
+
+本项目的部分 UI 风格参考了 [Claude](https://claude.ai) 的界面设计。
+
+## 快速开始
+
+### 前提
+
+需要一个运行中的 [OpenCode](https://github.com/opencode-ai/opencode) 后端（`opencode serve`）。
+
+### 本地开发
+
+```bash
+# 克隆
+git clone https://github.com/<your-username>/<your-repo>.git
+cd <your-repo>
+
+# 安装依赖
+npm install
+
+# 启动开发服务器
+npm run dev
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+### Docker 部署
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+```bash
+# 复制环境变量并填写 API Key
+cp .env.example .env
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+# 启动前后端容器
+docker compose up -d
 ```
+
+前端默认端口 `3000`，后端 API 端口 `4096`。详见 `.env.example`。
+
+## 项目结构
+
+```
+src/
+├── api/            # API 请求封装
+├── assets/         # 静态资源
+├── components/     # 通用组件（Terminal、CodeBlock、DiffView 等）
+├── contexts/       # React Context
+├── features/       # 业务功能模块
+│   ├── chat/       #   聊天界面（输入框、侧栏、消息区）
+│   ├── message/    #   消息渲染（Markdown、工具调用）
+│   ├── sessions/   #   会话管理
+│   ├── settings/   #   设置面板
+│   ├── attachment/  #   附件处理
+│   ├── mention/    #   @ 提及
+│   └── slash-command/ # 斜杠命令
+├── hooks/          # 自定义 Hooks
+├── store/          # 状态管理（主题、快捷键等）
+├── themes/         # 主题预设定义
+├── types/          # TypeScript 类型
+├── utils/          # 工具函数
+└── workers/        # Web Workers
+```
+
+## 许可证
+
+本项目基于 [GPL-3.0](./LICENSE) 协议开源。
+
+---
+
+*本项目由 Vibe Coding 驱动开发，如果你也对 AI 辅助编程感兴趣，欢迎交流。*

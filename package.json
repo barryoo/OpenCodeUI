@@ -1,7 +1,8 @@
 {
   "name": "opencode-webui",
-  "private": true,
-  "version": "0.0.0",
+  "version": "0.1.0",
+  "description": "A third-party web frontend for OpenCode",
+  "license": "GPL-3.0-only",
   "type": "module",
   "scripts": {
     "dev": "vite",
