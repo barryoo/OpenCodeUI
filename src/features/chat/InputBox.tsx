@@ -599,7 +599,7 @@ function InputBoxComponent({
                     onKeyDown={handleKeyDown}
                     onPaste={handlePaste}
                     onScroll={handleScroll}
-                    placeholder="Reply to Agent (type @ to mention)"
+                    placeholder="Reply to Agent (type @ to mention, / for commands)"
                     className="w-full resize-none focus:outline-none focus:ring-0 bg-transparent text-text-100 placeholder:text-text-400 custom-scrollbar"
                     style={{ 
                       ...TEXT_STYLE,
