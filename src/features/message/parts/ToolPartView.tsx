@@ -58,9 +58,6 @@ export const ToolPartView = memo(function ToolPartView({ part, isFirst = false, 
             {isActive && (
               <span className="absolute inset-[-4px] rounded-full bg-accent-main-100/20 animate-ping" style={{ animationDuration: '1.5s' }} />
             )}
-            {isActive && (
-              <span className="absolute inset-[-3px] rounded-full bg-accent-main-100/15" />
-            )}
             {getToolIcon(toolName)}
           </div>
         </div>
