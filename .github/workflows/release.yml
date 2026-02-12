@@ -88,10 +88,12 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - target: aarch64-linux-android
+          - rust-target: aarch64-linux-android
+            tauri-target: aarch64
             arch: arm64-v8a
             label: arm64
-          - target: armv7-linux-androideabi
+          - rust-target: armv7-linux-androideabi
+            tauri-target: armv7
             arch: armeabi-v7a
             label: armv7
     steps:
@@ -117,13 +119,13 @@ jobs:
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
         with:
-          targets: ${{ matrix.target }}
+          targets: ${{ matrix.rust-target }}
 
       - name: Rust cache
         uses: swatinem/rust-cache@v2
         with:
           workspaces: './src-tauri -> target'
-          key: android-${{ matrix.target }}
+          key: android-${{ matrix.rust-target }}
 
       - name: Install frontend dependencies
         run: npm ci
@@ -137,7 +139,7 @@ jobs:
           echo "storeFile=$RUNNER_TEMP/keystore.jks" >> keystore.properties
 
       - name: Build Android APK
-        run: npx tauri android build --apk --target ${{ matrix.target }}
+        run: npx tauri android build --apk --target ${{ matrix.tauri-target }}
         env:
           NDK_HOME: ${{ env.ANDROID_HOME }}/ndk/29.0.14206865
 

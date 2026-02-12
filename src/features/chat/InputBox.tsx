@@ -537,7 +537,7 @@ function InputBoxComponent({
 
   return (
     <div className="w-full">
-      <div className="mx-auto max-w-3xl px-4 pb-4 pointer-events-auto transition-[max-width] duration-300 ease-in-out" style={{ paddingBottom: 'max(16px, env(safe-area-inset-bottom, 16px))' }}>
+      <div className="mx-auto max-w-3xl px-4 pb-4 pointer-events-auto transition-[max-width] duration-300 ease-in-out" style={{ paddingBottom: 'max(16px, var(--safe-area-inset-bottom, 16px))' }}>
         <div className="flex flex-col gap-2">
           {/* Revert Status Bar */}
           <UndoStatus 
