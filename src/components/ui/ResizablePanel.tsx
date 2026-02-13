@@ -30,6 +30,7 @@ export const ResizablePanel = memo(function ResizablePanel({
 }: ResizablePanelProps) {
   const isMobile = useIsMobile()
   const [isResizing, setIsResizing] = useState(false)
+  const [isPanelFocused, setIsPanelFocused] = useState(false)
   const panelRef = useRef<HTMLDivElement>(null)
   const contentRef = useRef<HTMLDivElement>(null)
   const rafRef = useRef<number>(0)
@@ -189,6 +190,28 @@ export const ResizablePanel = memo(function ResizablePanel({
     }
   }, [])
 
+  useEffect(() => {
+    if (!isMobile || !isOpen) {
+      setIsPanelFocused(false)
+      return
+    }
+
+    const updateFocusState = () => {
+      const panel = panelRef.current
+      const active = document.activeElement
+      setIsPanelFocused(Boolean(panel && active && panel.contains(active)))
+    }
+
+    updateFocusState()
+    document.addEventListener('focusin', updateFocusState)
+    document.addEventListener('focusout', updateFocusState)
+
+    return () => {
+      document.removeEventListener('focusin', updateFocusState)
+      document.removeEventListener('focusout', updateFocusState)
+    }
+  }, [isMobile, isOpen])
+
   // ============================================
   // Styles
   // ============================================
@@ -210,7 +233,7 @@ export const ResizablePanel = memo(function ResizablePanel({
       ? 'fixed left-0 right-0 z-[100] w-full shadow-2xl bg-bg-100'
       : 'fixed bottom-0 left-0 right-0 z-[100] h-[40vh] shadow-2xl rounded-t-xl border-t border-border-200 bg-bg-100'
 
-    const keyboardInset = 'var(--keyboard-inset-bottom, 0px)'
+    const keyboardInset = isPanelFocused ? 'var(--keyboard-inset-bottom, 0px)' : '0px'
     const safeBottomInset = 'var(--safe-area-inset-bottom, 0px)'
     const mobileInsetStyle = position === 'right'
       ? {

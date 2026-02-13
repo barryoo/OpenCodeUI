@@ -443,7 +443,7 @@ export const Terminal = memo(function Terminal({
       `}</style>
       <div
         ref={containerRef}
-        className={`h-full w-full bg-bg-100 no-scrollbar ${isTouchScrolling ? 'scrollbar-active' : 'scrollbar-idle'}`}
+        className={`h-full w-full bg-bg-100 ${isMobile ? 'no-scrollbar' : ''} ${isMobile ? (isTouchScrolling ? 'scrollbar-active' : 'scrollbar-idle') : ''}`}
         style={{
           padding: isMobile ? '0' : '4px 0 0 4px', // 极简 padding
           touchAction: isMobile ? 'pan-y' : 'auto',

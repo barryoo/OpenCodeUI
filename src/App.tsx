@@ -6,7 +6,6 @@ import { CommandPalette, type CommandItem } from './components/CommandPalette'
 import { RightPanel } from './components/RightPanel'
 import { OutlineIndex } from './components/OutlineIndex'
 import { BottomPanel } from './components/BottomPanel'
-import { ArrowDownIcon } from './components/Icons'
 import { useTheme, useModels, useModelSelection, useChatSession, useGlobalKeybindings } from './hooks'
 import type { KeybindingHandlers } from './hooks/useKeybindings'
 import { keybindingStore } from './store/keybindingStore'
@@ -64,6 +63,8 @@ function App() {
   // ============================================
   const [inputBoxHeight, setInputBoxHeight] = useState(0)
   const inputBoxWrapperRef = useRef<HTMLDivElement>(null)
+  const [isChatInputFocused, setIsChatInputFocused] = useState(false)
+  const baseAppHeightRef = useRef<number | null>(null)
 
   useEffect(() => {
     const el = inputBoxWrapperRef.current
@@ -77,6 +78,21 @@ function App() {
     return () => ro.disconnect()
   }, [])
 
+  useEffect(() => {
+    const updateFocusState = () => {
+      const wrapper = inputBoxWrapperRef.current
+      const active = document.activeElement
+      setIsChatInputFocused(Boolean(wrapper && active && wrapper.contains(active)))
+    }
+    updateFocusState()
+    document.addEventListener('focusin', updateFocusState)
+    document.addEventListener('focusout', updateFocusState)
+    return () => {
+      document.removeEventListener('focusin', updateFocusState)
+      document.removeEventListener('focusout', updateFocusState)
+    }
+  }, [])
+
   // Keyboard inset + viewport height
   useEffect(() => {
     const root = document.documentElement
@@ -84,12 +100,22 @@ function App() {
     const updateViewport = () => {
       const viewport = window.visualViewport
       if (!viewport) return
+      const viewportHeight = Math.round(viewport.height)
       if (!isTauriApp) {
         const inset = Math.max(0, window.innerHeight - viewport.height - viewport.offsetTop)
         root.style.setProperty('--keyboard-inset-bottom', `${Math.round(inset)}px`)
+        return
       }
-      if (isTauriApp) {
-        root.style.setProperty('--app-height', `${Math.round(viewport.height)}px`)
+      if (baseAppHeightRef.current === null) {
+        baseAppHeightRef.current = viewportHeight
+      }
+      const insetValue = getComputedStyle(root).getPropertyValue('--keyboard-inset-bottom')
+      const keyboardInset = Number.parseFloat(insetValue) || 0
+      if (keyboardInset > 0) {
+        root.style.setProperty('--app-height', `${baseAppHeightRef.current}px`)
+      } else {
+        baseAppHeightRef.current = viewportHeight
+        root.style.setProperty('--app-height', `${viewportHeight}px`)
       }
     }
     updateViewport()
@@ -436,6 +462,7 @@ function App() {
                   setVisibleMessageIds(ids)
                 }}
                 onAtBottomChange={setIsAtBottom}
+                keyboardInsetEnabled={isChatInputFocused}
               />
             </div>
 
@@ -446,22 +473,11 @@ function App() {
               visibleMessageIds={visibleMessageIds}
             />
 
-            {!isAtBottom && (
-              <button
-                type="button"
-                onClick={() => chatAreaRef.current?.scrollToBottom()}
-                className="absolute right-4 bottom-24 z-20 h-10 w-10 rounded-full bg-bg-100/90 border border-border-200 shadow-md flex items-center justify-center text-text-300 hover:text-text-100 hover:bg-bg-000 transition-colors"
-                aria-label="Scroll to bottom"
-              >
-                <ArrowDownIcon size={16} />
-              </button>
-            )}
-
             {/* Floating Input Box */}
             <div
               ref={inputBoxWrapperRef}
               className="absolute bottom-0 left-0 right-0 z-10 pointer-events-none"
-              style={document.documentElement.classList.contains('tauri-app') ? { bottom: 'var(--keyboard-inset-bottom, 0px)' } : undefined}
+              style={isChatInputFocused ? { bottom: 'var(--keyboard-inset-bottom, 0px)' } : undefined}
             >
               {/* Double-Esc cancel hint */}
               {showCancelHint && (
@@ -495,6 +511,8 @@ function App() {
                 onRedoAll={handleRedoAll}
                 onClearRevert={clearRevert}
                 registerInputBox={registerInputBox}
+                showScrollToBottom={!isAtBottom}
+                onScrollToBottom={() => chatAreaRef.current?.scrollToBottom()}
               />
             </div>
 
