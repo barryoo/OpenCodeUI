@@ -1,0 +1,11 @@
+# ============================================
+# 本地构建 override
+# ============================================
+# 用法: docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build
+
+services:
+  frontend:
+    image: opencodeui-frontend:local
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.frontend

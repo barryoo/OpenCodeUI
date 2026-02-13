@@ -3,32 +3,30 @@
 # ============================================
 #
 # 架构:
-#   frontend (Caddy)  :3000 -> 静态文件
-#   backend  (Ubuntu) :4096 -> opencode serve
-#
-# 两个独立容器，各自暴露端口给宿主机 nginx 反代
+#   frontend (Caddy)  :3000 -> 静态文件 (GitHub Actions 预构建镜像)
+#   backend  (opencode):4096 -> opencode serve (官方镜像)
 #
 # 使用方法:
 #   cp .env.example .env    # 填写 API Key
 #   docker compose up -d    # 启动
+#
+# 本地构建前端 (可选):
+#   docker compose -f docker-compose.yml -f docker-compose.build.yml up -d
 
 services:
-  # ---- 前端：静态文件 ----
+  # ---- 前端：预构建镜像 ----
   frontend:
-    build:
-      context: .
-      dockerfile: docker/Dockerfile.frontend
+    image: ghcr.io/lehhair/opencodeui-frontend:latest
     container_name: opencode-frontend
     restart: unless-stopped
     ports:
       - "127.0.0.1:${FRONTEND_PORT:-3000}:3000"
 
-  # ---- 后端：opencode serve ----
+  # ---- 后端：opencode 官方镜像 ----
   backend:
-    build:
-      context: .
-      dockerfile: docker/Dockerfile.backend
+    image: ghcr.io/anomalyco/opencode:latest
     container_name: opencode-backend
+    entrypoint: ["opencode", "serve", "--hostname", "0.0.0.0", "--port", "4096"]
     restart: unless-stopped
     ports:
       - "127.0.0.1:${API_PORT:-4096}:4096"
@@ -40,6 +38,7 @@ services:
       - ${WORKSPACE:-./workspace}:/workspace
       - opencode-data:/root/.local/share/opencode
       - opencode-config:/root/.config/opencode
+    working_dir: /workspace
     environment:
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
@@ -50,7 +49,6 @@ services:
       - XAI_API_KEY=${XAI_API_KEY:-}
       - OPENCODE_SERVER_PASSWORD=${OPENCODE_SERVER_PASSWORD:-}
       - OPENCODE_SERVER_USERNAME=${OPENCODE_SERVER_USERNAME:-opencode}
-      - WORKSPACE=/workspace
 
 volumes:
   opencode-data:
