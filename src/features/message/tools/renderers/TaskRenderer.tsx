@@ -156,7 +156,7 @@ const TaskHeader = memo(function TaskHeader({
   sessionId,
   onStop
 }: TaskHeaderProps) {
-  const handleOpenInNewTab = useCallback((e: React.MouseEvent) => {
+  const handleOpenSession = useCallback((e: React.MouseEvent) => {
     e.stopPropagation()
     if (!sessionId) return
     
@@ -165,9 +165,8 @@ const TaskHeader = memo(function TaskHeader({
     const parentState = parentSessionId ? messageStore.getSessionState(parentSessionId) : null
     const directory = parentState?.directory || ''
     
-    const baseUrl = `${window.location.origin}${window.location.pathname}#/session/${sessionId}`
-    const url = directory ? `${baseUrl}?dir=${directory}` : baseUrl
-    window.open(url, '_blank')
+    const hash = directory ? `#/session/${sessionId}?dir=${directory}` : `#/session/${sessionId}`
+    window.location.hash = hash
   }, [sessionId])
 
   const isRunning = status === 'running' || status === 'pending'
@@ -211,12 +210,12 @@ const TaskHeader = memo(function TaskHeader({
         </div>
       )}
 
-      {/* Open in new tab */}
+      {/* Open session */}
       {sessionId && (
         <button
-          onClick={handleOpenInNewTab}
+          onClick={handleOpenSession}
           className="flex-shrink-0 p-1 text-text-500 hover:text-accent-main-100 transition-all"
-          title="Open in new tab"
+          title="Open session"
         >
           <ExternalLinkIcon size={12} />
         </button>
