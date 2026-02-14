@@ -503,13 +503,10 @@ function App() {
               className="absolute bottom-0 left-0 right-0 z-10 pointer-events-none"
               style={isChatInputFocused ? {
                 bottom: 'var(--keyboard-inset-bottom, 0px)',
-                maxHeight: 'calc(var(--app-height, 100vh) - var(--keyboard-inset-bottom, 0px) - 56px)',
+                maxHeight: 'calc(var(--app-height, 100vh) - var(--keyboard-inset-bottom, 0px) - 72px)',
                 overflow: 'hidden',
               } : undefined}
             >
-              {/* Bottom gradient - mirrors Header's top gradient */}
-              <div className="h-8 bg-gradient-to-t from-bg-100 to-transparent pointer-events-none" />
-
               {/* Double-Esc cancel hint */}
               {showCancelHint && (
                 <div className="flex justify-center mb-2 pointer-events-none">

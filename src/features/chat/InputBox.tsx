@@ -144,8 +144,8 @@ function InputBoxComponent({
     const viewportH = (isMobile && window.visualViewport)
       ? window.visualViewport.height
       : window.innerHeight
-    // 可用高度 = viewport - header(48px) - toolbar/padding/footer(~100px) - 安全余量(16px)
-    const maxH = isMobile ? Math.max(80, viewportH - 48 - 100 - 16) : viewportH * 0.5
+    // 可用高度 = viewport - header(48px) - toolbar/padding/footer(~100px) - 安全余量
+    const maxH = isMobile ? Math.max(80, viewportH - 48 - 100 - 72) : viewportH * 0.35
     textarea.style.height = Math.max(24, Math.min(scrollHeight, maxH)) + 'px'
   }, [text, isMobile])
 
@@ -634,8 +634,8 @@ function InputBoxComponent({
                       ...TEXT_STYLE,
                       minHeight: '24px', 
                       maxHeight: isMobile
-                        ? 'calc(var(--app-height, 100vh) - var(--keyboard-inset-bottom, 0px) - 164px)'
-                        : '50vh',
+                        ? 'calc(var(--app-height, 100vh) - var(--keyboard-inset-bottom, 0px) - 220px)'
+                        : '35vh',
                     }}
                     rows={1}
                   />
