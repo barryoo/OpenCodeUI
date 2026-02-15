@@ -14,21 +14,36 @@
 #   docker compose -f docker-compose.yml -f docker-compose.build.yml up -d
 
 services:
+  # ---- 统一入口：网关 ----
+  gateway:
+    image: nginx:1.27-alpine
+    container_name: opencode-gateway
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${GATEWAY_PORT:-6658}:6658"
+    volumes:
+      - ./docker/nginx.gateway.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./docker/token_map.conf:/etc/nginx/token_map.conf:ro
+    depends_on:
+      - frontend
+      - backend
+      - router
+    networks:
+      - opencode-net
+
   # ---- 前端：预构建镜像 ----
   frontend:
     image: ghcr.io/lehhair/opencodeui-frontend:latest
     container_name: opencode-frontend
     restart: unless-stopped
-    ports:
-      - "127.0.0.1:${FRONTEND_PORT:-3000}:3000"
+    networks:
+      - opencode-net
 
   # ---- 后端：预构建镜像 ----
   backend:
     image: ghcr.io/lehhair/opencodeui-backend:latest
     container_name: opencode-backend
     restart: unless-stopped
-    ports:
-      - "127.0.0.1:${API_PORT:-4096}:4096"
     deploy:
       resources:
         limits:
@@ -37,6 +52,11 @@ services:
       - ${WORKSPACE:-./workspace}:/workspace
       - opencode-data:/root/.local/share/opencode
       - opencode-config:/root/.config/opencode
+      - opencode-cache:/root/.cache
+      - opencode-npm:/root/.npm
+      - opencode-cargo:/root/.cargo
+      - opencode-local:/usr/local
+      - opencode-opt:/opt
     working_dir: /workspace
     environment:
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
@@ -48,7 +68,45 @@ services:
       - XAI_API_KEY=${XAI_API_KEY:-}
       - OPENCODE_SERVER_PASSWORD=${OPENCODE_SERVER_PASSWORD:-}
       - OPENCODE_SERVER_USERNAME=${OPENCODE_SERVER_USERNAME:-opencode}
+    networks:
+      - opencode-net
+
+  # ---- 自动端口映射：路由器 ----
+  router:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.router
+    container_name: opencode-router
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./docker/token_map.conf:/token_map/token_map.conf
+      - opencode-router-data:/data
+    environment:
+      - TARGET_CONTAINER=opencode-backend
+      - GATEWAY_CONTAINER=opencode-gateway
+      - ROUTER_MAP_FILE=/token_map/token_map.conf
+      - ROUTER_STATE_FILE=/data/routes.json
+      - ROUTER_SCAN_INTERVAL=${ROUTER_SCAN_INTERVAL:-5}
+      - ROUTER_TOKEN_LENGTH=${ROUTER_TOKEN_LENGTH:-12}
+      - ROUTER_PORT_RANGE=${ROUTER_PORT_RANGE:-3000-9999}
+      - ROUTER_EXCLUDE_PORTS=${ROUTER_EXCLUDE_PORTS:-4096}
+      - PUBLIC_BASE_URL=${PUBLIC_BASE_URL:-}
+      - ROUTER_USERNAME=${OPENCODE_SERVER_USERNAME:-opencode}
+      - ROUTER_PASSWORD=${OPENCODE_SERVER_PASSWORD:-}
+    networks:
+      - opencode-net
 
 volumes:
   opencode-data:
   opencode-config:
+  opencode-cache:
+  opencode-npm:
+  opencode-cargo:
+  opencode-local:
+  opencode-opt:
+  opencode-router-data:
+
+networks:
+  opencode-net:
+    name: opencode-net
