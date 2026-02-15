@@ -45,7 +45,6 @@ def parse_exclude_ports(value):
 
 
 TARGET_CONTAINER = os.getenv("TARGET_CONTAINER", "opencode-backend")
-GATEWAY_CONTAINER = os.getenv("GATEWAY_CONTAINER", "opencode-gateway")
 ROUTER_MAP_FILE = os.getenv("ROUTER_MAP_FILE", "/token_map/token_map.conf")
 ROUTER_STATE_FILE = os.getenv("ROUTER_STATE_FILE", "/data/routes.json")
 SCAN_INTERVAL = env_int("ROUTER_SCAN_INTERVAL", 5)
@@ -148,7 +147,7 @@ def write_map(state):
 
 
 def reload_gateway():
-    run_cmd(["docker", "exec", GATEWAY_CONTAINER, "nginx", "-s", "reload"])
+    run_cmd(["nginx", "-s", "reload"])
 
 
 def sync_routes():
@@ -199,13 +198,7 @@ def check_basic_auth(auth_header):
     return user == ROUTER_USERNAME and pwd == ROUTER_PASSWORD
 
 
-@app.get("/routes")
-def get_routes():
-    if not check_basic_auth(request.headers.get("Authorization")):
-        return Response(
-            "Unauthorized", status=401, headers={"WWW-Authenticate": "Basic"}
-        )
-
+def build_routes_payload():
     state = load_state()
     routes = []
     for token, info in sorted(state.items()):
@@ -223,7 +216,413 @@ def get_routes():
                 "createdAt": info.get("created_at"),
             }
         )
-    return jsonify({"routes": routes})
+    return {"routes": routes}
+
+
+@app.get("/routes.json")
+def get_routes_json():
+    if not check_basic_auth(request.headers.get("Authorization")):
+        return Response(
+            "Unauthorized", status=401, headers={"WWW-Authenticate": "Basic"}
+        )
+    return jsonify(build_routes_payload())
+
+
+@app.get("/routes")
+def get_routes_html():
+    if not check_basic_auth(request.headers.get("Authorization")):
+        return Response(
+            "Unauthorized", status=401, headers={"WWW-Authenticate": "Basic"}
+        )
+    html = """
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>OpenCode Routes</title>
+  <style>
+    :root {
+      --bg-000: 150 10% 99%;
+      --bg-100: 150 12% 96%;
+      --bg-200: 150 12% 93%;
+      --bg-300: 150 10% 89%;
+      --text-100: 170 15% 15%;
+      --text-200: 170 10% 40%;
+      --text-300: 170 8% 55%;
+      --text-400: 170 8% 70%;
+      --accent-main-100: 165 45% 42%;
+      --accent-main-200: 165 50% 48%;
+      --border-100: 160 10% 86%;
+      --border-200: 160 10% 82%;
+      --oncolor-100: 0 0% 100%;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg-000: 210 20% 18%;
+        --bg-100: 210 20% 14%;
+        --bg-200: 210 20% 11%;
+        --bg-300: 210 20% 9%;
+        --text-100: 210 15% 92%;
+        --text-200: 210 10% 70%;
+        --text-300: 210 8% 55%;
+        --text-400: 210 8% 40%;
+        --accent-main-100: 165 50% 55%;
+        --accent-main-200: 165 55% 65%;
+        --border-100: 210 15% 22%;
+        --border-200: 210 15% 26%;
+        --oncolor-100: 0 0% 100%;
+      }
+    }
+
+    html[data-theme="light"] {
+      --bg-000: 150 10% 99%;
+      --bg-100: 150 12% 96%;
+      --bg-200: 150 12% 93%;
+      --bg-300: 150 10% 89%;
+      --text-100: 170 15% 15%;
+      --text-200: 170 10% 40%;
+      --text-300: 170 8% 55%;
+      --text-400: 170 8% 70%;
+      --accent-main-100: 165 45% 42%;
+      --accent-main-200: 165 50% 48%;
+      --border-100: 160 10% 86%;
+      --border-200: 160 10% 82%;
+      --oncolor-100: 0 0% 100%;
+    }
+
+    html[data-theme="dark"] {
+      --bg-000: 210 20% 18%;
+      --bg-100: 210 20% 14%;
+      --bg-200: 210 20% 11%;
+      --bg-300: 210 20% 9%;
+      --text-100: 210 15% 92%;
+      --text-200: 210 10% 70%;
+      --text-300: 210 8% 55%;
+      --text-400: 210 8% 40%;
+      --accent-main-100: 165 50% 55%;
+      --accent-main-200: 165 55% 65%;
+      --border-100: 210 15% 22%;
+      --border-200: 210 15% 26%;
+      --oncolor-100: 0 0% 100%;
+    }
+
+    * { box-sizing: border-box; margin: 0; }
+
+    body {
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      background: hsl(var(--bg-100));
+      color: hsl(var(--text-100));
+      min-height: 100vh;
+    }
+
+    .page {
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 48px 20px;
+    }
+
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 32px;
+    }
+
+    .title {
+      font-size: 20px;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+    }
+
+    .count {
+      font-size: 13px;
+      color: hsl(var(--text-300));
+    }
+
+    .actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    .btn {
+      height: 32px;
+      padding: 0 12px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      border: none;
+      transition: all 150ms;
+    }
+
+    .btn:active { transform: scale(0.95); }
+
+    .btn-primary {
+      background: hsl(var(--accent-main-100));
+      color: hsl(var(--oncolor-100));
+    }
+
+    .btn-primary:hover {
+      background: hsl(var(--accent-main-200));
+    }
+
+    .btn-ghost {
+      background: transparent;
+      color: hsl(var(--text-300));
+      border: 1px solid hsl(var(--border-200));
+    }
+
+    .btn-ghost:hover {
+      color: hsl(var(--text-200));
+      background: hsl(var(--bg-200));
+    }
+
+    .search {
+      width: 100%;
+      height: 36px;
+      padding: 0 12px;
+      border-radius: 8px;
+      border: 1px solid hsl(var(--border-100));
+      background: hsl(var(--bg-000));
+      color: hsl(var(--text-100));
+      font-size: 13px;
+      outline: none;
+      margin-bottom: 16px;
+      transition: border-color 150ms;
+    }
+
+    .search::placeholder { color: hsl(var(--text-400)); }
+    .search:focus { border-color: hsl(var(--accent-main-100)); }
+
+    .list {
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+      background: hsl(var(--border-100));
+      border: 1px solid hsl(var(--border-100));
+      border-radius: 12px;
+      overflow: hidden;
+    }
+
+    .row {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 12px 16px;
+      background: hsl(var(--bg-000));
+      transition: background 100ms;
+    }
+
+    .row:hover { background: hsl(var(--bg-200)); }
+
+    .port {
+      font-family: 'JetBrains Mono', 'Fira Code', monospace;
+      font-size: 14px;
+      font-weight: 600;
+      color: hsl(var(--accent-main-100));
+      min-width: 52px;
+    }
+
+    .url {
+      flex: 1;
+      font-family: 'JetBrains Mono', 'Fira Code', monospace;
+      font-size: 12px;
+      color: hsl(var(--text-200));
+      word-break: break-all;
+      line-height: 1.4;
+    }
+
+    .time {
+      font-size: 12px;
+      color: hsl(var(--text-400));
+      white-space: nowrap;
+    }
+
+    .copy {
+      height: 28px;
+      padding: 0 10px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      border: 1px solid hsl(var(--border-200));
+      background: transparent;
+      color: hsl(var(--text-300));
+      transition: all 150ms;
+      white-space: nowrap;
+    }
+
+    .copy:hover {
+      background: hsl(var(--bg-200));
+      color: hsl(var(--text-200));
+    }
+
+    .copy:active { transform: scale(0.95); }
+
+    .empty {
+      padding: 40px 20px;
+      text-align: center;
+      color: hsl(var(--text-400));
+      font-size: 14px;
+      background: hsl(var(--bg-000));
+      border: 1px solid hsl(var(--border-100));
+      border-radius: 12px;
+    }
+
+    .empty-hint {
+      margin-top: 8px;
+      font-size: 12px;
+      color: hsl(var(--text-400));
+    }
+
+    @media (max-width: 600px) {
+      .row { flex-wrap: wrap; gap: 8px; }
+      .time { display: none; }
+      .url { min-width: 100%; order: 3; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="header">
+      <div>
+        <div class="title">Routes</div>
+        <div class="count" id="count"></div>
+      </div>
+      <div class="actions">
+        <button class="btn btn-ghost" id="themeToggle">Theme</button>
+        <button class="btn btn-ghost" id="copyAll">Copy all</button>
+        <button class="btn btn-primary" id="refresh">Refresh</button>
+      </div>
+    </div>
+
+    <input class="search" id="filter" placeholder="Filter by port or token..." />
+
+    <section id="content"></section>
+  </div>
+
+  <script>
+    const content = document.getElementById('content')
+    const countEl = document.getElementById('count')
+    const filterInput = document.getElementById('filter')
+    const refreshBtn = document.getElementById('refresh')
+    const copyAllBtn = document.getElementById('copyAll')
+    const themeToggle = document.getElementById('themeToggle')
+
+    function applyTheme(theme) {
+      if (!theme || theme === 'auto') {
+        document.documentElement.removeAttribute('data-theme')
+        return
+      }
+      document.documentElement.setAttribute('data-theme', theme)
+    }
+
+    function nextTheme(current) {
+      if (current === 'light') return 'dark'
+      if (current === 'dark') return 'auto'
+      return 'light'
+    }
+
+    function syncThemeLabel(theme) {
+      const label = theme === 'light' ? 'Light' : theme === 'dark' ? 'Dark' : 'Auto'
+      themeToggle.textContent = 'Theme: ' + label
+    }
+
+    const savedTheme = localStorage.getItem('routes-theme') || 'auto'
+    applyTheme(savedTheme)
+    syncThemeLabel(savedTheme)
+
+    themeToggle.addEventListener('click', () => {
+      const current = localStorage.getItem('routes-theme') || 'auto'
+      const next = nextTheme(current)
+      localStorage.setItem('routes-theme', next)
+      applyTheme(next)
+      syncThemeLabel(next)
+    })
+
+    function ago(ts) {
+      if (!ts) return ''
+      const s = Math.floor(Date.now() / 1000 - ts)
+      if (s < 60) return 'just now'
+      if (s < 3600) return Math.floor(s / 60) + 'm ago'
+      if (s < 86400) return Math.floor(s / 3600) + 'h ago'
+      return Math.floor(s / 86400) + 'd ago'
+    }
+
+    function publicUrl(r) {
+      if (r.publicUrl) return r.publicUrl
+      return location.origin + '/p/' + r.token + '/'
+    }
+
+    function render(routes) {
+      countEl.textContent = routes.length + ' active'
+
+      if (!routes.length) {
+        content.innerHTML = '<div class="empty">No active routes<div class="empty-hint">Start a dev server in the container to see it here</div></div>'
+        return
+      }
+
+      const rows = routes.map(r => {
+        const url = publicUrl(r)
+        return `<div class="row">
+          <span class="port">${r.port}</span>
+          <span class="url">${url}</span>
+          <span class="time">${ago(r.createdAt)}</span>
+          <button class="copy" data-url="${url}">Copy</button>
+        </div>`
+      })
+
+      content.innerHTML = '<div class="list">' + rows.join('') + '</div>'
+
+      content.querySelectorAll('.copy').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          await navigator.clipboard.writeText(btn.dataset.url)
+          btn.textContent = 'Copied'
+          setTimeout(() => btn.textContent = 'Copy', 1200)
+        })
+      })
+    }
+
+    async function load() {
+      countEl.textContent = 'loading...'
+      try {
+        const res = await fetch('/routes.json', { cache: 'no-store' })
+        if (!res.ok) { countEl.textContent = 'error ' + res.status; return }
+        const data = await res.json()
+        const q = filterInput.value.trim().toLowerCase()
+        const routes = (data.routes || []).filter(r =>
+          !q || r.token.toLowerCase().includes(q) || String(r.port).includes(q)
+        )
+        render(routes)
+      } catch (e) {
+        countEl.textContent = 'failed to load'
+      }
+    }
+
+    refreshBtn.addEventListener('click', load)
+    filterInput.addEventListener('input', load)
+    copyAllBtn.addEventListener('click', async () => {
+      try {
+        const res = await fetch('/routes.json', { cache: 'no-store' })
+        const data = await res.json()
+        const urls = (data.routes || []).map(publicUrl).join('\n')
+        if (urls) {
+          await navigator.clipboard.writeText(urls)
+          copyAllBtn.textContent = 'Copied'
+          setTimeout(() => copyAllBtn.textContent = 'Copy all', 1200)
+        }
+      } catch {}
+    })
+
+    load()
+    setInterval(load, 8000)
+  </script>
+</body>
+</html>
+    """
+    return Response(html, mimetype="text/html")
 
 
 def loop():
