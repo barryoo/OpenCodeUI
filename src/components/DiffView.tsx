@@ -324,7 +324,7 @@ export const DiffView = memo(function DiffView({
                       
                       {/* The code itself */}
                       <div 
-                        className="whitespace-pre font-mono"
+                        className="whitespace-pre font-mono text-text-100"
                         dangerouslySetInnerHTML={{ __html: line.content }}
                       />
                     </td>
