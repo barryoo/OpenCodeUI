@@ -2,6 +2,7 @@ import { useCallback, useMemo, useState, useEffect, useRef } from 'react'
 import { SessionList } from '../../sessions'
 import { ConfirmDialog } from '../../../components/ui/ConfirmDialog'
 import { ShareDialog } from '../ShareDialog'
+import { ContextDetailsDialog } from './ContextDetailsDialog'
 import { 
   SidebarIcon, 
   FolderIcon, 
@@ -926,6 +927,7 @@ function SidebarFooter({
   const [isOpen, setIsOpen] = useState(false)
   const [menuPos, setMenuPos] = useState({ top: 0, left: 0, width: 260, fromBottom: false })
   const [shareDialogOpen, setShareDialogOpen] = useState(false)
+  const [contextDialogOpen, setContextDialogOpen] = useState(false)
   const [isVisible, setIsVisible] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
   const buttonRef = useRef<HTMLButtonElement>(null)
@@ -1049,7 +1051,25 @@ function SidebarFooter({
       <div className="p-3 border-b border-border-200/30">
         <div className="flex items-center justify-between mb-2">
           <span className="text-xs font-medium text-text-200">Context Usage</span>
-          <span className="text-xs font-mono text-text-400">{Math.round(stats.contextPercent)}%</span>
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-mono text-text-400">{Math.round(stats.contextPercent)}%</span>
+            <button
+              type="button"
+              onClick={() => {
+                closeMenu()
+                setContextDialogOpen(true)
+              }}
+              className="
+                shrink-0 h-6 px-2
+                rounded-md border border-border-200/60
+                bg-bg-200/70 hover:bg-bg-300
+                text-[10px] font-medium text-text-200
+                transition-colors
+              "
+            >
+              View details
+            </button>
+          </div>
         </div>
         <div className="w-full h-1.5 bg-bg-300 rounded-full overflow-hidden relative mb-2">
           <div 
@@ -1146,7 +1166,7 @@ function SidebarFooter({
             paddingLeft: showLabels ? 6 : 4, // 收起时为了对齐中心线(16px)，24px圆环需要4px padding (4+12=16)
             paddingRight: showLabels ? 8 : 4,
           }}
-          title={`Context: ${Math.round(stats.contextPercent)}%`}
+          title={`Context: ${formatTokens(hasMessages ? stats.contextUsed : 0)} tokens • ${Math.round(stats.contextPercent)}% • ${formatCost(stats.totalCost)}`}
         >
           {/* 状态指示器 */}
           <StatusIndicator 
@@ -1176,6 +1196,11 @@ function SidebarFooter({
       
       {floatingMenu}
       <ShareDialog isOpen={shareDialogOpen} onClose={() => setShareDialogOpen(false)} />
+      <ContextDetailsDialog
+        isOpen={contextDialogOpen}
+        onClose={() => setContextDialogOpen(false)}
+        contextLimit={stats.contextLimit}
+      />
     </div>
   )
 }

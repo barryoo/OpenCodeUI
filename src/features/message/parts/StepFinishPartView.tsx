@@ -25,7 +25,7 @@ function formatCost(cost: number): string {
 
 export const StepFinishPartView = memo(function StepFinishPartView({ part }: StepFinishPartViewProps) {
   const { tokens, cost } = part
-  const totalTokens = tokens.input + tokens.output + tokens.reasoning
+  const totalTokens = tokens.input + tokens.output + tokens.reasoning + tokens.cache.read + tokens.cache.write
   const cacheHit = tokens.cache.read
   
   return (
@@ -33,7 +33,9 @@ export const StepFinishPartView = memo(function StepFinishPartView({ part }: Ste
       {/* Tokens */}
       <div className="flex items-center gap-1.5">
         <CpuIcon size={10} className="opacity-50" />
-        <span title={`Input: ${tokens.input}, Output: ${tokens.output}, Reasoning: ${tokens.reasoning}`}>
+        <span
+          title={`Input: ${tokens.input}, Output: ${tokens.output}, Reasoning: ${tokens.reasoning}, Cache read: ${tokens.cache.read}, Cache write: ${tokens.cache.write}`}
+        >
           {formatNumber(totalTokens)} tokens
         </span>
         {cacheHit > 0 && (
@@ -53,4 +55,3 @@ export const StepFinishPartView = memo(function StepFinishPartView({ part }: Ste
     </div>
   )
 })
-

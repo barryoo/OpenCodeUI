@@ -28,6 +28,16 @@ export function useSessionStats(contextLimit: number = 200000): SessionStats {
   const { messages } = useMessageStore()
   
   return useMemo(() => {
+    const tokenTotal = (tokens: AssistantMessageInfo['tokens']): number => {
+      return (
+        tokens.input +
+        tokens.output +
+        tokens.reasoning +
+        (tokens.cache?.read || 0) +
+        (tokens.cache?.write || 0)
+      )
+    }
+
     let inputTokens = 0
     let outputTokens = 0
     let reasoningTokens = 0
@@ -40,11 +50,7 @@ export function useSessionStats(contextLimit: number = 200000): SessionStats {
       if (msg.info.role === 'assistant') {
         const info = msg.info as AssistantMessageInfo
         // 只统计有实际 tokens 数据的消息（跳过 streaming 中的空 tokens）
-        const hasTokens = info.tokens && (
-          info.tokens.input > 0 || 
-          info.tokens.output > 0 || 
-          (info.tokens.cache?.read || 0) > 0
-        )
+        const hasTokens = tokenTotal(info.tokens) > 0
         
         if (hasTokens) {
           inputTokens += info.tokens.input
@@ -54,11 +60,7 @@ export function useSessionStats(contextLimit: number = 200000): SessionStats {
           cacheWrite += info.tokens.cache?.write || 0
           // 当前上下文 = 这次请求的全部 token
           // 下一轮发送时，input + cache + output + reasoning 都会成为上下文
-          lastContextSize = 
-            info.tokens.input + 
-            (info.tokens.cache?.read || 0) + 
-            info.tokens.output + 
-            info.tokens.reasoning
+          lastContextSize = tokenTotal(info.tokens)
         }
         if (info.cost) {
           totalCost += info.cost
@@ -66,7 +68,7 @@ export function useSessionStats(contextLimit: number = 200000): SessionStats {
       }
     }
     
-    const totalTokens = inputTokens + outputTokens + reasoningTokens
+    const totalTokens = inputTokens + outputTokens + reasoningTokens + cacheRead + cacheWrite
     const contextPercent = contextLimit > 0 ? Math.min(100, (lastContextSize / contextLimit) * 100) : 0
     
     return {

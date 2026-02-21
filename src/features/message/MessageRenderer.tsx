@@ -424,7 +424,7 @@ const ToolGroup = memo(function ToolGroup({ parts, stepFinish }: ToolGroupProps)
 // ============================================
 
 function formatTokens(tokens: StepFinishPart['tokens']): string {
-  const total = tokens.input + tokens.output + tokens.reasoning
+  const total = tokens.input + tokens.output + tokens.reasoning + tokens.cache.read + tokens.cache.write
   if (total >= 1000) {
     return `${(total / 1000).toFixed(1)}k tokens`
   }
