@@ -1,12 +1,13 @@
 import { memo, useState, useCallback, useRef, useEffect } from 'react'
 import { ContentBlock } from '../../../../components'
 import { ChevronRightIcon, ExternalLinkIcon, StopIcon } from '../../../../components/Icons'
-import { useDelayedRender } from '../../../../hooks'
+import { useDelayedRender, useDirectory } from '../../../../hooks'
 import { useChildSessions, useSessionState, messageStore, childSessionStore } from '../../../../store'
 import { abortSession, getSessionMessages } from '../../../../api'
 import { sessionErrorHandler } from '../../../../utils'
 import type { ToolRendererProps } from '../types'
 import type { Message, TextPart, ToolPart } from '../../../../types/message'
+import { getToolDisplayTitle } from '../title'
 
 // ============================================
 // Task Tool Renderer (子 agent)
@@ -368,10 +369,11 @@ const MessageItem = memo(function MessageItem({ message, isLast }: MessageItemPr
 
 const ToolBadge = memo(function ToolBadge({ tool }: { tool: ToolPart }) {
   const { state, tool: toolName } = tool
+  const { currentDirectory } = useDirectory()
   const isRunning = state.status === 'running' || state.status === 'pending'
   const isError = state.status === 'error'
   
-  const title = state.title || formatToolName(toolName)
+  const title = getToolDisplayTitle(tool, { projectDirectory: currentDirectory }) || formatToolName(toolName)
   const displayTitle = title.length > 30 ? title.slice(0, 30) + '...' : title
   
   return (

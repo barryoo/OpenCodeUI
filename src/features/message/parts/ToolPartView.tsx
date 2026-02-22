@@ -1,7 +1,7 @@
 import { memo, useState } from 'react'
 import { ChevronDownIcon, ChevronRightIcon } from '../../../components/Icons'
 import type { ToolPart } from '../../../types/message'
-import { useDelayedRender } from '../../../hooks'
+import { useDelayedRender, useDirectory } from '../../../hooks'
 import { 
   getToolIcon, 
   extractToolData, 
@@ -11,6 +11,7 @@ import {
   TaskRenderer,
   hasTodos,
 } from '../tools'
+import { getToolDisplayTitle } from '../tools/title'
 
 // ============================================
 // ToolPartView - 单个工具调用
@@ -26,10 +27,11 @@ export const ToolPartView = memo(function ToolPartView({ part, isFirst = false, 
   const [expanded, setExpanded] = useState(() => {
     return part.state.status === 'running' || part.state.status === 'pending'
   })
+  const { currentDirectory } = useDirectory()
   const shouldRenderBody = useDelayedRender(expanded)
   
   const { state, tool: toolName } = part
-  const title = state.title || ''
+  const title = getToolDisplayTitle(part, { projectDirectory: currentDirectory })
   
   const duration = state.time?.start && state.time?.end 
     ? state.time.end - state.time.start 
