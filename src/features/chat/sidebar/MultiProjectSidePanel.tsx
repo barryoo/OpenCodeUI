@@ -122,17 +122,11 @@ function ActionMenuItem({ label, icon, danger = false, onClick }: ActionMenuItem
 }
 
 function RunningIndicator() {
-  const delays = [0, 140, 280]
-
   return (
     <span className="inline-flex items-center gap-[2px]">
-      {delays.map((delay) => (
-        <span
-          key={delay}
-          className="h-1 w-1 rounded-full bg-accent-main-100 animate-pulse"
-          style={{ animationDelay: `${delay}ms` }}
-        />
-      ))}
+      <span className="w-1 h-1 rounded-full bg-accent-main-100 animate-bounce [animation-delay:-0.3s]" />
+      <span className="w-1 h-1 rounded-full bg-accent-main-100 animate-bounce [animation-delay:-0.15s]" />
+      <span className="w-1 h-1 rounded-full bg-accent-main-100 animate-bounce" />
     </span>
   )
 }
@@ -210,11 +204,17 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
   const [hasMoreByProject, setHasMoreByProject] = useState<Record<string, boolean>>({})
   const [loadedLimitByProject, setLoadedLimitByProject] = useState<Record<string, number>>({})
   const [openMenu, setOpenMenu] = useState<OpenMenuState>(null)
+  // 移动端：记录最近被点击的项目，用于控制该项目操作按钮的显示
+  const [tappedProjectPath, setTappedProjectPath] = useState<string | null>(null)
   const [draggingProjectPath, setDraggingProjectPath] = useState<string | null>(null)
   const [dropTargetProjectPath, setDropTargetProjectPath] = useState<string | null>(null)
   const [projectDeleteConfirm, setProjectDeleteConfirm] = useState<string | null>(null)
   const [sessionDeleteConfirm, setSessionDeleteConfirm] = useState<{ projectPath: string; session: ApiSession } | null>(null)
   const menuRef = useRef<HTMLDivElement | null>(null)
+  // 移动端长按检测
+  const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const longPressTouchStartRef = useRef<{ x: number; y: number } | null>(null)
+  const longPressActivatedRef = useRef(false)
 
   const loadedSessionById = useMemo(() => {
     const map = new Map<string, ApiSession>()
@@ -268,7 +268,7 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
   const pinnedSectionMaxHeight = useMemo(() => {
     if (pinnedSessionsForDisplay.length === 0) return 0
 
-    const rowHeight = 24
+    const rowHeight = 28
     const rowGap = 2
     return pinnedSessionsForDisplay.length * rowHeight + Math.max(0, pinnedSessionsForDisplay.length - 1) * rowGap
   }, [pinnedSessionsForDisplay.length])
@@ -579,6 +579,7 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
 
   const handleProjectRowClick = useCallback((projectPath: string) => {
     setOpenMenu(null)
+    setTappedProjectPath(projectPath)
     setExpandedProjects((prev) => ({
       ...prev,
       [projectPath]: !prev[projectPath],
@@ -782,6 +783,49 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
     setDropTargetProjectPath(null)
   }, [])
 
+  // 移动端长按：取消定时器
+  const cancelLongPress = useCallback(() => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current)
+      longPressTimerRef.current = null
+    }
+    longPressTouchStartRef.current = null
+  }, [])
+
+  // 移动端长按：touch 开始
+  const handleSessionLongPressStart = useCallback(
+    (e: React.TouchEvent<HTMLButtonElement>, projectPath: string, sessionId: string, source: 'pinned' | 'project') => {
+      if (!isMobile) return
+      const touch = e.touches[0]
+      longPressTouchStartRef.current = { x: touch.clientX, y: touch.clientY }
+      longPressActivatedRef.current = false
+      const rect = e.currentTarget.getBoundingClientRect()
+      longPressTimerRef.current = setTimeout(() => {
+        longPressActivatedRef.current = true
+        setOpenMenu({ type: 'session', projectPath, sessionId, source, anchorRect: rect })
+      }, 500)
+    },
+    [isMobile]
+  )
+
+  // 移动端长按：移动超出阈值则取消
+  const handleSessionLongPressMove = useCallback((e: React.TouchEvent) => {
+    if (!longPressTouchStartRef.current || !longPressTimerRef.current) return
+    const touch = e.touches[0]
+    const dx = Math.abs(touch.clientX - longPressTouchStartRef.current.x)
+    const dy = Math.abs(touch.clientY - longPressTouchStartRef.current.y)
+    if (dx > 8 || dy > 8) cancelLongPress()
+  }, [cancelLongPress])
+
+  // 移动端长按：touch 结束，若已触发则阻止 click
+  const handleSessionLongPressEnd = useCallback((e: React.TouchEvent<HTMLButtonElement>) => {
+    if (longPressActivatedRef.current) {
+      e.preventDefault()
+      longPressActivatedRef.current = false
+    }
+    cancelLongPress()
+  }, [cancelLongPress])
+
   const markSessionNotificationsRead = useCallback((sessionId: string) => {
     const unreadIds = unreadNotificationIdsBySession.get(sessionId)
     if (!unreadIds || unreadIds.length === 0) return
@@ -897,7 +941,6 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
                   openMenu.source === 'pinned' &&
                   openMenu.projectPath === pinnedProjectPath &&
                   openMenu.sessionId === entry.sessionId
-                const showSessionActions = isMobile || isSessionMenuOpen
                 const sessionForPinnedAction = entry.session ?? {
                   id: entry.sessionId,
                   title: entry.title,
@@ -913,7 +956,11 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
                       onClick={() => {
                         void handleSelectPinnedSession(entry)
                       }}
-                      className={`w-full h-7 px-1.5 pr-7 rounded-md flex items-center gap-1.5 text-left transition-colors ${
+                      onTouchStart={(e) => handleSessionLongPressStart(e, pinnedProjectPath, entry.sessionId, 'pinned')}
+                      onTouchMove={handleSessionLongPressMove}
+                      onTouchEnd={handleSessionLongPressEnd}
+                      onContextMenu={(e) => e.preventDefault()}
+                      className={`w-full h-7 px-1.5 pr-12 rounded-md flex items-center gap-1.5 text-left transition-colors ${
                         isSelected
                           ? 'bg-bg-200/80 text-text-100'
                           : 'text-text-200 hover:text-text-100 hover:bg-bg-200/40'
@@ -943,37 +990,41 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
                         </span>
                       </span>
 
-                      <span className="truncate text-[12px] leading-none flex-1 min-w-0">
+                      <span className="truncate text-[12px] font-medium leading-none flex-1 min-w-0">
                         {entry.title || 'Untitled Chat'}
-                      </span>
-
-                      <span className="text-[9px] text-text-400/90 shrink-0">
-                        {formatRelativeTime(entry.updatedAt)}
                       </span>
                     </button>
 
-                    <div className="absolute right-1 top-1/2 -translate-y-1/2 h-5 w-5">
-                      {!isMobile && isRunning && !isSessionMenuOpen && (
-                        <span className="absolute inset-0 flex items-center justify-center transition-opacity duration-150 opacity-100 group-hover/pinned:opacity-0 group-focus-within/pinned:opacity-0">
+                    {/* 右侧：时间 / 运行动画 / 菜单按钮 三选一 */}
+                    <div className="absolute right-1 top-1/2 -translate-y-1/2 h-5 w-10 flex items-center justify-center">
+                      {/* 默认：时间 or 运行动画，hover 时淡出（桌面端） */}
+                      <span className={`flex items-center justify-center transition-opacity duration-150 ${!isMobile ? (isSessionMenuOpen ? 'opacity-0' : 'group-hover/pinned:opacity-0') : ''}`}>
+                        {isRunning ? (
                           <RunningIndicator />
-                        </span>
+                        ) : (
+                          <span className="text-[9px] text-text-400/90 whitespace-nowrap">
+                            {formatRelativeTime(entry.updatedAt)}
+                          </span>
+                        )}
+                      </span>
+                      {/* 菜单按钮：桌面端 hover 或菜单打开时显示 */}
+                      {!isMobile && (
+                        <button
+                          type="button"
+                          onClick={(event) => {
+                            event.stopPropagation()
+                            handleToggleSessionMenu(pinnedProjectPath, entry.sessionId, 'pinned', event.currentTarget.getBoundingClientRect())
+                          }}
+                          className={`absolute inset-0 rounded-md flex items-center justify-center text-text-400 hover:text-text-100 hover:bg-bg-200/80 transition-all duration-150 ${
+                            isSessionMenuOpen
+                              ? 'opacity-100 pointer-events-auto'
+                              : 'opacity-0 pointer-events-none group-hover/pinned:opacity-100 group-hover/pinned:pointer-events-auto'
+                          }`}
+                          title="会话菜单"
+                        >
+                          <MoreHorizontalIcon size={12} />
+                        </button>
                       )}
-
-                      <button
-                        type="button"
-                        onClick={(event) => {
-                          event.stopPropagation()
-                          handleToggleSessionMenu(pinnedProjectPath, entry.sessionId, 'pinned', event.currentTarget.getBoundingClientRect())
-                        }}
-                        className={`absolute inset-0 rounded-md flex items-center justify-center text-text-400 hover:text-text-100 hover:bg-bg-200/80 transition-colors ${
-                          showSessionActions
-                            ? 'opacity-100 pointer-events-auto'
-                            : 'opacity-0 pointer-events-none group-hover/pinned:opacity-100 group-hover/pinned:pointer-events-auto group-focus-within/pinned:opacity-100 group-focus-within/pinned:pointer-events-auto'
-                        }`}
-                        title="会话菜单"
-                      >
-                        <MoreHorizontalIcon size={12} />
-                      </button>
                     </div>
 
                     {isSessionMenuOpen && openMenu?.anchorRect && (
@@ -1041,7 +1092,7 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
               const isLoading = loadingByProject[project.path] ?? false
               const hasMore = hasMoreByProject[project.path] ?? false
               const isProjectMenuOpen = openMenu?.type === 'project' && openMenu.projectPath === project.path
-              const showProjectActions = isMobile || isProjectMenuOpen
+              const showProjectActions = isProjectMenuOpen || (isMobile && tappedProjectPath === project.path)
               const isDropTarget =
                 draggingProjectPath !== null &&
                 draggingProjectPath !== project.path &&
@@ -1062,7 +1113,7 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
                     className={`group/project relative h-8 flex items-center rounded-md transition-colors ${
                       isCurrentProject
                         ? 'bg-bg-200/70 text-text-100'
-                        : 'text-text-300 hover:text-text-100 hover:bg-bg-200/50'
+                        : 'text-text-400 hover:text-text-100 hover:bg-bg-200/50'
                     } ${isDropTarget ? 'ring-1 ring-accent-main-100/60' : ''} ${
                       draggingProjectPath === project.path ? 'opacity-70' : ''
                     }`}
@@ -1158,7 +1209,7 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
                             加载中...
                           </div>
                         ) : sessions.length === 0 ? (
-                          <div className="h-7 flex items-center text-[11px] text-text-500">
+                          <div className="ml-5 h-7 px-1.5 flex items-center text-[11px] text-text-500">
                             暂无会话
                           </div>
                         ) : (
@@ -1175,14 +1226,17 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
                               openMenu.source === 'project' &&
                               openMenu.projectPath === project.path &&
                               openMenu.sessionId === session.id
-                            const showSessionActions = isMobile || isSessionMenuOpen
 
                             return (
                               <div key={session.id} className="group/session relative">
                                 <button
                                   type="button"
                                   onClick={() => handleSelect(session)}
-                                  className={`w-full h-7 px-1.5 pr-7 rounded-md flex items-center gap-1.5 text-left transition-colors ${
+                                  onTouchStart={(e) => handleSessionLongPressStart(e, project.path, session.id, 'project')}
+                                  onTouchMove={handleSessionLongPressMove}
+                                  onTouchEnd={handleSessionLongPressEnd}
+                                  onContextMenu={(e) => e.preventDefault()}
+                                  className={`w-full h-7 px-1.5 pr-12 rounded-md flex items-center gap-1.5 text-left transition-colors ${
                                     isSelected
                                       ? 'bg-bg-200/80 text-text-100'
                                       : 'text-text-200 hover:text-text-100 hover:bg-bg-200/40'
@@ -1215,36 +1269,41 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
                                       <PinIcon size={11} />
                                     </span>
                                   </span>
-                                  <span className="truncate text-[12px] leading-none flex-1 min-w-0">
+                                  <span className="truncate text-[12px] font-medium leading-none flex-1 min-w-0">
                                     {session.title || 'Untitled Chat'}
-                                  </span>
-                                  <span className="text-[9px] text-text-400/90 shrink-0">
-                                    {formatRelativeTime(updatedTime)}
                                   </span>
                                 </button>
 
-                                <div className="absolute right-1 top-1/2 -translate-y-1/2 h-5 w-5">
-                                  {!isMobile && isRunning && !isSessionMenuOpen && (
-                                    <span className="absolute inset-0 flex items-center justify-center transition-opacity duration-150 opacity-100 group-hover/session:opacity-0 group-focus-within/session:opacity-0">
+                                {/* 右侧：时间 / 运行动画 / 菜单按钮 三选一 */}
+                                <div className="absolute right-1 top-1/2 -translate-y-1/2 h-5 w-10 flex items-center justify-center">
+                                  {/* 默认：时间 or 运行动画，hover 时淡出（桌面端） */}
+                                  <span className={`flex items-center justify-center transition-opacity duration-150 ${!isMobile ? (isSessionMenuOpen ? 'opacity-0' : 'group-hover/session:opacity-0') : ''}`}>
+                                    {isRunning ? (
                                       <RunningIndicator />
-                                    </span>
+                                    ) : (
+                                      <span className="text-[9px] text-text-400/90 whitespace-nowrap">
+                                        {formatRelativeTime(updatedTime)}
+                                      </span>
+                                    )}
+                                  </span>
+                                  {/* 菜单按钮：桌面端 hover 或菜单打开时显示 */}
+                                  {!isMobile && (
+                                    <button
+                                      type="button"
+                                      onClick={(event) => {
+                                        event.stopPropagation()
+                                        handleToggleSessionMenu(project.path, session.id, 'project', event.currentTarget.getBoundingClientRect())
+                                      }}
+                                      className={`absolute inset-0 rounded-md flex items-center justify-center text-text-400 hover:text-text-100 hover:bg-bg-200/80 transition-all duration-150 ${
+                                        isSessionMenuOpen
+                                          ? 'opacity-100 pointer-events-auto'
+                                          : 'opacity-0 pointer-events-none group-hover/session:opacity-100 group-hover/session:pointer-events-auto'
+                                      }`}
+                                      title="会话菜单"
+                                    >
+                                      <MoreHorizontalIcon size={12} />
+                                    </button>
                                   )}
-
-                                  <button
-                                    type="button"
-                                    onClick={(event) => {
-                                      event.stopPropagation()
-                                      handleToggleSessionMenu(project.path, session.id, 'project', event.currentTarget.getBoundingClientRect())
-                                    }}
-                                    className={`absolute inset-0 rounded-md flex items-center justify-center text-text-400 hover:text-text-100 hover:bg-bg-200/80 transition-colors ${
-                                      showSessionActions
-                                        ? 'opacity-100 pointer-events-auto'
-                                        : 'opacity-0 pointer-events-none group-hover/session:opacity-100 group-hover/session:pointer-events-auto group-focus-within/session:opacity-100 group-focus-within/session:pointer-events-auto'
-                                    }`}
-                                    title="会话菜单"
-                                  >
-                                    <MoreHorizontalIcon size={12} />
-                                  </button>
                                 </div>
 
                                 {isSessionMenuOpen && openMenu?.anchorRect && (
@@ -1296,7 +1355,7 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
                           <button
                             type="button"
                             onClick={() => handleLoadMore(project.path)}
-                            className="ml-5 h-7 px-1.5 rounded-md text-[11px] text-text-400 hover:text-text-100 hover:bg-bg-200/40 transition-colors"
+                            className="ml-5 h-7 px-1.5 rounded-md text-[11px] text-text-500 hover:text-text-100 hover:bg-bg-200/40 transition-colors"
                           >
                             加载更多
                           </button>

@@ -196,41 +196,33 @@ function InputBoxComponent({
   // ============================================
   // Mobile Input Dock: 滚动收起/展开
   // ============================================
-  // isFocused: textarea 是否聚焦中
-  const [isFocused, setIsFocused] = useState(false)
 
   // 直接计算是否收起（纯派生值）
+  // 只有"滚动离开底部 + 无内容 + 无待处理弹窗"时才收起，失焦不影响
   const hasContent = text.trim().length > 0 || attachments.length > 0
   const hasPendingDialogs = !!collapsedPermission || !!collapsedQuestion
+
+  // 用户主动点击胶囊展开后强制保持展开，直到自然滚回底部为止
+  const [userExpanded, setUserExpanded] = useState(false)
+
+  // 滚回底部后清除强制展开标记（之后再滚走就会正常收起）
+  useEffect(() => {
+    if (isAtBottom) setUserExpanded(false)
+  }, [isAtBottom])
+
   const isCollapsed = isMobile
     && !isAtBottom
     && !hasContent
-    && !isFocused
     && !hasPendingDialogs
+    && !userExpanded
 
-  // 点击胶囊展开：先标记聚焦（阻止收起），等输入框渲染后 focus textarea
+  // 点击胶囊：立即展开，无需滚动
   const handleExpandInput = useCallback(() => {
-    setIsFocused(true)
+    setUserExpanded(true)
     requestAnimationFrame(() => {
       textareaRef.current?.focus()
     })
   }, [])
-
-  // textarea focus/blur 追踪
-  const handleFocus = useCallback(() => setIsFocused(true), [])
-  // blur 延迟：给输入框上方按钮（scroll-to-bottom、undo 等）的 click 事件时间先触发
-  // 否则 blur → 收起 → 按钮消失 → click 丢失
-  const blurTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const handleBlur = useCallback(() => {
-    blurTimerRef.current = setTimeout(() => setIsFocused(false), 150)
-  }, [])
-  // focus 时清掉 pending 的 blur timer（比如点了按钮后焦点又回到 textarea）
-  useEffect(() => {
-    if (isFocused && blurTimerRef.current) {
-      clearTimeout(blurTimerRef.current)
-      blurTimerRef.current = null
-    }
-  }, [isFocused])
 
   // 持续追踪展开态内容区高度（用于收起时占位，防 isAtBottom 反馈循环）
   useEffect(() => {
@@ -901,8 +893,6 @@ function InputBoxComponent({
                         onKeyDown={handleKeyDown}
                         onPaste={handlePaste}
                         onScroll={handleScroll}
-                        onFocus={handleFocus}
-                        onBlur={handleBlur}
                         placeholder={isMobile ? "Reply to Agent..." : "Reply to Agent (type @ to mention, / for commands)"}
                         className="w-full resize-none focus:outline-none focus:ring-0 bg-transparent text-text-100 placeholder:text-text-400 custom-scrollbar"
                         style={{ 
