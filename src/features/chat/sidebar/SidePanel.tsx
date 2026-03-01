@@ -412,7 +412,7 @@ export function SidePanel({
                     <div className="flex-1 min-w-0 text-left">
                       <div className="text-xs truncate">{project.name}</div>
                       {!isGlobal && project.worktree && (
-                        <div className="text-[10px] text-text-400 truncate font-mono opacity-70">
+                        <div className="text-[10px] text-text-400 truncate opacity-70">
                           {getParentPath(project.worktree)}
                         </div>
                       )}
@@ -1060,7 +1060,7 @@ export function SidebarFooter({
         <div className="flex items-center justify-between mb-2">
           <span className="text-xs font-medium text-text-200">Context Usage</span>
           <div className="flex items-center gap-2">
-            <span className="text-xs font-mono text-text-400">{Math.round(stats.contextPercent)}%</span>
+            <span className="text-xs text-text-400">{Math.round(stats.contextPercent)}%</span>
             <button
               type="button"
               onClick={() => {
@@ -1085,7 +1085,7 @@ export function SidebarFooter({
             style={{ transform: `scaleX(${Math.min(100, stats.contextPercent) / 100})` }}
           />
         </div>
-        <div className="flex justify-between text-[10px] text-text-400 font-mono">
+        <div className="flex justify-between text-[10px] text-text-400">
           <span>{formatTokens(stats.contextUsed)} / {formatTokens(stats.contextLimit)}</span>
           <span>{formatCost(stats.totalCost)}</span>
         </div>
@@ -1188,7 +1188,7 @@ export function SidebarFooter({
             className="ml-2 flex-1 flex items-center justify-between min-w-0 transition-opacity duration-300"
             style={{ opacity: showLabels ? 1 : 0 }}
           >
-            <span className="text-xs font-mono text-text-300 truncate">
+            <span className="text-xs text-text-300 truncate">
               {hasMessages ? formatTokens(stats.contextUsed) : '0'} / {formatTokens(stats.contextLimit)}
             </span>
             <span className={`text-xs font-medium ml-2 ${

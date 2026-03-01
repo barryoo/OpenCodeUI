@@ -95,7 +95,7 @@ export function ProjectSelector({
           <div className="text-sm font-semibold text-text-100 truncate">
             {getDisplayName(currentProject)}
           </div>
-          <div className="text-[10px] text-text-400/70 truncate font-mono">
+          <div className="text-[10px] text-text-400/70 truncate">
             {getPath(currentProject)}
           </div>
         </div>
@@ -213,7 +213,7 @@ function ProjectItem({ project, displayName, path, onSelect, onRemove }: Project
       
       <div className="flex-1 min-w-0 text-left">
         <div className="text-sm text-text-200 truncate">{displayName}</div>
-        <div className="text-[10px] text-text-400/60 truncate font-mono">{path}</div>
+        <div className="text-[10px] text-text-400/60 truncate">{path}</div>
       </div>
       
       {onRemove && (

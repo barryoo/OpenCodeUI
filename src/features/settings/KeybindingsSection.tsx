@@ -16,7 +16,7 @@ import type { KeybindingConfig, KeybindingAction } from '../../store/keybindingS
 function Kbd({ children }: { children: React.ReactNode }) {
   return (
     <kbd className="inline-flex items-center justify-center min-w-[22px] h-[22px] px-1.5
-                    text-[11px] font-mono font-medium leading-none
+                    text-[11px] font-medium leading-none
                     bg-bg-100 text-text-300 border border-border-200 rounded
                     shadow-[0_1px_0_0_var(--border-200)]">
       {children}
@@ -121,7 +121,7 @@ function KeybindingRow({ config, onEdit, onReset, isKeyUsed }: KeybindingRowProp
             tabIndex={0}
             className={`
               min-w-[120px] h-7 flex items-center justify-center px-3 
-              text-xs font-mono rounded border-2 outline-none
+              text-xs rounded border-2 outline-none
               ${error
                 ? 'border-danger-100/60 bg-danger-100/5 text-danger-100'
                 : 'border-accent-main-100/60 bg-accent-main-100/5 text-accent-main-100'}
@@ -249,7 +249,7 @@ export function KeybindingsSection() {
 
       {/* Help */}
       <div className="pt-3 mt-2 border-t border-border-100/50 text-[11px] text-text-400">
-        Click a shortcut to rebind. <kbd className="px-1 py-0.5 bg-bg-100 rounded font-mono text-text-300">Enter</kbd> confirm, <kbd className="px-1 py-0.5 bg-bg-100 rounded font-mono text-text-300">Esc</kbd> cancel.
+        Click a shortcut to rebind. <kbd className="px-1 py-0.5 bg-bg-100 rounded text-text-300">Enter</kbd> confirm, <kbd className="px-1 py-0.5 bg-bg-100 rounded text-text-300">Esc</kbd> cancel.
       </div>
     </div>
   )

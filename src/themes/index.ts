@@ -16,6 +16,7 @@
 export interface ThemeColors {
   /** 背景色 */
   background: {
+    bg050: string
     bg000: string
     bg100: string
     bg200: string
@@ -80,58 +81,53 @@ export interface ThemePreset {
 }
 
 // ============================================
-// Eucalyptus 主题 - 莫兰迪色系，默认主题
+// Shared Neutral Palette
 // ============================================
-// 设计理念：
-// - 灵感来自北欧森林与晨雾，莫兰迪色系高级灰调
-// - 日间：极淡灰调底色搭配低饱和桉树绿，清爽冷静
-// - 夜间：深邃的岩石蓝灰（非纯黑），对比度柔和护眼
-// - 品牌色为桉树绿 (hsl 165)，辅助色板岩蓝 (hsl 200)
+// 设计原则：
+// - 主题切换只改变强调色（accent）
+// - 背景、文字、边框、语义色在同一 mode 下保持稳定
+// - 避免“整套 UI 被染色”的感觉
 
-const eucalyptusLight: ThemeColors = {
+type NeutralThemeColors = Omit<ThemeColors, 'accent'>
+
+const neutralLight: NeutralThemeColors = {
   background: {
-    bg000: '150 10% 99%',
-    bg100: '150 12% 96%',
-    bg200: '150 12% 93%',
-    bg300: '150 10% 89%',
-    bg400: '150 10% 85%',
+    bg050: '158 18% 99%',
+    bg000: '160 14% 97%',
+    bg100: '165 10% 94%',
+    bg200: '170 8% 90%',
+    bg300: '174 8% 84%',
+    bg400: '178 8% 77%',
   },
   text: {
     text000: '0 0% 100%',
-    text100: '170 15% 15%',
-    text200: '170 10% 40%',
-    text300: '170 8% 55%',
-    text400: '170 8% 70%',
-    text500: '170 6% 78%',
-    text600: '170 10% 85%',
-  },
-  accent: {
-    brand: '165 45% 42%',
-    main000: '165 40% 35%',
-    main100: '165 45% 42%',
-    main200: '165 50% 48%',
-    secondary100: '200 45% 50%',
+    text100: '174 22% 14%',
+    text200: '176 16% 24%',
+    text300: '178 12% 36%',
+    text400: '180 10% 48%',
+    text500: '182 9% 60%',
+    text600: '184 8% 72%',
   },
   semantic: {
-    success100: '140 40% 40%',
-    success200: '140 35% 32%',
-    successBg: '140 30% 94%',
-    warning100: '35 80% 45%',
-    warning200: '35 70% 38%',
-    warningBg: '35 60% 94%',
-    danger000: '5 55% 40%',
-    danger100: '5 60% 55%',
-    danger200: '5 65% 62%',
-    dangerBg: '5 60% 96%',
-    danger900: '5 50% 93%',
-    info100: '200 50% 50%',
-    info200: '200 45% 60%',
-    infoBg: '200 40% 95%',
+    success100: '146 65% 38%',
+    success200: '146 70% 32%',
+    successBg: '146 65% 92%',
+    warning100: '36 90% 42%',
+    warning200: '32 85% 36%',
+    warningBg: '42 88% 92%',
+    danger000: '2 62% 36%',
+    danger100: '2 74% 48%',
+    danger200: '2 82% 58%',
+    dangerBg: '2 82% 93%',
+    danger900: '2 62% 88%',
+    info100: '208 72% 46%',
+    info200: '208 70% 56%',
+    infoBg: '208 78% 92%',
   },
   border: {
-    border100: '160 10% 86%',
-    border200: '160 10% 82%',
-    border300: '160 10% 75%',
+    border100: '170 12% 82%',
+    border200: '172 10% 76%',
+    border300: '174 9% 68%',
   },
   special: {
     alwaysBlack: '0 0% 0%',
@@ -140,50 +136,44 @@ const eucalyptusLight: ThemeColors = {
   },
 }
 
-const eucalyptusDark: ThemeColors = {
+const neutralDark: NeutralThemeColors = {
   background: {
-    bg000: '210 20% 18%',
-    bg100: '210 20% 14%',
-    bg200: '210 20% 11%',
-    bg300: '210 20% 9%',
-    bg400: '210 25% 6%',
+    bg050: '203 18% 25%',
+    bg000: '206 18% 21%',
+    bg100: '210 18% 15%',
+    bg200: '212 18% 11%',
+    bg300: '214 18% 8%',
+    bg400: '216 20% 6%',
   },
   text: {
     text000: '0 0% 100%',
-    text100: '210 15% 92%',
-    text200: '210 10% 70%',
-    text300: '210 8% 55%',
-    text400: '210 8% 40%',
-    text500: '210 6% 32%',
-    text600: '210 10% 25%',
-  },
-  accent: {
-    brand: '165 50% 55%',
-    main000: '165 45% 45%',
-    main100: '165 50% 55%',
-    main200: '165 55% 65%',
-    secondary100: '200 50% 60%',
+    text100: '200 20% 94%',
+    text200: '200 16% 84%',
+    text300: '202 12% 74%',
+    text400: '204 10% 64%',
+    text500: '206 9% 54%',
+    text600: '208 8% 44%',
   },
   semantic: {
-    success100: '140 50% 55%',
-    success200: '140 45% 62%',
-    successBg: '140 30% 15%',
-    warning100: '35 80% 60%',
-    warning200: '35 75% 68%',
-    warningBg: '35 30% 15%',
-    danger000: '5 65% 60%',
-    danger100: '5 70% 65%',
-    danger200: '5 72% 72%',
-    dangerBg: '5 30% 15%',
-    danger900: '5 28% 22%',
-    info100: '200 60% 65%',
-    info200: '200 55% 72%',
-    infoBg: '200 30% 15%',
+    success100: '146 62% 58%',
+    success200: '146 68% 66%',
+    successBg: '146 48% 22%',
+    warning100: '38 92% 62%',
+    warning200: '38 95% 70%',
+    warningBg: '38 50% 22%',
+    danger000: '4 78% 66%',
+    danger100: '4 85% 72%',
+    danger200: '4 92% 78%',
+    dangerBg: '4 52% 22%',
+    danger900: '4 40% 28%',
+    info100: '208 78% 68%',
+    info200: '208 80% 76%',
+    infoBg: '208 50% 22%',
   },
   border: {
-    border100: '210 15% 22%',
-    border200: '210 15% 26%',
-    border300: '210 15% 32%',
+    border100: '210 14% 28%',
+    border200: '210 14% 34%',
+    border300: '210 14% 42%',
   },
   special: {
     alwaysBlack: '0 0% 0%',
@@ -191,11 +181,42 @@ const eucalyptusDark: ThemeColors = {
     oncolor100: '0 0% 100%',
   },
 }
+
+function withAccent(neutral: NeutralThemeColors, accent: ThemeColors['accent']): ThemeColors {
+  return {
+    background: { ...neutral.background },
+    text: { ...neutral.text },
+    accent,
+    semantic: { ...neutral.semantic },
+    border: { ...neutral.border },
+    special: neutral.special ? { ...neutral.special } : undefined,
+  }
+}
+
+// ============================================
+// Eucalyptus 主题（默认）
+// ============================================
+
+const eucalyptusLight: ThemeColors = withAccent(neutralLight, {
+  brand: '165 55% 40%',
+  main000: '165 58% 34%',
+  main100: '165 60% 42%',
+  main200: '165 65% 48%',
+  secondary100: '204 58% 50%',
+})
+
+const eucalyptusDark: ThemeColors = withAccent(neutralDark, {
+  brand: '165 62% 58%',
+  main000: '165 58% 50%',
+  main100: '165 62% 58%',
+  main200: '165 68% 66%',
+  secondary100: '204 65% 66%',
+})
 
 export const eucalyptusTheme: ThemePreset = {
   id: 'eucalyptus',
   name: 'Eucalyptus',
-  description: 'Morandi tones, fresh and eye-friendly',
+  description: 'Neutral UI with eucalyptus accent',
   light: eucalyptusLight,
   dark: eucalyptusDark,
 }
@@ -204,238 +225,57 @@ export const eucalyptusTheme: ThemePreset = {
 export const DEFAULT_THEME_ID = 'eucalyptus'
 
 // ============================================
-// Claude 主题 - 暖调橙色品牌风格
+// Claude 主题
 // ============================================
 
-const claudeLight: ThemeColors = {
-  background: {
-    bg000: '45 40% 99%',
-    bg100: '45 35% 96%',
-    bg200: '45 30% 93%',
-    bg300: '45 25% 90%',
-    bg400: '45 20% 86%',
-  },
-  text: {
-    text000: '0 0% 100%',
-    text100: '30 10% 15%',
-    text200: '30 8% 35%',
-    text300: '30 6% 50%',
-    text400: '30 5% 60%',
-    text500: '30 4% 70%',
-    text600: '30 3% 82%',
-  },
-  accent: {
-    brand: '24 90% 50%',
-    main000: '24 85% 45%',
-    main100: '24 90% 50%',
-    main200: '24 95% 55%',
-    secondary100: '210 85% 50%',
-  },
-  semantic: {
-    success100: '142 70% 40%',
-    success200: '142 65% 32%',
-    successBg: '142 60% 94%',
-    warning100: '38 92% 48%',
-    warning200: '32 88% 42%',
-    warningBg: '48 90% 92%',
-    danger000: '0 65% 38%',
-    danger100: '0 72% 48%',
-    danger200: '0 78% 58%',
-    dangerBg: '0 75% 95%',
-    danger900: '0 55% 92%',
-    info100: '210 85% 48%',
-    info200: '210 80% 58%',
-    infoBg: '210 90% 95%',
-  },
-  border: {
-    border100: '35 15% 82%',
-    border200: '35 12% 85%',
-    border300: '35 18% 78%',
-  },
-  special: {
-    alwaysBlack: '0 0% 0%',
-    alwaysWhite: '0 0% 100%',
-    oncolor100: '0 0% 100%',
-  },
-}
+const claudeLight: ThemeColors = withAccent(neutralLight, {
+  brand: '24 90% 50%',
+  main000: '24 85% 45%',
+  main100: '24 90% 50%',
+  main200: '24 95% 55%',
+  secondary100: '210 85% 50%',
+})
 
-const claudeDark: ThemeColors = {
-  background: {
-    bg000: '30 3% 20%',
-    bg100: '30 3% 15%',
-    bg200: '30 3% 12%',
-    bg300: '30 3% 9%',
-    bg400: '0 0% 5%',
-  },
-  text: {
-    text000: '0 0% 100%',
-    text100: '40 20% 95%',
-    text200: '40 10% 75%',
-    text300: '40 5% 60%',
-    text400: '40 3% 50%',
-    text500: '40 2% 40%',
-    text600: '40 2% 30%',
-  },
-  accent: {
-    brand: '24 70% 55%',
-    main000: '24 75% 50%',
-    main100: '24 80% 58%',
-    main200: '24 85% 62%',
-    secondary100: '210 80% 60%',
-  },
-  semantic: {
-    success100: '142 70% 50%',
-    success200: '142 65% 60%',
-    successBg: '142 50% 15%',
-    warning100: '38 90% 55%',
-    warning200: '38 85% 65%',
-    warningBg: '38 50% 15%',
-    danger000: '0 85% 65%',
-    danger100: '0 70% 55%',
-    danger200: '0 75% 65%',
-    dangerBg: '0 50% 15%',
-    danger900: '0 50% 25%',
-    info100: '210 85% 60%',
-    info200: '210 80% 70%',
-    infoBg: '210 50% 15%',
-  },
-  border: {
-    border100: '40 5% 25%',
-    border200: '40 5% 30%',
-    border300: '40 5% 35%',
-  },
-  special: {
-    alwaysBlack: '0 0% 0%',
-    alwaysWhite: '0 0% 100%',
-    oncolor100: '0 0% 100%',
-  },
-}
+const claudeDark: ThemeColors = withAccent(neutralDark, {
+  brand: '24 70% 55%',
+  main000: '24 75% 50%',
+  main100: '24 80% 58%',
+  main200: '24 85% 62%',
+  secondary100: '210 80% 60%',
+})
 
 export const claudeTheme: ThemePreset = {
   id: 'claude',
   name: 'Claude',
-  description: 'Warm orange tones, the classic look',
+  description: 'Neutral UI with warm orange accent',
   light: claudeLight,
   dark: claudeDark,
 }
 
 // ============================================
-// Breeze 主题 - 现代化清新护眼
+// Breeze 主题
 // ============================================
-// 设计理念：
-// - 冷色调蓝绿为品牌色，视觉清爽
-// - 日间模式：浅灰蓝底色，低饱和度，减少视觉疲劳
-// - 夜间模式：深蓝灰底色，不纯黑，对比度舒适
-// - 所有背景饱和度极低（2-8%），阅读不累
 
-const breezeLight: ThemeColors = {
-  background: {
-    bg000: '210 20% 99%',      // 极淡蓝白
-    bg100: '210 15% 96.5%',    // 浅灰蓝
-    bg200: '210 12% 93.5%',    // 淡灰蓝
-    bg300: '210 10% 90%',      // 中灰蓝
-    bg400: '210 8% 86%',       // 深灰蓝
-  },
-  text: {
-    text000: '0 0% 100%',      // 纯白（on-dark surface）
-    text100: '215 15% 14%',    // 主文本 - 深蓝灰
-    text200: '215 10% 34%',    // 次要文本
-    text300: '215 7% 48%',     // 辅助文本
-    text400: '215 5% 58%',     // 占位符
-    text500: '215 4% 68%',     // 禁用
-    text600: '215 3% 80%',     // 分隔线
-  },
-  accent: {
-    brand: '187 72% 42%',       // 青绿色品牌色 - 清新感
-    main000: '187 68% 36%',     // 深青绿
-    main100: '187 72% 42%',     // 主青绿
-    main200: '187 75% 48%',     // 浅青绿
-    secondary100: '230 65% 55%', // 靛蓝辅助色
-  },
-  semantic: {
-    success100: '152 60% 38%',
-    success200: '152 55% 30%',
-    successBg: '152 50% 94%',
-    warning100: '42 85% 46%',
-    warning200: '36 80% 40%',
-    warningBg: '48 80% 93%',
-    danger000: '4 60% 36%',
-    danger100: '4 65% 46%',
-    danger200: '4 70% 56%',
-    dangerBg: '4 65% 95%',
-    danger900: '4 50% 92%',
-    info100: '215 75% 48%',
-    info200: '215 70% 58%',
-    infoBg: '215 80% 95%',
-  },
-  border: {
-    border100: '210 10% 83%',
-    border200: '210 8% 86%',
-    border300: '210 12% 78%',
-  },
-  special: {
-    alwaysBlack: '0 0% 0%',
-    alwaysWhite: '0 0% 100%',
-    oncolor100: '0 0% 100%',
-  },
-}
+const breezeLight: ThemeColors = withAccent(neutralLight, {
+  brand: '187 72% 42%',
+  main000: '187 68% 36%',
+  main100: '187 72% 42%',
+  main200: '187 75% 48%',
+  secondary100: '230 65% 55%',
+})
 
-const breezeDark: ThemeColors = {
-  background: {
-    bg000: '215 8% 20%',       // 深蓝灰（最亮表面）
-    bg100: '215 8% 14%',       // 主背景
-    bg200: '215 8% 11%',       // 下沉面板
-    bg300: '215 8% 8%',        // 更深
-    bg400: '215 10% 5%',       // 最深
-  },
-  text: {
-    text000: '0 0% 100%',
-    text100: '210 15% 93%',    // 主文本 - 淡蓝白
-    text200: '210 8% 72%',     // 次要文本
-    text300: '210 5% 58%',     // 辅助文本
-    text400: '210 3% 48%',     // 占位符
-    text500: '210 2% 38%',     // 禁用
-    text600: '210 2% 28%',     // 分隔线
-  },
-  accent: {
-    brand: '187 65% 52%',
-    main000: '187 60% 46%',
-    main100: '187 65% 52%',
-    main200: '187 68% 58%',
-    secondary100: '230 60% 62%',
-  },
-  semantic: {
-    success100: '152 55% 48%',
-    success200: '152 50% 58%',
-    successBg: '152 40% 14%',
-    warning100: '42 82% 52%',
-    warning200: '42 78% 62%',
-    warningBg: '42 45% 14%',
-    danger000: '4 75% 62%',
-    danger100: '4 65% 52%',
-    danger200: '4 68% 62%',
-    dangerBg: '4 45% 14%',
-    danger900: '4 42% 24%',
-    info100: '215 75% 58%',
-    info200: '215 70% 68%',
-    infoBg: '215 45% 14%',
-  },
-  border: {
-    border100: '215 6% 24%',
-    border200: '215 5% 28%',
-    border300: '215 7% 32%',
-  },
-  special: {
-    alwaysBlack: '0 0% 0%',
-    alwaysWhite: '0 0% 100%',
-    oncolor100: '0 0% 100%',
-  },
-}
+const breezeDark: ThemeColors = withAccent(neutralDark, {
+  brand: '187 65% 52%',
+  main000: '187 60% 46%',
+  main100: '187 65% 52%',
+  main200: '187 68% 58%',
+  secondary100: '230 60% 62%',
+})
 
 export const breezeTheme: ThemePreset = {
   id: 'breeze',
   name: 'Breeze',
-  description: 'Cool teal tones, easy on the eyes',
+  description: 'Neutral UI with cool teal accent',
   light: breezeLight,
   dark: breezeDark,
 }
@@ -461,6 +301,7 @@ export function themeColorsToCSSVars(theme: ThemeColors): string {
   const lines: string[] = []
   
   // Background
+  lines.push(`--bg-050: ${theme.background.bg050};`)
   lines.push(`--bg-000: ${theme.background.bg000};`)
   lines.push(`--bg-100: ${theme.background.bg100};`)
   lines.push(`--bg-200: ${theme.background.bg200};`)

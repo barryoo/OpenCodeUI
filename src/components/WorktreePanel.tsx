@@ -195,7 +195,7 @@ export const WorktreePanel = memo(function WorktreePanel({ isResizing: _isResizi
         <div className="px-3 py-2 border-b border-border-200/20">
           <div className="flex items-center gap-2">
             <GitBranchIcon size={14} className="text-accent-main-100 shrink-0" />
-            <span className="text-xs font-mono text-text-100 truncate" title={vcsInfo.branch}>
+            <span className="text-xs text-text-100 truncate" title={vcsInfo.branch}>
               {vcsInfo.branch}
             </span>
           </div>
@@ -409,7 +409,7 @@ const WorktreeItem = memo(function WorktreeItem({
       {/* Info */}
       <div className="flex-1 min-w-0">
         <div className="text-xs text-text-100 font-medium truncate">{name}</div>
-        <div className="text-[10px] text-text-400/70 font-mono truncate" title={directory}>
+        <div className="text-[10px] text-text-400/70 truncate" title={directory}>
           {directory}
         </div>
       </div>

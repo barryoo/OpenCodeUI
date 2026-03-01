@@ -1111,13 +1111,13 @@ export function CodePreview({
           className="flex hover:bg-bg-200/30"
           style={{ height: LINE_HEIGHT }}
         >
-          <span className="select-none text-text-500 w-10 text-right pr-3 shrink-0 border-r border-border-100/30 mr-3 leading-5">
+          <span className="select-none text-text-400 w-10 text-right pr-3 shrink-0 border-r border-border-100/30 mr-3 leading-5">
             {i + 1}
           </span>
           <span className="leading-5 pr-4">
             {displayContent}
             {isTruncated && (
-              <span className="text-text-500 ml-1">… (truncated)</span>
+              <span className="text-text-400 ml-1">… (truncated)</span>
             )}
           </span>
         </div>

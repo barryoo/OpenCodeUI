@@ -140,7 +140,7 @@ export const ContentBlock = memo(function ContentBlock({
     <div className={`rounded-lg overflow-hidden text-xs ${
       isError
         ? 'border border-danger-100/30 bg-danger-100/5'
-        : 'bg-bg-100/80 border border-border-200/40'
+        : 'bg-bg-000/85 border border-border-200/55'
     }`}>
       {/* Header */}
       <div
@@ -148,7 +148,7 @@ export const ContentBlock = memo(function ContentBlock({
           canCollapse ? 'cursor-pointer' : ''
         } ${isError
           ? 'bg-danger-100/8 hover:bg-danger-100/12'
-          : 'bg-bg-200/40 hover:bg-bg-200/60'
+          : 'bg-bg-200/45 hover:bg-bg-200/70'
         }`}
         onClick={canCollapse ? () => setCollapsed(!collapsed) : undefined}
       >
@@ -156,23 +156,23 @@ export const ContentBlock = memo(function ContentBlock({
         <div className="flex items-center gap-1.5 min-w-0 flex-1">
           {canCollapse && (
             <span className={`shrink-0 ${
-              isError ? 'text-danger-100/60' : 'text-text-500'
+              isError ? 'text-danger-100/70' : 'text-text-400'
             }`}>
               {collapsed ? <ChevronRightIcon size={12} /> : <ChevronDownIcon size={12} />}
             </span>
           )}
           <span className={`font-medium font-mono leading-none ${
-            isError ? 'text-danger-100' : 'text-text-300'
+            isError ? 'text-danger-100' : 'text-text-200'
           }`}>
             {label}
           </span>
           {fileName && (
-            <span className="text-text-500 truncate font-mono ml-0.5">{fileName}</span>
+            <span className="text-text-400 truncate font-mono ml-0.5">{fileName}</span>
           )}
           
           {/* Loading spinner */}
           {isLoading && (
-            <div className="flex items-center gap-1.5 text-text-400 ml-1">
+            <div className="flex items-center gap-1.5 text-text-300 ml-1">
               <div className="w-3 h-3 border-2 border-accent-main-100/30 border-t-accent-main-100 rounded-full animate-spin" />
               {loadingText && <span>{loadingText}</span>}
             </div>
@@ -187,7 +187,7 @@ export const ContentBlock = memo(function ContentBlock({
               {diffStats.additions > 0 && <span className="text-success-100">+{diffStats.additions}</span>}
               {diffStats.deletions > 0 && <span className="text-danger-100">-{diffStats.deletions}</span>}
               {diffStats.additions === 0 && diffStats.deletions === 0 && (
-                <span className="text-text-500">No changes</span>
+                <span className="text-text-400">No changes</span>
               )}
             </div>
           )}
@@ -195,7 +195,7 @@ export const ContentBlock = memo(function ContentBlock({
           {/* Fullscreen button - 支持 diff 和代码 */}
           {(isDiff || content?.trim()) && !collapsed && (
             <button
-              className="p-0.5 text-text-400 hover:text-text-200 rounded transition-colors"
+              className="p-0.5 text-text-300 hover:text-text-100 rounded transition-colors"
               onClick={(e) => {
                 e.stopPropagation()
                 setFullscreenOpen(true)

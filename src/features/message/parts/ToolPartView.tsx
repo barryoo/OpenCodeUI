@@ -81,7 +81,7 @@ export const ToolPartView = memo(function ToolPartView({ part, isFirst = false, 
       relative flex items-center justify-center transition-colors duration-200
       ${isActive ? 'text-accent-main-100' : ''}
       ${isError ? 'text-danger-100' : ''}
-      ${state.status === 'completed' ? 'text-text-400 group-hover:text-text-300' : ''}
+      ${state.status === 'completed' ? 'text-text-300 group-hover:text-text-200' : ''}
     `}>
       {isActive && (
         <span className="absolute inset-0 rounded-full bg-accent-main-100/20 animate-ping" style={{ animationDuration: '1.5s' }} />
@@ -115,19 +115,19 @@ export const ToolPartView = memo(function ToolPartView({ part, isFirst = false, 
                 {formatToolName(toolName)}
               </span>
               {title && (
-                <span className="text-xs text-text-400 truncate font-mono opacity-70">
+                <span className="text-xs text-text-300 truncate">
                   {title}
                 </span>
               )}
               {headerMeta && (
-                <span className="text-xs text-text-500 truncate font-mono opacity-60">
+                <span className="text-xs text-text-400 truncate">
                   {headerMeta}
                 </span>
               )}
             </div>
             <div className="flex items-center gap-2 ml-auto shrink-0">
               {duration !== undefined && state.status === 'completed' && (
-                <span className="text-[10px] font-mono text-text-500 tabular-nums">
+                <span className="text-[10px] text-text-400 tabular-nums">
                   {formatDuration(duration)}
                 </span>
               )}
@@ -141,7 +141,7 @@ export const ToolPartView = memo(function ToolPartView({ part, isFirst = false, 
               }`}>
                 Failed
               </span>
-              <span className="text-text-500">
+              <span className="text-text-400">
                 {expanded ? <ChevronDownIcon size={12} /> : <ChevronRightIcon size={12} />}
               </span>
             </div>
@@ -202,12 +202,12 @@ export const ToolPartView = memo(function ToolPartView({ part, isFirst = false, 
             </span>
             
             {title && (
-              <span className="text-xs text-text-400 truncate font-mono opacity-70">
+              <span className="text-xs text-text-300 truncate">
                 {title}
               </span>
             )}
             {headerMeta && (
-              <span className="text-xs text-text-500 truncate font-mono opacity-60">
+              <span className="text-xs text-text-400 truncate">
                 {headerMeta}
               </span>
             )}
@@ -215,7 +215,7 @@ export const ToolPartView = memo(function ToolPartView({ part, isFirst = false, 
             
           <div className="flex items-center gap-2 ml-auto shrink-0">
             {duration !== undefined && state.status === 'completed' && (
-              <span className="text-[10px] font-mono text-text-500 tabular-nums transition-opacity duration-300">
+              <span className="text-[10px] text-text-400 tabular-nums transition-opacity duration-300">
                 {formatDuration(duration)}
               </span>
             )}
@@ -229,7 +229,7 @@ export const ToolPartView = memo(function ToolPartView({ part, isFirst = false, 
             }`}>
               Failed
             </span>
-            <span className="text-text-500">
+            <span className="text-text-400">
               {expanded ? <ChevronDownIcon size={12} /> : <ChevronRightIcon size={12} />}
             </span>
           </div>

@@ -625,11 +625,11 @@ export const ChatArea = memo(forwardRef<ChatAreaHandle, ChatAreaProps>(({
   const showSessionLoading = !!sessionId && loadState === 'loading' && visibleMessages.length === 0
 
   return (
-    <div className="h-full overflow-hidden contain-strict relative">
+    <div className="h-full overflow-hidden contain-strict relative bg-bg-000">
       {/* Session 加载中的全屏居中 spinner */}
       {showSessionLoading && (
         <div className="absolute inset-0 z-10 flex items-center justify-center">
-          <div className="flex flex-col items-center gap-3 text-text-400 animate-in fade-in duration-300">
+          <div className="flex flex-col items-center gap-3 text-text-300 animate-in fade-in duration-300">
             <SpinnerIcon size={24} className="animate-spin" />
             <span className="text-sm">Loading session...</span>
           </div>
@@ -638,7 +638,7 @@ export const ChatArea = memo(forwardRef<ChatAreaHandle, ChatAreaProps>(({
       {/* 向上加载历史消息的顶部 spinner：仅在有更多历史且用户停留在顶部时显示 */}
       {isLoadingMore && isNearTop && (
         <div className="absolute top-24 left-0 right-0 z-10 flex justify-center pointer-events-none">
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-bg-100/90 border border-border-200 shadow-sm text-text-400 animate-in fade-in slide-in-from-top-2 duration-200">
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-bg-100/92 border border-border-200 shadow-sm text-text-300 animate-in fade-in slide-in-from-top-2 duration-200">
             <SpinnerIcon size={14} className="animate-spin" />
             <span className="text-xs">Loading...</span>
           </div>
@@ -646,14 +646,14 @@ export const ChatArea = memo(forwardRef<ChatAreaHandle, ChatAreaProps>(({
       )}
       {!isLoadingMore && showNoMoreHint && isNearTop && (
         <div className="absolute top-24 left-0 right-0 z-10 flex justify-center pointer-events-none">
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-bg-100/90 border border-border-200 shadow-sm text-text-400 animate-in fade-in slide-in-from-top-2 duration-200">
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-bg-100/92 border border-border-200 shadow-sm text-text-300 animate-in fade-in slide-in-from-top-2 duration-200">
             <span className="text-xs">No more history</span>
           </div>
         </div>
       )}
       <div 
         ref={setScrollParent} 
-        className="h-full overflow-y-auto custom-scrollbar animate-fade-in contain-content"
+        className="h-full overflow-y-auto custom-scrollbar animate-fade-in contain-content bg-bg-000"
       >
         {scrollParent && (
           <Virtuoso

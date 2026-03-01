@@ -153,11 +153,11 @@ const SkillItem = memo(function SkillItem({ skill }: { skill: Skill }) {
 
       {expanded && (
         <div className="px-3 pb-3 pt-0 ml-5 border-l-2 border-border-200/30 pl-3">
-          <div className="text-xs text-text-500 mb-2 font-mono break-all">
+          <div className="text-xs text-text-500 mb-2 break-all">
             {skill.location}
           </div>
           <div className="bg-bg-200/50 rounded p-2 overflow-x-auto">
-            <pre className="text-xs text-text-200 font-mono whitespace-pre-wrap break-words">
+            <pre className="text-xs text-text-200 whitespace-pre-wrap break-words">
               {skill.content}
             </pre>
           </div>

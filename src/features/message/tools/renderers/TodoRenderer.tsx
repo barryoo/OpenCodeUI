@@ -47,12 +47,12 @@ function TodoList({ todos }: { todos: TodoItem[] }) {
         onClick={() => setCollapsed(!collapsed)}
       >
         <div className="flex items-center gap-2">
-          <span className={`text-text-400 transition-transform duration-200 ${collapsed ? '' : 'rotate-180'}`}>
+          <span className={`text-text-300 transition-transform duration-200 ${collapsed ? '' : 'rotate-180'}`}>
             <ChevronDownIcon />
           </span>
-          <span className="text-text-300 font-medium font-mono">Tasks</span>
+          <span className="text-text-200 font-medium">Tasks</span>
         </div>
-        <span className="text-text-500 tabular-nums font-mono">{completed}/{total}</span>
+        <span className="text-text-400 tabular-nums">{completed}/{total}</span>
       </div>
       
       {/* List */}
@@ -66,7 +66,7 @@ function TodoList({ todos }: { todos: TodoItem[] }) {
                 <div 
                   key={todo.id}
                   className={`flex items-center gap-2 px-3 py-2 ${
-                    todo.status === 'completed' ? 'text-text-500' : 'text-text-200'
+                    todo.status === 'completed' ? 'text-text-400' : 'text-text-200'
                   }`}
                 >
                   <span className="shrink-0 flex items-center">{getTodoIcon(todo.status)}</span>
@@ -102,8 +102,8 @@ function getTodoIcon(status: TodoItem['status']) {
   const cls = {
     completed: 'text-accent-secondary-100',
     in_progress: 'text-accent-main-100',
-    cancelled: 'text-text-500',
-    pending: 'text-text-500',
+    cancelled: 'text-text-400',
+    pending: 'text-text-400',
   }[status]
   
   switch (status) {

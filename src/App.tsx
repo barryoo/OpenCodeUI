@@ -485,7 +485,7 @@ function App() {
   } : undefined
 
   return (
-    <div className="relative h-[var(--app-height)] flex bg-bg-100 overflow-hidden" style={{ paddingTop: 'var(--safe-area-inset-top)' }}>
+    <div className="relative h-[var(--app-height)] flex bg-bg-200 overflow-hidden" style={{ paddingTop: 'var(--safe-area-inset-top)' }}>
       {/* Sidebar */}
       <Sidebar
         isOpen={sidebarExpanded}
@@ -579,7 +579,7 @@ function App() {
               {showCancelHint && (
                 <div className="flex justify-center mb-2 pointer-events-none">
                   <div className="px-3 py-1.5 bg-bg-000/95 border border-border-200 rounded-lg shadow-lg text-xs text-text-300 backdrop-blur-sm animate-in fade-in slide-in-from-bottom-2 duration-150">
-                    Press <kbd className="mx-0.5 px-1.5 py-0.5 bg-bg-200 border border-border-200 rounded text-[11px] font-mono font-medium text-text-200">Esc</kbd> again to stop
+                    Press <kbd className="mx-0.5 px-1.5 py-0.5 bg-bg-200 border border-border-200 rounded text-[11px] font-medium text-text-200">Esc</kbd> again to stop
                   </div>
                 </div>
               )}

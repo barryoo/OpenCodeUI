@@ -507,7 +507,7 @@ function ZoomableImage({ url, alt }: { url: string; alt: string }) {
 
           <button
             onClick={resetView}
-            className="px-2 py-1 rounded text-xs font-mono text-white/70 hover:text-white active:text-white hover:bg-white/10 active:bg-white/10 transition-colors min-w-[52px] min-h-[44px] sm:min-h-0 flex items-center justify-center"
+            className="px-2 py-1 rounded text-xs text-white/70 hover:text-white active:text-white hover:bg-white/10 active:bg-white/10 transition-colors min-w-[52px] min-h-[44px] sm:min-h-0 flex items-center justify-center"
             title="Reset (double-click / double-tap)"
           >
             {scalePercent}%

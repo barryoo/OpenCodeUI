@@ -107,7 +107,7 @@ const CollapsibleUserText = memo(function CollapsibleUserText({ text, collapseEn
       {showCollapse && (
         <button
           onClick={() => setExpanded(!expanded)}
-          className="mt-1 text-xs text-text-400 hover:text-text-200 transition-colors"
+          className="mt-1 text-xs text-text-300 hover:text-text-100 transition-colors"
         >
           {expanded ? 'Show less' : 'Show more'}
         </button>
@@ -166,7 +166,7 @@ const UserMessageView = memo(function UserMessageView({ message, onUndo, canUndo
           <div className="flex flex-col items-end mt-1 w-full">
             <button 
               onClick={() => setShowSystemContext(!showSystemContext)}
-              className="flex items-center gap-1 text-xs text-text-400 hover:text-text-300 transition-colors py-1 px-2 rounded hover:bg-bg-200"
+              className="flex items-center gap-1 text-xs text-text-300 hover:text-text-100 transition-colors py-1 px-2 rounded hover:bg-bg-200"
             >
               <span>{showSystemContext ? 'Hide' : 'Show'} system context ({syntheticParts.length})</span>
               <span className={`transition-transform duration-300 ${showSystemContext ? 'rotate-180' : ''}`}>
@@ -196,7 +196,7 @@ const UserMessageView = memo(function UserMessageView({ message, onUndo, canUndo
           {canUndo && onUndo && (
             <button
               onClick={() => onUndo(info.id)}
-              className="p-1.5 rounded-md transition-colors duration-150 text-text-400 hover:text-text-200"
+              className="p-1.5 rounded-md transition-colors duration-150 text-text-300 hover:text-text-100"
               title="Undo from here"
             >
               <UndoIcon />
@@ -272,9 +272,9 @@ const AssistantMessageView = memo(function AssistantMessageView({ message, turnD
     // 使用骨架屏占位，预留合理高度减少 CLS
     return (
       <div className="flex flex-col gap-2 w-full min-h-[80px]">
-        <div className="flex items-center gap-2 text-xs text-text-500">
+        <div className="flex items-center gap-2 text-xs text-text-400">
           <span className="w-2 h-2 rounded-full bg-text-500/50 animate-pulse" />
-          <span className="text-text-400">Loading...</span>
+          <span className="text-text-300">Loading...</span>
         </div>
         {/* 骨架屏模拟文本行 */}
         <div className="space-y-2">
@@ -421,7 +421,7 @@ const ToolGroup = memo(function ToolGroup({ parts, stepFinish, duration, turnDur
     <div className="flex flex-col">
       <button
         onClick={() => setExpanded(!expanded)}
-        className="flex items-start gap-1.5 py-1.5 text-text-400 text-sm hover:text-text-200 rounded-md transition-colors w-fit"
+        className="flex items-start gap-1.5 py-1.5 text-text-300 text-sm hover:text-text-100 rounded-md transition-colors w-fit"
       >
         <span className="inline-flex h-5 w-[14px] items-start justify-center pt-[2px] shrink-0">
           {expanded ? <ChevronDownIcon size={14} /> : <ChevronRightIcon size={14} />}
@@ -431,7 +431,7 @@ const ToolGroup = memo(function ToolGroup({ parts, stepFinish, duration, turnDur
             {isAllDone ? `${totalCount} steps` : `${doneCount}/${totalCount} steps`}
           </span>
           {!expanded && stepFinish && (
-            <span className="text-xs text-text-500 font-mono opacity-70">
+            <span className="text-xs text-text-400">
               {formatTokens(stepFinish.tokens)}
             </span>
           )}

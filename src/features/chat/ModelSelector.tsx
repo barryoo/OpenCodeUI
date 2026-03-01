@@ -370,7 +370,7 @@ export const ModelSelector = memo(forwardRef<ModelSelectorHandle, ModelSelectorP
                         </div>
 
                         {/* Right: Meta Info + Pin */}
-                        <div className="flex items-center gap-3 text-xs font-mono flex-shrink-0 ml-4">
+                        <div className="flex items-center gap-3 text-xs flex-shrink-0 ml-4">
                           <span className="text-text-500 max-w-[100px] truncate text-right">
                             {model.providerName}
                           </span>

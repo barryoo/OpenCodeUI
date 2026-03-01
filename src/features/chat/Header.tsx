@@ -88,7 +88,7 @@ export function Header({
   }
 
   return (
-    <div className="h-14 flex justify-between items-center px-4 z-20 bg-bg-100 transition-colors duration-200 relative">
+    <div className="h-14 flex justify-between items-center px-4 z-20 bg-bg-000/95 border-b border-border-200/55 backdrop-blur-md transition-colors duration-200 relative">
       
       {/* Left: Mobile Menu + Model/Title (z-20) */}
       <div className="flex items-center gap-2 min-w-0 shrink-1 z-20">
@@ -220,7 +220,7 @@ export function Header({
       <ShareDialog isOpen={shareDialogOpen} onClose={() => setShareDialogOpen(false)} />
 
       {/* Smooth gradient - z-10 */}
-      <div className="absolute top-full left-0 right-0 h-8 bg-gradient-to-b from-bg-100 to-transparent pointer-events-none z-10" />
+      <div className="absolute top-full left-0 right-0 h-8 bg-gradient-to-b from-bg-000 to-transparent pointer-events-none z-10" />
     </div>
   )
 }

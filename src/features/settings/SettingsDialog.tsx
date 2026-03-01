@@ -663,8 +663,8 @@ function GeneralSettings({ mode }: { mode: 'chat' | 'notifications' | 'service' 
               />
               {isAutoMode && (
                 <div className="text-[11px] text-text-400 mt-2 px-1">
-                  Using <span className="font-mono text-text-300">{effectiveStyle === 'windows' ? '\\' : '/'}</span>
-                  {detectedStyle && <>, detected <span className="font-mono text-text-300">{detectedStyle === 'windows' ? 'Windows' : 'Unix'}</span></>}
+                  Using <span className="text-text-300">{effectiveStyle === 'windows' ? '\\' : '/'}</span>
+                  {detectedStyle && <>, detected <span className="text-text-300">{detectedStyle === 'windows' ? 'Windows' : 'Unix'}</span></>}
                 </div>
               )}
             </SettingsCard>
@@ -830,7 +830,7 @@ function GeneralSettings({ mode }: { mode: 'chat' | 'notifications' | 'service' 
                   value={localBinaryPath}
                   onChange={(e) => handleBinaryPathChange(e.target.value)}
                   placeholder="opencode (default, uses PATH)"
-                  className="w-full h-8 px-3 text-[13px] font-mono bg-bg-200/50 border border-border-200 rounded-md
+                  className="w-full h-8 px-3 text-[13px] bg-bg-200/50 border border-border-200 rounded-md
                     focus:outline-none focus:border-accent-main-100/50 text-text-100 placeholder:text-text-400"
                 />
                 <div className="text-[11px] text-text-400 mt-1">
@@ -911,7 +911,7 @@ function GeneralSettings({ mode }: { mode: 'chat' | 'notifications' | 'service' 
                             serviceStore.setEnvVars(updated)
                           }}
                           placeholder="KEY"
-                          className="w-[120px] shrink-0 h-7 px-2 text-[11px] font-mono bg-bg-200/50 border border-border-200 rounded
+                          className="w-[120px] shrink-0 h-7 px-2 text-[11px] bg-bg-200/50 border border-border-200 rounded
                             focus:outline-none focus:border-accent-main-100/50 text-text-100 placeholder:text-text-500"
                         />
                         <span className="text-text-500 text-[11px] shrink-0">=</span>
@@ -924,7 +924,7 @@ function GeneralSettings({ mode }: { mode: 'chat' | 'notifications' | 'service' 
                             serviceStore.setEnvVars(updated)
                           }}
                           placeholder="value"
-                          className="flex-1 min-w-0 h-7 px-2 text-[11px] font-mono bg-bg-200/50 border border-border-200 rounded
+                          className="flex-1 min-w-0 h-7 px-2 text-[11px] bg-bg-200/50 border border-border-200 rounded
                             focus:outline-none focus:border-accent-main-100/50 text-text-100 placeholder:text-text-500"
                         />
                         <button
@@ -1017,7 +1017,7 @@ function ServerItem({ server, health, isActive, onSelect, onDelete, onCheckHealt
             </span>
           )}
         </div>
-        <div className="text-[11px] text-text-400 truncate font-mono flex items-center gap-1">
+        <div className="text-[11px] text-text-400 truncate flex items-center gap-1">
           {server.url}
           {server.auth?.password && <KeyIcon size={10} className="shrink-0 text-text-400" />}
         </div>
@@ -1088,7 +1088,7 @@ function AddServerForm({ onAdd, onCancel }: {
       <div>
         <label className="block text-[11px] font-medium text-text-300 mb-1">URL</label>
         <input type="text" value={url} onChange={e => { setUrl(e.target.value); setError('') }}
-          placeholder="http://192.168.1.100:4096" className={`${inputCls} font-mono`} />
+          placeholder="http://192.168.1.100:4096" className={inputCls} />
       </div>
       
       <button type="button" onClick={() => setShowAuth(!showAuth)}

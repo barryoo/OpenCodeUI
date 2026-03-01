@@ -286,7 +286,7 @@ export function ProjectDialog({ isOpen, onClose, onSelect, initialPath = '' }: P
             }}
             onKeyDown={handleKeyDown}
             placeholder="Type path..."
-            className="flex-1 bg-transparent border-none outline-none text-sm text-text-100 placeholder:text-text-400 font-mono"
+            className="flex-1 bg-transparent border-none outline-none text-sm text-text-100 placeholder:text-text-400"
             autoComplete="off"
             spellCheck={false}
           />
@@ -351,7 +351,7 @@ export function ProjectDialog({ isOpen, onClose, onSelect, initialPath = '' }: P
 
       {/* Footer */}
       <div className="p-3 border-t border-border-200/50 flex items-center justify-between shrink-0">
-        <div className="text-[10px] text-text-400 truncate flex-1 mr-4 font-mono">
+        <div className="text-[10px] text-text-400 truncate flex-1 mr-4">
           {inputValue}
         </div>
         <button

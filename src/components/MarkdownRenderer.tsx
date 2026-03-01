@@ -9,16 +9,22 @@ interface MarkdownRendererProps {
   className?: string
 }
 
+const INLINE_CODE_CLASS = 'font-mono text-accent-main-100 text-[0.95em] whitespace-pre-wrap break-words'
+
 /**
  * Inline code component
  */
 const InlineCode = memo(function InlineCode({ children }: { children: React.ReactNode }) {
   return (
-    <code className="px-1 py-0.5 bg-bg-200/50 border border-border-200/50 rounded text-accent-main-100 text-[0.9em] font-mono align-baseline break-words">
+    <code className={INLINE_CODE_CLASS}>
       {children}
     </code>
   )
 })
+
+function isSingleLineCode(code: string): boolean {
+  return !code.includes('\n')
+}
 
 function extractBlockCode(children: React.ReactNode): { code: string; language?: string } | null {
   const codeNode = Array.isArray(children) ? children[0] : children
@@ -55,6 +61,14 @@ export const MarkdownRenderer = memo(function MarkdownRenderer({
     pre({ children }: any) {
       const blockCode = extractBlockCode(children)
       if (!blockCode) return <pre>{children}</pre>
+
+      if (isSingleLineCode(blockCode.code)) {
+        return (
+          <div className="my-3">
+            <code className={INLINE_CODE_CLASS}>{blockCode.code}</code>
+          </div>
+        )
+      }
 
       return (
         <div className="my-4 w-full">

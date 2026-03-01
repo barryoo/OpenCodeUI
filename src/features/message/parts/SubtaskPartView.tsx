@@ -131,7 +131,7 @@ export const SubtaskPartView = memo(function SubtaskPartView({ part }: SubtaskPa
               {part.command && (
                 <div className="flex items-center gap-2 text-[10px] text-text-500">
                   <CommandIcon className="w-3 h-3" />
-                  <span className="font-mono">{part.command}</span>
+                  <span>{part.command}</span>
                 </div>
               )}
 

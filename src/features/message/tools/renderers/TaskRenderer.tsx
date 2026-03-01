@@ -93,7 +93,7 @@ export const TaskRenderer = memo(function TaskRenderer({ part }: ToolRendererPro
               <div className="pt-2 space-y-3">
                 {/* Prompt */}
                 {prompt && (
-                  <div className="text-xs text-text-400 bg-bg-200/30 rounded-md px-3 py-2 whitespace-pre-wrap">
+                  <div className="text-xs text-text-300 bg-bg-200/35 rounded-md px-3 py-2 whitespace-pre-wrap">
                     {prompt.length > 300 ? prompt.slice(0, 300) + '...' : prompt}
                   </div>
                 )}
@@ -179,7 +179,7 @@ const TaskHeader = memo(function TaskHeader({
       onClick={onToggle}
     >
       {/* Expand icon */}
-      <span className={`text-text-400 transition-transform ${expanded ? 'rotate-90' : ''}`}>
+      <span className={`text-text-300 transition-transform ${expanded ? 'rotate-90' : ''}`}>
         <ChevronRightIcon size={12} />
       </span>
       
@@ -214,7 +214,7 @@ const TaskHeader = memo(function TaskHeader({
       {sessionId && (
         <button
           onClick={handleOpenSession}
-          className="flex-shrink-0 p-1 text-text-500 hover:text-accent-main-100 transition-all"
+          className="flex-shrink-0 p-1 text-text-400 hover:text-accent-main-100 transition-all"
           title="Open session"
         >
           <ExternalLinkIcon size={12} />
@@ -296,7 +296,7 @@ const SubSessionView = memo(function SubSessionView({ sessionId }: SubSessionVie
 
   if (visibleMessages.length === 0) {
     return (
-      <div className="text-xs text-text-500 italic py-2">
+      <div className="text-xs text-text-400 italic py-2">
         Waiting for response...
       </div>
     )
@@ -385,10 +385,10 @@ const ToolBadge = memo(function ToolBadge({ tool }: { tool: ToolPart }) {
   const displayTitle = title.length > 30 ? title.slice(0, 30) + '...' : title
   
   return (
-    <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-mono ${
+    <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] ${
       isRunning ? 'bg-accent-main-100/10 text-accent-main-100' :
       isError ? 'bg-danger-100/10 text-danger-100' :
-      'bg-bg-200 text-text-400'
+      'bg-bg-200 text-text-300'
     }`}>
       {isRunning && <span className="w-1 h-1 rounded-full bg-current animate-pulse" />}
       {displayTitle}

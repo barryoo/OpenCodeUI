@@ -125,7 +125,7 @@ function MetaRow({
   return (
     <div className="flex gap-2">
       <span className="text-text-400 shrink-0 select-none">{label}:</span>
-      <span className={`font-mono break-all text-text-200 ${copyable ? 'select-all' : ''} ${className}`}>
+      <span className={`break-all text-text-200 ${copyable ? 'select-all' : ''} ${className}`}>
         {value}
       </span>
     </div>

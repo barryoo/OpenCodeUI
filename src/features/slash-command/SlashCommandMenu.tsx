@@ -189,7 +189,7 @@ export const SlashCommandMenu = forwardRef<SlashCommandMenuHandle, SlashCommandM
               onClick={() => onSelect(cmd)}
               onPointerEnter={() => setSelectedIndex(index)}
             >
-              <span className="text-accent-main-100 font-mono text-sm flex-shrink-0">
+              <span className="text-accent-main-100 text-sm flex-shrink-0">
                 /{cmd.name}
               </span>
               <div className="flex-1 min-w-0">
@@ -200,7 +200,7 @@ export const SlashCommandMenu = forwardRef<SlashCommandMenuHandle, SlashCommandM
                 )}
               </div>
               {cmd.keybind && (
-                <span className="text-xs text-text-500 font-mono flex-shrink-0">
+                <span className="text-xs text-text-500 flex-shrink-0">
                   {cmd.keybind}
                 </span>
               )}

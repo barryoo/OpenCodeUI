@@ -213,7 +213,7 @@ export const DiffView = memo(function DiffView({
   // Fallback for unified diff string only (should rarely happen now as we extract content)
   if (!hasContent && diff) {
      return (
-        <div className="border border-border-200/50 rounded-lg bg-bg-100 overflow-auto p-2 text-xs font-mono whitespace-pre text-text-200">
+        <div className="border border-border-200/60 rounded-lg bg-bg-000 overflow-auto p-2 text-xs font-mono whitespace-pre text-text-200">
            {diff}
         </div>
      )
@@ -224,7 +224,7 @@ export const DiffView = memo(function DiffView({
   // Loading state
   if (hasContent && !diffResult) {
     return (
-      <div className="border border-border-200/50 rounded-lg bg-bg-100 p-4 text-center text-text-300 text-xs animate-pulse">
+      <div className="border border-border-200/60 rounded-lg bg-bg-000 p-4 text-center text-text-300 text-xs animate-pulse">
         Generating diff...
       </div>
     )
@@ -234,14 +234,14 @@ export const DiffView = memo(function DiffView({
   const fileName = filePath ? filePath.split(/[/\\]/).pop() : undefined
 
   return (
-    <div className="border border-border-200/50 rounded-lg overflow-hidden bg-bg-100 font-mono text-xs">
+    <div className="border border-border-200/60 rounded-lg overflow-hidden bg-bg-000 font-mono text-xs">
       {/* Header */}
       <div 
-        className="flex items-center justify-between px-3 py-2 bg-bg-200/50 cursor-pointer hover:bg-bg-200 transition-colors select-none"
+        className="flex items-center justify-between px-3 py-2 bg-bg-200/55 cursor-pointer hover:bg-bg-200/80 transition-colors select-none"
         onClick={() => setCollapsed(!collapsed)}
       >
         <div className="flex items-center gap-2 min-w-0">
-          <div className={`transition-transform duration-200 ${collapsed ? '' : 'rotate-180'} text-text-400`}>
+          <div className={`transition-transform duration-200 ${collapsed ? '' : 'rotate-180'} text-text-300`}>
              <ChevronDownIcon />
           </div>
           {fileName && (
@@ -256,12 +256,12 @@ export const DiffView = memo(function DiffView({
             <span className="text-danger-100">-{stats.deletions}</span>
           )}
           {stats.additions === 0 && stats.deletions === 0 && (
-             <span className="text-text-400">No changes</span>
-          )}
+             <span className="text-text-300">No changes</span>
+           )}
           
           {/* 放大按钮 */}
           <button
-            className="p-1 text-text-400 hover:text-text-200 hover:bg-bg-300/50 rounded transition-colors"
+            className="p-1 text-text-300 hover:text-text-100 hover:bg-bg-300/55 rounded transition-colors"
             onClick={(e) => {
               e.stopPropagation()
               setModalOpen(true)
@@ -293,8 +293,8 @@ export const DiffView = memo(function DiffView({
               <tbody>
                 {lines.map((line, idx) => {
                   const rowBgClass = clsx(
-                    line.type === 'add' && "bg-success-bg",
-                    line.type === 'delete' && "bg-danger-bg"
+                    line.type === 'add' && "bg-success-100/12",
+                    line.type === 'delete' && "bg-danger-100/12"
                   )
                   return (
                   <tr 
@@ -302,12 +302,12 @@ export const DiffView = memo(function DiffView({
                     className="hover:bg-opacity-50 transition-colors"
                   >
                     {/* Old Line Number */}
-                    <td className={clsx("px-1 py-0.5 text-right text-text-500 border-r border-border-200/10 select-none opacity-50 tabular-nums align-top", rowBgClass)}>
+                    <td className={clsx("px-1 py-0.5 text-right text-text-400 border-r border-border-200/20 select-none tabular-nums align-top", rowBgClass)}>
                       {line.type !== 'add' && (line.oldLineNo! + startLines.old - 1)}
                     </td>
                     
                     {/* New Line Number */}
-                    <td className={clsx("px-1 py-0.5 text-right text-text-500 border-r border-border-200/10 select-none opacity-50 tabular-nums align-top", rowBgClass)}>
+                    <td className={clsx("px-1 py-0.5 text-right text-text-400 border-r border-border-200/20 select-none tabular-nums align-top", rowBgClass)}>
                       {line.type !== 'delete' && (line.newLineNo! + startLines.new - 1)}
                     </td>
 

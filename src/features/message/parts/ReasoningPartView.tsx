@@ -104,7 +104,7 @@ export const ReasoningPartView = memo(function ReasoningPartView({ part, isStrea
     return (
       <div className="py-1">
         <div className="grid grid-cols-[14px_minmax(0,1fr)] gap-x-1.5 items-start">
-          <span className="inline-flex h-5 w-[14px] items-start justify-center pt-[2px] text-text-500">
+          <span className="inline-flex h-5 w-[14px] items-start justify-center pt-[2px] text-text-400">
             {isPartStreaming ? (
               <SpinnerIcon className="animate-spin" size={14} />
             ) : (
@@ -119,13 +119,13 @@ export const ReasoningPartView = memo(function ReasoningPartView({ part, isStrea
                   type="button"
                   onClick={() => setExpanded(!expanded)}
                   aria-expanded={expanded}
-                  className="group w-full m-0 p-0 border-0 bg-transparent grid grid-cols-[minmax(0,1fr)_12px] items-start gap-x-2 text-left cursor-pointer text-text-400 hover:text-text-200"
+                  className="group w-full m-0 p-0 border-0 bg-transparent grid grid-cols-[minmax(0,1fr)_12px] items-start gap-x-2 text-left cursor-pointer text-text-300 hover:text-text-100"
                 >
                   <div ref={summaryContainerRef} className="min-w-0 flex-1 relative overflow-hidden">
                     <span className={`block min-w-0 italic ${
                       expanded
-                        ? 'text-[12px] leading-5 text-text-500/80'
-                        : 'text-[12px] leading-5 text-text-300 whitespace-nowrap overflow-hidden text-ellipsis'
+                        ? 'text-[12px] leading-5 text-text-400'
+                        : 'text-[12px] leading-5 text-text-200 whitespace-nowrap overflow-hidden text-ellipsis'
                     }`}>
                       {expanded ? expandedMetaText : summaryText}
                     </span>
@@ -137,7 +137,7 @@ export const ReasoningPartView = memo(function ReasoningPartView({ part, isStrea
                       {summaryText}
                     </span>
                   </div>
-                  <span className={`inline-flex h-5 w-3 items-center justify-center shrink-0 text-text-500/60 group-hover:text-text-300 transition-[transform,color] duration-200 ${expanded ? 'rotate-180' : ''}`}>
+                  <span className={`inline-flex h-5 w-3 items-center justify-center shrink-0 text-text-400 group-hover:text-text-200 transition-[transform,color] duration-200 ${expanded ? 'rotate-180' : ''}`}>
                     <ChevronDownIcon size={12} />
                   </span>
                 </button>
@@ -147,7 +147,7 @@ export const ReasoningPartView = memo(function ReasoningPartView({ part, isStrea
                 }`}>
                   <div className="overflow-hidden">
                     {shouldRenderBody && (
-                      <div className="pt-0.5 text-[12px] leading-6 italic text-text-300 whitespace-pre-wrap break-words overflow-x-hidden">
+                      <div className="pt-0.5 text-[12px] leading-6 italic text-text-200 whitespace-pre-wrap break-words overflow-x-hidden">
                         {displayText}
                       </div>
                     )}
@@ -155,9 +155,9 @@ export const ReasoningPartView = memo(function ReasoningPartView({ part, isStrea
                 </div>
               </>
             ) : (
-              <div className="grid grid-cols-[minmax(0,1fr)_12px] items-start gap-x-2 text-text-400">
+              <div className="grid grid-cols-[minmax(0,1fr)_12px] items-start gap-x-2 text-text-300">
                 <div ref={summaryContainerRef} className="min-w-0 flex-1 relative overflow-hidden">
-                  <span className="block min-w-0 text-[12px] leading-5 italic text-text-300 whitespace-pre-wrap break-words">
+                  <span className="block min-w-0 text-[12px] leading-5 italic text-text-200 whitespace-pre-wrap break-words">
                     {displayText}
                   </span>
                   <span
@@ -188,7 +188,7 @@ export const ReasoningPartView = memo(function ReasoningPartView({ part, isStrea
       <button
         onClick={() => setExpanded(!expanded)}
         disabled={!hasContent && !isPartStreaming} // 没内容且没流式时禁用点击（其实这种情况下组件都不渲染了）
-        className={`w-full flex items-start gap-1.5 pl-3 pr-3 py-2 text-text-400 hover:bg-bg-200/50 transition-colors ${
+        className={`w-full flex items-start gap-1.5 pl-3 pr-3 py-2 text-text-300 hover:bg-bg-200/50 transition-colors ${
           !hasContent ? 'cursor-default' : ''
         }`}
       >
@@ -204,9 +204,9 @@ export const ReasoningPartView = memo(function ReasoningPartView({ part, isStrea
         </span>
         {isPartStreaming && (
           <span className="flex items-center gap-0.5 ml-1 mt-[6px]">
-            <span className="w-1 h-1 bg-text-400 rounded-full animate-bounce [animation-delay:-0.3s]" />
-            <span className="w-1 h-1 bg-text-400 rounded-full animate-bounce [animation-delay:-0.15s]" />
-            <span className="w-1 h-1 bg-text-400 rounded-full animate-bounce" />
+            <span className="w-1 h-1 bg-text-300 rounded-full animate-bounce [animation-delay:-0.3s]" />
+            <span className="w-1 h-1 bg-text-300 rounded-full animate-bounce [animation-delay:-0.15s]" />
+            <span className="w-1 h-1 bg-text-300 rounded-full animate-bounce" />
           </span>
         )}
         <span className={`ml-auto inline-flex h-5 items-center transition-transform duration-300 ${expanded ? 'rotate-180' : ''}`}>
@@ -220,7 +220,7 @@ export const ReasoningPartView = memo(function ReasoningPartView({ part, isStrea
           <div className="overflow-hidden">
             {shouldRenderBody && (
               <ScrollArea ref={scrollAreaRef} maxHeight={192} className="border-t border-border-300/20 bg-bg-200/30">
-                <div className="pl-4 pr-3 py-2 text-text-300 text-xs font-mono whitespace-pre-wrap break-words overflow-x-hidden">
+                <div className="pl-4 pr-3 py-2 text-text-200 text-xs whitespace-pre-wrap break-words overflow-x-hidden">
                   {displayText}
                 </div>
               </ScrollArea>

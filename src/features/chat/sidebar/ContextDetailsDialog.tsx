@@ -33,7 +33,7 @@ function Stat({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex flex-col gap-1">
       <div className="text-[10px] font-bold text-text-400 uppercase tracking-wider">{label}</div>
-      <div className="text-sm text-text-200 font-mono truncate" title={value}>
+      <div className="text-sm text-text-200 truncate" title={value}>
         {value}
       </div>
     </div>
@@ -125,7 +125,7 @@ export function ContextDetailsDialog({ isOpen, onClose, contextLimit }: ContextD
           <div className="flex items-center justify-between text-[11px] text-text-400">
             <div className="flex items-center gap-2">
               <CpuIcon size={14} className="opacity-60" />
-              <span className="font-mono">last: {contextMsg.info.id}</span>
+              <span>last: {contextMsg.info.id}</span>
             </div>
             <span className="tabular-nums">{formatTimestamp(contextMsg.info.time?.created)}</span>
           </div>
@@ -154,10 +154,10 @@ export function ContextDetailsDialog({ isOpen, onClose, contextLimit }: ContextD
                   className="w-full flex items-center justify-between gap-3 px-3 py-2 text-left bg-bg-100 hover:bg-bg-200/40 transition-colors"
                 >
                   <div className="min-w-0">
-                    <div className="text-xs text-text-200 font-mono truncate" title={headerLabel}>
+                    <div className="text-xs text-text-200 truncate" title={headerLabel}>
                       {headerLabel}
                     </div>
-                    <div className="flex items-center gap-2 mt-0.5 text-[10px] text-text-500 font-mono">
+                    <div className="flex items-center gap-2 mt-0.5 text-[10px] text-text-500">
                       <span className="tabular-nums">{time}</span>
                       {assistantTokens !== null && (
                         <>

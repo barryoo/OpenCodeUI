@@ -160,8 +160,8 @@ function DiagnosticsBlock({ diagnostics }: DiagnosticsBlockProps) {
   return (
     <div className="rounded-lg border border-border-200/40 bg-bg-100/80 overflow-hidden text-xs">
       <div className="px-3 h-8 bg-bg-200/40 flex items-center gap-2">
-        <AlertCircleIcon className="w-3.5 h-3.5 text-text-400" />
-        <span className="font-medium text-text-300">Diagnostics</span>
+        <AlertCircleIcon className="w-3.5 h-3.5 text-text-300" />
+        <span className="font-medium text-text-200">Diagnostics</span>
         <div className="flex items-center gap-2 ml-auto font-mono text-[10px]">
           {errors.length > 0 && (
             <span className="text-danger-100">{errors.length} error{errors.length > 1 ? 's' : ''}</span>
@@ -177,7 +177,7 @@ function DiagnosticsBlock({ diagnostics }: DiagnosticsBlockProps) {
             <span className={`flex-shrink-0 mt-1 w-1.5 h-1.5 rounded-full ${
               d.severity === 'error' ? 'bg-danger-100' : 'bg-warning-100'
             }`} />
-            <span className="text-text-400 font-mono flex-shrink-0">
+            <span className="text-text-300 font-mono flex-shrink-0">
               {d.file}:{d.line + 1}
             </span>
             <span className="text-text-300 break-words">{d.message}</span>

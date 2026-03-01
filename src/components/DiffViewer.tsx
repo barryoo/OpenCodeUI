@@ -112,9 +112,9 @@ interface UnifiedLine extends DiffLine {
 
 function getLineBgClass(type: LineType): string {
   switch (type) {
-    case 'add': return 'bg-success-bg/40'
-    case 'delete': return 'bg-danger-bg/40'
-    case 'empty': return 'bg-bg-100/30'
+    case 'add': return 'bg-success-100/12'
+    case 'delete': return 'bg-danger-100/12'
+    case 'empty': return 'bg-bg-200/45'
     default: return ''
   }
 }
@@ -298,11 +298,11 @@ const SplitDiffView = memo(function SplitDiffView({
     
     leftRows.push(
       <div key={i} className={`flex min-w-full ${getLineBgClass(pair.left.type)}`} style={{ height: LINE_HEIGHT }}>
-        <div className="w-8 shrink-0 px-1 text-right text-text-500 text-[11px] leading-5 select-none opacity-60">
+        <div className="w-8 shrink-0 px-1 text-right text-text-400 text-[11px] leading-5 select-none">
           {pair.left.lineNo}
         </div>
         <div className="w-5 shrink-0 text-center text-[11px] leading-5 select-none">
-          {pair.left.type === 'delete' && <span className="text-danger-100">−</span>}
+          {pair.left.type === 'delete' && <span className="text-danger-200">−</span>}
         </div>
         <div className="flex-1 pr-2 leading-5 text-[11px] whitespace-pre">
           {pair.left.type !== 'empty' && <LineContent line={pair.left} tokens={beforeTokens as any[][] | null} />}
@@ -312,11 +312,11 @@ const SplitDiffView = memo(function SplitDiffView({
     
     rightRows.push(
       <div key={i} className={`flex min-w-full ${getLineBgClass(pair.right.type)}`} style={{ height: LINE_HEIGHT }}>
-        <div className="w-8 shrink-0 px-1 text-right text-text-500 text-[11px] leading-5 select-none opacity-60">
+        <div className="w-8 shrink-0 px-1 text-right text-text-400 text-[11px] leading-5 select-none">
           {pair.right.lineNo}
         </div>
         <div className="w-5 shrink-0 text-center text-[11px] leading-5 select-none">
-          {pair.right.type === 'add' && <span className="text-success-100">+</span>}
+          {pair.right.type === 'add' && <span className="text-success-200">+</span>}
         </div>
         <div className="flex-1 pr-2 leading-5 text-[11px] whitespace-pre">
           {pair.right.type !== 'empty' && <LineContent line={pair.right} tokens={afterTokens as any[][] | null} />}
@@ -341,7 +341,7 @@ const SplitDiffView = memo(function SplitDiffView({
           {/* Left — 隐藏自身滚动条，由 proxy 控制 */}
           <div 
             ref={leftPanelRef}
-            className="flex-1 overflow-x-auto scrollbar-none border-r border-border-100/30"
+            className="flex-1 overflow-x-auto scrollbar-none border-r border-border-200/55"
             onScroll={handleLeftPanelScroll}
           >
             <div className="inline-block min-w-full">
@@ -362,10 +362,10 @@ const SplitDiffView = memo(function SplitDiffView({
       </div>
 
       {/* Sticky proxy 横向滚动条 — 固定在可视区底部，和面板天然对齐 */}
-      <div className="sticky bottom-0 z-10 flex bg-bg-100/90 backdrop-blur-sm">
+      <div className="sticky bottom-0 z-10 flex bg-bg-000/92 backdrop-blur-sm">
         <div 
           ref={leftScrollbarRef}
-          className="flex-1 overflow-x-auto code-scrollbar border-r border-border-100/30"
+          className="flex-1 overflow-x-auto code-scrollbar border-r border-border-200/55"
           onScroll={handleLeftScrollbar}
         >
           <div style={{ width: leftContentWidth, height: 1 }} />
@@ -475,15 +475,15 @@ const UnifiedDiffView = memo(function UnifiedDiffView({
     
     visibleRows.push(
       <div key={i} className={`flex min-w-full ${getLineBgClass(line.type)}`} style={{ height: LINE_HEIGHT }}>
-        <div className="w-8 shrink-0 px-1 text-right text-text-500 text-[11px] leading-5 select-none opacity-60">
+        <div className="w-8 shrink-0 px-1 text-right text-text-400 text-[11px] leading-5 select-none">
           {line.oldLineNo}
         </div>
-        <div className="w-8 shrink-0 px-1 text-right text-text-500 text-[11px] leading-5 select-none opacity-60">
+        <div className="w-8 shrink-0 px-1 text-right text-text-400 text-[11px] leading-5 select-none">
           {line.newLineNo}
         </div>
         <div className="w-5 shrink-0 text-center text-[11px] leading-5 select-none">
-          {line.type === 'add' && <span className="text-success-100">+</span>}
-          {line.type === 'delete' && <span className="text-danger-100">−</span>}
+          {line.type === 'add' && <span className="text-success-200">+</span>}
+          {line.type === 'delete' && <span className="text-danger-200">−</span>}
         </div>
         <div className="flex-1 pr-2 leading-5 text-[11px] whitespace-pre">
           <LineContent line={{ ...line, lineNo }} tokens={tokens} />

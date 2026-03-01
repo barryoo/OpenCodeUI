@@ -404,7 +404,7 @@ function SessionItem({ session, isSelected, onSelect, onDelete, onRename, densit
           {session.summary && (
             <>
               <span className="opacity-30">·</span>
-              <span className="flex items-center gap-1.5 font-mono shrink-0">
+              <span className="flex items-center gap-1.5 shrink-0">
                 {session.summary.additions > 0 && (
                   <span className="text-success-100">+{session.summary.additions}</span>
                 )}

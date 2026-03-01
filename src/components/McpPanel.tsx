@@ -573,7 +573,7 @@ const ServerItem = memo(function ServerItem({
 
       {/* Expanded Error Details */}
       {expanded && errorMessage && (
-        <div className="px-3 py-2 bg-danger-bg border-t border-danger-100/20 ml-5 text-xs text-text-200 break-words font-mono">
+        <div className="px-3 py-2 bg-danger-bg border-t border-danger-100/20 ml-5 text-xs text-text-200 break-words">
           {errorMessage}
         </div>
       )}
