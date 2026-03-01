@@ -215,7 +215,7 @@ function App() {
   // ============================================
   // Agent Change with Model Sync
   // ============================================
-  // 切换 agent 时，如果 agent 绑定了模型，同步切换左上角模型选择
+  // 切换 agent 时，如果 agent 绑定了模型，同步切换输入框里的模型选择
   const syncModelForAgent = useCallback((agentName: string) => {
     const agent = agents.find(a => a.name === agentName)
     if (agent?.model) {
@@ -514,12 +514,7 @@ function App() {
             <div className="absolute top-0 left-0 right-0 z-20 pointer-events-none">
               <div className="pointer-events-auto">
                 <Header
-                  models={models}
-                  modelsLoading={modelsLoading}
-                  selectedModelKey={selectedModelKey}
-                  onModelChange={handleModelChange}
                   onOpenSidebar={() => setSidebarExpanded(true)}
-                  modelSelectorRef={modelSelectorRef}
                 />
               </div>
             </div>
@@ -583,8 +578,8 @@ function App() {
                   </div>
                 </div>
               )}
-              <InputBox 
-                onSend={handleSend} 
+              <InputBox
+                onSend={handleSend}
                 onAbort={handleAbort}
                 onCommand={handleCommand}
                 onNewChat={handleNewSession}
@@ -601,6 +596,7 @@ function App() {
                 selectedModelKey={selectedModelKey}
                 onModelChange={handleModelChange}
                 modelsLoading={modelsLoading}
+                modelSelectorRef={modelSelectorRef}
                 rootPath={effectiveDirectory}
                 sessionId={routeSessionId}
                 revertedText={revertedMessage?.text}

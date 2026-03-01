@@ -430,14 +430,14 @@ interface InputToolbarModelSelectorProps {
   constrainToRef?: React.RefObject<HTMLElement | null>
 }
 
-export const InputToolbarModelSelector = memo(function InputToolbarModelSelector({
+export const InputToolbarModelSelector = memo(forwardRef<ModelSelectorHandle, InputToolbarModelSelectorProps>(function InputToolbarModelSelector({
   models,
   selectedModelKey,
   onSelect,
   isLoading = false,
   disabled = false,
   constrainToRef,
-}: InputToolbarModelSelectorProps) {
+}: InputToolbarModelSelectorProps, ref) {
   const [isOpen, setIsOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [highlightedIndex, setHighlightedIndex] = useState(0)
@@ -516,6 +516,7 @@ export const InputToolbarModelSelector = memo(function InputToolbarModelSelector
   }, [models, selectedModelKey])
 
   const displayName = selectedModel?.name || (isLoading ? '...' : 'Model')
+  const selectorControlHeight = 'clamp(34px, 4.6vh, 42px)'
 
   const openMenu = useCallback(() => {
     if (disabled || isLoading) return
@@ -540,6 +541,10 @@ export const InputToolbarModelSelector = memo(function InputToolbarModelSelector
     setIsOpen(false)
     setSearchQuery('')
   }, [])
+
+  useImperativeHandle(ref, () => ({
+    openMenu,
+  }), [openMenu])
 
   const handleSelect = useCallback((model: ModelInfo) => {
     const key = getModelKey(model)
@@ -581,7 +586,11 @@ export const InputToolbarModelSelector = memo(function InputToolbarModelSelector
   }, [handleSelect])
 
   useEffect(() => {
-    if (isOpen) setTimeout(() => searchInputRef.current?.focus(), 50)
+    if (!isOpen) return
+    // 移动端不自动聚焦搜索框，避免键盘立刻弹起遮挡菜单
+    if (window.innerWidth < 768) return
+    const timer = window.setTimeout(() => searchInputRef.current?.focus(), 50)
+    return () => window.clearTimeout(timer)
   }, [isOpen])
 
   // Click outside
@@ -663,7 +672,8 @@ export const InputToolbarModelSelector = memo(function InputToolbarModelSelector
         ref={triggerRef}
         onClick={() => isOpen ? closeMenu() : openMenu()}
         disabled={disabled || isLoading}
-        className="flex items-center gap-1.5 px-2 py-1.5 text-sm rounded-lg transition-all duration-150 hover:bg-bg-200 active:scale-95 cursor-pointer min-w-0 overflow-hidden w-full"
+        className="flex items-center gap-1.5 px-2 text-sm rounded-lg transition-all duration-150 hover:bg-bg-200 active:scale-95 cursor-pointer min-w-0 overflow-hidden w-full"
+        style={{ height: selectorControlHeight }}
         title={selectedModel?.name || 'Select model'}
       >
         <span className="text-xs text-text-300 truncate">{displayName}</span>
@@ -681,7 +691,7 @@ export const InputToolbarModelSelector = memo(function InputToolbarModelSelector
         maxWidth="min(460px, calc(100vw - 24px))"
         mobileFullWidth
         constrainToRef={constrainToRef}
-        className="!p-0 overflow-hidden flex flex-col max-h-[min(360px,45vh)]"
+        className="!p-0 overflow-hidden flex flex-col max-h-[min(70vh,calc(var(--app-height,100vh)-140px))]"
       >
         <div ref={menuRef} onKeyDown={handleKeyDown}>
           {/* Search */}
@@ -702,7 +712,7 @@ export const InputToolbarModelSelector = memo(function InputToolbarModelSelector
           </div>
 
           {/* List — 复用 PC 端的样式：sticky header + 横向布局 */}
-          <div className="overflow-y-auto custom-scrollbar flex-1 relative max-h-[min(320px,40vh)]">
+          <div className="overflow-y-auto custom-scrollbar flex-1 relative max-h-[min(64vh,calc(var(--app-height,100vh)-180px))]">
             {flatList.length === 0 ? (
               <div className="px-4 py-10 text-center">
                 <div className="text-sm text-text-400">No models found</div>
@@ -783,4 +793,4 @@ export const InputToolbarModelSelector = memo(function InputToolbarModelSelector
       </DropdownMenu>
     </div>
   )
-})
+}))

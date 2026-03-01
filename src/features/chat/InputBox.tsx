@@ -5,6 +5,7 @@ import { SlashCommandMenu, type SlashCommandMenuHandle } from '../slash-command'
 import { InputToolbar } from './input/InputToolbar'
 import { InputFooter } from './input/InputFooter'
 import { UndoStatus } from './input/UndoStatus'
+import type { ModelSelectorHandle } from './ModelSelector'
 import { useImageCompressor } from '../../hooks/useImageCompressor'
 import { keybindingStore, matchesKeybinding } from '../../store/keybindingStore'
 import { useMessages } from '../../store/messageStore'
@@ -44,11 +45,12 @@ export interface InputBoxProps {
   selectedVariant?: string
   onVariantChange?: (variant: string | undefined) => void
   supportsImages?: boolean
-  // Model（移动端 InputToolbar 用）
+  // Model（输入框工具栏用）
   models?: ModelInfo[]
   selectedModelKey?: string | null
   onModelChange?: (modelKey: string, model: ModelInfo) => void
   modelsLoading?: boolean
+  modelSelectorRef?: React.RefObject<ModelSelectorHandle | null>
   rootPath?: string
   sessionId?: string | null
   // Undo/Redo
@@ -91,6 +93,7 @@ function InputBoxComponent({
   selectedModelKey = null,
   onModelChange,
   modelsLoading = false,
+  modelSelectorRef,
   rootPath = '',
   sessionId,
   revertedText,
@@ -924,6 +927,7 @@ function InputBoxComponent({
                       selectedModelKey={selectedModelKey}
                       onModelChange={onModelChange}
                       modelsLoading={modelsLoading}
+                      modelSelectorRef={modelSelectorRef}
                       inputContainerRef={inputContainerRef}
                     />
                   </div>

@@ -1,31 +1,19 @@
 import { useState, useRef, useEffect, useMemo } from 'react'
 import { PanelRightIcon, PanelBottomIcon, ChevronDownIcon, SidebarIcon } from '../../components/Icons'
 import { IconButton } from '../../components/ui'
-import { ModelSelector, type ModelSelectorHandle } from './ModelSelector'
 import { ShareDialog } from './ShareDialog'
 import { useMessageStore } from '../../store'
 import { useLayoutStore, layoutStore } from '../../store/layoutStore'
 import { useSessionContext } from '../../contexts/SessionContext'
 import { updateSession } from '../../api'
 import { uiErrorHandler } from '../../utils'
-import type { ModelInfo } from '../../api'
 
 interface HeaderProps {
-  models: ModelInfo[]
-  modelsLoading: boolean
-  selectedModelKey: string | null
-  onModelChange: (modelKey: string, model: ModelInfo) => void
   onOpenSidebar?: () => void
-  modelSelectorRef?: React.RefObject<ModelSelectorHandle | null>
 }
 
 export function Header({
-  models,
-  modelsLoading,
-  selectedModelKey,
-  onModelChange,
   onOpenSidebar,
-  modelSelectorRef,
 }: HeaderProps) {
   const { sessionId } = useMessageStore()
   const { rightPanelOpen, bottomPanelOpen } = useLayoutStore()
@@ -90,7 +78,7 @@ export function Header({
   return (
     <div className="h-14 flex justify-between items-center px-4 z-20 bg-bg-000/95 border-b border-border-200/55 backdrop-blur-md transition-colors duration-200 relative">
       
-      {/* Left: Mobile Menu + Model/Title (z-20) */}
+      {/* Left: Mobile Menu + Title (z-20) */}
       <div className="flex items-center gap-2 min-w-0 shrink-1 z-20">
         {/* Mobile Sidebar Toggle - 只在移动端显示 */}
         {onOpenSidebar && (
@@ -102,17 +90,7 @@ export function Header({
             <SidebarIcon size={18} />
           </IconButton>
         )}
-        {/* PC端：ModelSelector */}
-        <div className="hidden md:block">
-          <ModelSelector
-            ref={modelSelectorRef}
-            models={models}
-            selectedModelKey={selectedModelKey}
-            onSelect={onModelChange}
-            isLoading={modelsLoading}
-          />
-        </div>
-        {/* 移动端：Session Title（移动端不显示 ModelSelector，模型选择在输入框） */}
+        {/* 移动端：Session Title */}
         <div className="md:hidden min-w-0">
           <div className={`flex items-center group ${isEditingTitle ? 'bg-bg-200/50 ring-1 ring-accent-main-100' : 'bg-transparent hover:bg-bg-200/50 border border-transparent hover:border-border-200/50'} rounded-lg transition-all duration-200 p-0.5 min-w-0 shrink`}>
             {isEditingTitle ? (

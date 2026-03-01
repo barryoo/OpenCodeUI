@@ -1,8 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { ChevronDownIcon, SendIcon, StopIcon, ImageIcon, AgentIcon, ThinkingIcon } from '../../../components/Icons'
 import { DropdownMenu, MenuItem, IconButton, AnimatedPresence } from '../../../components/ui'
-import { InputToolbarModelSelector } from '../ModelSelector'
-import { useIsMobile } from '../../../hooks'
+import { InputToolbarModelSelector, type ModelSelectorHandle } from '../ModelSelector'
 import { isTauri } from '../../../utils/tauri'
 import type { ApiAgent } from '../../../api/client'
 import type { ModelInfo } from '../../../api'
@@ -25,13 +24,15 @@ interface InputToolbarProps {
   canSend: boolean
   onSend: () => void
 
-  // Model selection（移动端显示在工具栏）
+  // Model selection（显示在输入框工具栏）
   models?: ModelInfo[]
   selectedModelKey?: string | null
   onModelChange?: (modelKey: string, model: ModelInfo) => void
   modelsLoading?: boolean
   // 输入框容器 ref，用于约束菜单边界
   inputContainerRef?: React.RefObject<HTMLDivElement | null>
+  // 给全局快捷键使用：打开模型菜单
+  modelSelectorRef?: React.RefObject<ModelSelectorHandle | null>
 }
 
 export function InputToolbar({ 
@@ -52,8 +53,8 @@ export function InputToolbar({
   onModelChange,
   modelsLoading = false,
   inputContainerRef,
+  modelSelectorRef,
 }: InputToolbarProps) {
-  const isMobile = useIsMobile()
   // State for menus
   const [agentMenuOpen, setAgentMenuOpen] = useState(false)
   const [variantMenuOpen, setVariantMenuOpen] = useState(false)
@@ -129,68 +130,38 @@ export function InputToolbar({
   
   const selectableAgents = agents.filter(a => a.mode !== 'subagent' && !a.hidden)
   const currentAgent = agents.find(a => a.name === selectedAgent)
+  const selectorControlHeight = 'clamp(34px, 4.6vh, 42px)'
 
   return (
     <div
-      className="flex items-center justify-between px-3 pb-3 relative"
+      className="flex items-center justify-between px-3 pb-3 relative gap-2"
     >
-      {/* Left side: Model (mobile) + Agent + Variant selectors */}
-      <div className="flex items-center gap-1 md:gap-2 min-w-0">
-        {/* Model Selector — 移动端显示在最左边 */}
-        {isMobile && onModelChange && (
-          <InputToolbarModelSelector
-            models={models}
-            selectedModelKey={selectedModelKey}
-            onSelect={onModelChange}
-            isLoading={modelsLoading}
-            constrainToRef={inputContainerRef}
-          />
+      {/* Left side: Model + Thinking + Agent selectors */}
+      <div className="flex items-center gap-1 md:gap-2 min-w-0 flex-1">
+        {onModelChange && (
+          <div className="min-w-0 max-w-[52%] sm:max-w-[60%] md:max-w-[320px]">
+            <InputToolbarModelSelector
+              ref={modelSelectorRef}
+              models={models}
+              selectedModelKey={selectedModelKey}
+              onSelect={onModelChange}
+              isLoading={modelsLoading}
+              constrainToRef={inputContainerRef}
+            />
+          </div>
         )}
 
-        {/* Agent Selector */}
-        <AnimatedPresence show={selectableAgents.length > 1} className={isMobile ? "shrink-0" : ""}>
-          <div className="relative">
-            <button
-              ref={agentTriggerRef}
-              onClick={() => setAgentMenuOpen(!agentMenuOpen)}
-              className="flex items-center gap-1.5 px-2 py-1.5 text-sm rounded-lg transition-all duration-150 hover:bg-bg-200 active:scale-95 cursor-pointer min-w-0 overflow-hidden w-full"
-              title={currentAgent ? `${currentAgent.name}${currentAgent.description ? ': ' + currentAgent.description : ''}` : selectedAgent || 'build'}
-            >
-              {/* 移动端隐藏 AgentIcon 节省空间 */}
-              <span className="text-text-400 hidden md:inline shrink-0" style={currentAgent?.color ? { color: currentAgent.color } : undefined}>
-                <AgentIcon />
-              </span>
-              <span className="text-xs text-text-300 capitalize truncate">{selectedAgent || 'build'}</span>
-              <span className="text-text-400 hidden md:inline shrink-0"><ChevronDownIcon /></span>
-            </button>
-
-            <DropdownMenu triggerRef={agentTriggerRef} isOpen={agentMenuOpen} position="top" align="left" constrainToRef={inputContainerRef}>
-              <div ref={agentMenuRef}>
-                {selectableAgents.map(agent => (
-                  <MenuItem
-                    key={agent.name}
-                    label={agent.name.charAt(0).toUpperCase() + agent.name.slice(1)}
-                    description={agent.description}
-                    icon={<span style={agent.color ? { color: agent.color } : undefined}><AgentIcon /></span>}
-                    selected={selectedAgent === agent.name}
-                    onClick={() => { onAgentChange?.(agent.name); setAgentMenuOpen(false) }}
-                  />
-                ))}
-              </div>
-            </DropdownMenu>
-          </div>
-        </AnimatedPresence>
-
-        {/* Variant Selector */}
-        <AnimatedPresence show={variants.length > 0} className={isMobile ? "shrink-0" : ""}>
-          <div className="relative">
+        {/* Thinking Selector */}
+        <AnimatedPresence show={variants.length > 0} className="min-w-0 max-w-[24%] sm:max-w-[30%] md:max-w-[180px]">
+          <div className="relative min-w-0">
             <button
               ref={variantTriggerRef}
               onClick={() => setVariantMenuOpen(!variantMenuOpen)}
-              className="flex items-center gap-1.5 px-2 py-1.5 text-sm rounded-lg transition-all duration-150 hover:bg-bg-200 active:scale-95 cursor-pointer min-w-0 overflow-hidden w-full"
+              className="flex items-center gap-1.5 px-2 text-sm rounded-lg transition-all duration-150 hover:bg-bg-200 active:scale-95 cursor-pointer min-w-0 overflow-hidden w-full"
+              style={{ height: selectorControlHeight }}
               title={selectedVariant ? selectedVariant.charAt(0).toUpperCase() + selectedVariant.slice(1) : 'Default'}
             >
-              {/* 移动端隐藏 ThinkingIcon */}
+              {/* 移动端仅显示文字 */}
               <span className="text-text-400 hidden md:inline shrink-0"><ThinkingIcon /></span>
               <span className="text-xs text-text-300 truncate">{selectedVariant ? selectedVariant.charAt(0).toUpperCase() + selectedVariant.slice(1) : 'Default'}</span>
               <span className="text-text-400 hidden md:inline shrink-0"><ChevronDownIcon /></span>
@@ -211,6 +182,41 @@ export function InputToolbar({
                     icon={<ThinkingIcon />}
                     selected={selectedVariant === variant}
                     onClick={() => { onVariantChange?.(variant); setVariantMenuOpen(false) }}
+                  />
+                ))}
+              </div>
+            </DropdownMenu>
+          </div>
+        </AnimatedPresence>
+
+        {/* Agent Selector */}
+        <AnimatedPresence show={selectableAgents.length > 1} className="min-w-0 max-w-[24%] sm:max-w-[30%] md:max-w-[180px]">
+          <div className="relative min-w-0">
+            <button
+              ref={agentTriggerRef}
+              onClick={() => setAgentMenuOpen(!agentMenuOpen)}
+              className="flex items-center gap-1.5 px-2 text-sm rounded-lg transition-all duration-150 hover:bg-bg-200 active:scale-95 cursor-pointer min-w-0 overflow-hidden w-full"
+              style={{ height: selectorControlHeight }}
+              title={currentAgent ? `${currentAgent.name}${currentAgent.description ? ': ' + currentAgent.description : ''}` : selectedAgent || 'build'}
+            >
+              {/* 移动端仅显示文字 */}
+              <span className="text-text-400 hidden md:inline shrink-0" style={currentAgent?.color ? { color: currentAgent.color } : undefined}>
+                <AgentIcon />
+              </span>
+              <span className="text-xs text-text-300 capitalize truncate">{selectedAgent || 'build'}</span>
+              <span className="text-text-400 hidden md:inline shrink-0"><ChevronDownIcon /></span>
+            </button>
+
+            <DropdownMenu triggerRef={agentTriggerRef} isOpen={agentMenuOpen} position="top" align="left" constrainToRef={inputContainerRef}>
+              <div ref={agentMenuRef}>
+                {selectableAgents.map(agent => (
+                  <MenuItem
+                    key={agent.name}
+                    label={agent.name.charAt(0).toUpperCase() + agent.name.slice(1)}
+                    description={agent.description}
+                    icon={<span style={agent.color ? { color: agent.color } : undefined}><AgentIcon /></span>}
+                    selected={selectedAgent === agent.name}
+                    onClick={() => { onAgentChange?.(agent.name); setAgentMenuOpen(false) }}
                   />
                 ))}
               </div>
