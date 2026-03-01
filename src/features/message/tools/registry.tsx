@@ -264,10 +264,38 @@ export const toolRegistry: ToolRegistry = [
     extractData: editExtractData,
   },
   
-  // Search
+  // Search / Grep / Glob
   {
     match: includes('search', 'find', 'grep', 'glob'),
     icon: <SearchIcon />,
+    extractData: (part: ToolPart): ExtractedToolData => {
+      const base = defaultExtractData(part)
+      const inputObj = part.state.input as Record<string, unknown> | undefined
+      if (!inputObj) return base
+
+      // 搜索词：pattern / query / glob pattern
+      const pattern =
+        inputObj.pattern ??
+        inputObj.query ??
+        inputObj.glob_pattern ??
+        inputObj.glob
+
+      // 搜索路径：path / directory（存入 filePath 供标题行相对化显示）
+      const rawPath =
+        inputObj.path ??
+        inputObj.directory ??
+        inputObj.dir
+
+      if (pattern) {
+        base.subtitle = String(pattern)
+      }
+      if (rawPath) {
+        // 覆盖 defaultExtractData 可能从 input.filePath 拿到的路径
+        base.filePath = String(rawPath)
+      }
+
+      return base
+    },
   },
   
   // Web / Network

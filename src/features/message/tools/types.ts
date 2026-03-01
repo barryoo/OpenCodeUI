@@ -29,6 +29,9 @@ export interface ExtractedToolData {
   filePath?: string
   exitCode?: number
   
+  /** 标题行副标题，用于在工具名旁展示关键参数（如搜索词、路径等） */
+  subtitle?: string
+  
   // LSP 诊断
   diagnostics?: DiagnosticInfo[]
 }

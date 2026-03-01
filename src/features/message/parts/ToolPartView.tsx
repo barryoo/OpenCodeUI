@@ -1,7 +1,8 @@
-import { memo, useState } from 'react'
+import { memo, useState, useMemo } from 'react'
 import { ChevronDownIcon, ChevronRightIcon } from '../../../components/Icons'
 import type { ToolPart } from '../../../types/message'
 import { useDelayedRender } from '../../../hooks'
+import { useCurrentDirectory } from '../../../contexts/DirectoryContext'
 import { 
   getToolIcon, 
   extractToolData, 
@@ -11,6 +12,22 @@ import {
   TaskRenderer,
   hasTodos,
 } from '../tools'
+
+// ============================================
+// 将绝对路径转为相对于 cwd 的相对路径
+// ============================================
+
+function toRelativePath(absPath: string, cwd: string | undefined): string {
+  if (!cwd) return absPath
+  // 统一分隔符
+  const normalize = (p: string) => p.replace(/\\/g, '/')
+  const normAbs = normalize(absPath)
+  const normCwd = normalize(cwd).replace(/\/$/, '')
+  if (normAbs.startsWith(normCwd + '/')) {
+    return normAbs.slice(normCwd.length + 1)
+  }
+  return absPath
+}
 
 // ============================================
 // ToolPartView - 单个工具调用
@@ -30,6 +47,7 @@ export const ToolPartView = memo(function ToolPartView({ part, isFirst = false, 
     return part.state.status === 'running' || part.state.status === 'pending'
   })
   const shouldRenderBody = useDelayedRender(expanded)
+  const cwd = useCurrentDirectory()
   
   const { state, tool: toolName } = part
   const title = state.title || ''
@@ -40,6 +58,20 @@ export const ToolPartView = memo(function ToolPartView({ part, isFirst = false, 
 
   const isActive = state.status === 'running' || state.status === 'pending'
   const isError = state.status === 'error'
+
+  // 提取 subtitle（搜索词）和相对路径，用于标题行展示
+  const headerMeta = useMemo(() => {
+    const data = extractToolData(part)
+    if (!data.subtitle) return ''
+    const parts: string[] = [data.subtitle]
+    if (data.filePath) {
+      parts.push(toRelativePath(data.filePath, cwd))
+    }
+    return parts.join('  ')
+  }, [part, cwd])
+
+  // 标题行副标题：优先用 state.title，无时使用 headerMeta
+  const displaySubtitle = title || headerMeta
 
   // Shared icon element
   const toolIcon = (
@@ -80,9 +112,9 @@ export const ToolPartView = memo(function ToolPartView({ part, isFirst = false, 
               }`}>
                 {formatToolName(toolName)}
               </span>
-              {title && (
+              {displaySubtitle && (
                 <span className="text-xs text-text-400 truncate font-mono opacity-70">
-                  {title}
+                  {displaySubtitle}
                 </span>
               )}
             </div>
@@ -162,9 +194,9 @@ export const ToolPartView = memo(function ToolPartView({ part, isFirst = false, 
               {formatToolName(toolName)}
             </span>
             
-            {title && (
+            {displaySubtitle && (
               <span className="text-xs text-text-400 truncate font-mono opacity-70">
-                {title}
+                {displaySubtitle}
               </span>
             )}
           </div>
