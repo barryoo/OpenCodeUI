@@ -114,7 +114,14 @@ export const FullscreenViewer = memo(function FullscreenViewer(props: Fullscreen
     
     // Diff mode
     const diff = props.diff
-    const resolved = typeof diff === 'object' ? diff : extractContentFromUnifiedDiff(diff)
+    const resolved = typeof diff === 'object'
+      ? {
+          before: diff.before,
+          after: diff.after,
+          beforeLineNumbers: undefined,
+          afterLineNumbers: undefined,
+        }
+      : extractContentFromUnifiedDiff(diff)
     
     // 计算 diff stats
     let stats = props.diffStats
@@ -233,6 +240,8 @@ export const FullscreenViewer = memo(function FullscreenViewer(props: Fullscreen
             <DiffViewer
               before={resolvedDiff.before}
               after={resolvedDiff.after}
+              beforeLineNumbers={resolvedDiff.beforeLineNumbers}
+              afterLineNumbers={resolvedDiff.afterLineNumbers}
               language={lang}
               viewMode={diffViewMode}
               autoHeight

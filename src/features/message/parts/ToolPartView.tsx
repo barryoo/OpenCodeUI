@@ -51,6 +51,9 @@ export const ToolPartView = memo(function ToolPartView({ part, isFirst = false, 
   
   const { state, tool: toolName } = part
   const title = state.title || ''
+  const isPatchTool = isPatchToolName(toolName)
+  const displayToolName = isPatchTool ? 'Patch' : formatToolName(toolName)
+  const displayTitle = isPatchTool ? '' : title
   
   const duration = state.time?.start && state.time?.end 
     ? state.time.end - state.time.start 
@@ -62,18 +65,18 @@ export const ToolPartView = memo(function ToolPartView({ part, isFirst = false, 
   // 提取 subtitle（pattern）和相对路径，拼成标题行 meta：路径在前、pattern 在后
   const headerMeta = useMemo(() => {
     const data = extractToolData(part)
-    if (!data.subtitle) return ''
     const parts: string[] = []
-    if (data.filePath) {
-      parts.push(toRelativePath(data.filePath, cwd))
+
+    const path = data.filePath || (data.files?.length === 1 ? data.files[0].filePath : undefined)
+    if (path) {
+      parts.push(toRelativePath(path, cwd))
     }
     if (data.subtitle) {
       parts.push(data.subtitle)
     }
+
     return parts.join('  ')
   }, [part, cwd])
-
-  // 标题行副标题：优先用 state.title，无时使用 headerMeta
 
   // Shared icon element
   const toolIcon = (
@@ -112,11 +115,11 @@ export const ToolPartView = memo(function ToolPartView({ part, isFirst = false, 
                 isError ? 'text-danger-100' :
                 'text-text-200 group-hover/header:text-text-100'
               }`}>
-                {formatToolName(toolName)}
+                {displayToolName}
               </span>
-              {title && (
+              {displayTitle && (
                 <span className="text-xs text-text-300 truncate">
-                  {title}
+                  {displayTitle}
                 </span>
               )}
               {headerMeta && (
@@ -198,12 +201,12 @@ export const ToolPartView = memo(function ToolPartView({ part, isFirst = false, 
               isError ? 'text-danger-100' :
               'text-text-200 group-hover/header:text-text-100'
             }`}>
-              {formatToolName(toolName)}
+              {displayToolName}
             </span>
             
-            {title && (
+            {displayTitle && (
               <span className="text-xs text-text-300 truncate">
-                {title}
+                {displayTitle}
               </span>
             )}
             {headerMeta && (
@@ -291,4 +294,9 @@ function formatToolName(name: string): string {
 function formatDuration(ms: number): string {
   if (ms < 1000) return `${ms}ms`
   return `${(ms / 1000).toFixed(1)}s`
+}
+
+function isPatchToolName(name: string): boolean {
+  const lower = name.toLowerCase()
+  return lower === 'write' || lower === 'edit' || lower === 'patch' || lower === 'apply_patch' || lower === 'apply-patch'
 }

@@ -23,6 +23,10 @@ import { FullscreenViewer } from './FullscreenViewer'
 export interface ContentBlockProps {
   /** 标签 */
   label: string
+  /** 标题附加信息 */
+  headerMeta?: string
+  /** 隐藏标签，仅显示文件名/元信息 */
+  hideLabel?: boolean
   /** 文件路径 */
   filePath?: string
   /** 语言 */
@@ -59,6 +63,8 @@ export interface ContentBlockProps {
 
 export const ContentBlock = memo(function ContentBlock({
   label,
+  headerMeta,
+  hideLabel = false,
   filePath,
   language,
   variant = 'default',
@@ -111,7 +117,14 @@ export const ContentBlock = memo(function ContentBlock({
 
   const resolvedDiff = useMemo(() => {
     if (!diff) return null
-    if (typeof diff === 'object') return diff
+    if (typeof diff === 'object') {
+      return {
+        before: diff.before,
+        after: diff.after,
+        beforeLineNumbers: undefined,
+        afterLineNumbers: undefined,
+      }
+    }
     return extractContentFromUnifiedDiff(diff)
   }, [diff])
 
@@ -161,13 +174,18 @@ export const ContentBlock = memo(function ContentBlock({
               {collapsed ? <ChevronRightIcon size={12} /> : <ChevronDownIcon size={12} />}
             </span>
           )}
-          <span className={`font-medium font-mono leading-none ${
-            isError ? 'text-danger-100' : 'text-text-200'
-          }`}>
-            {label}
-          </span>
+          {!hideLabel && label && (
+            <span className={`font-medium font-mono leading-none ${
+              isError ? 'text-danger-100' : 'text-text-200'
+            }`}>
+              {label}
+            </span>
+          )}
           {fileName && (
             <span className="text-text-400 truncate font-mono ml-0.5">{fileName}</span>
+          )}
+          {headerMeta && (
+            <span className="text-text-500 truncate font-mono ml-0.5">{headerMeta}</span>
           )}
           
           {/* Loading spinner */}
@@ -239,6 +257,8 @@ export const ContentBlock = memo(function ContentBlock({
                 <DiffViewer
                   before={resolvedDiff.before}
                   after={resolvedDiff.after}
+                  beforeLineNumbers={resolvedDiff.beforeLineNumbers}
+                  afterLineNumbers={resolvedDiff.afterLineNumbers}
                   language={lang}
                   viewMode={diffViewMode}
                   maxHeight={maxHeight}

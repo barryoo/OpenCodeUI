@@ -11,32 +11,19 @@ import type { ToolRendererProps, ExtractedToolData } from '../types'
 export function DefaultRenderer({ part, data }: ToolRendererProps) {
   const { state, tool } = part
   const isActive = state.status === 'running' || state.status === 'pending'
-  
-  const hasInput = !!data.input?.trim()
+
   const hasError = !!data.error
   const hasOutput = !!(data.files || data.diff || data.output?.trim() || data.exitCode !== undefined)
   const hasDiagnostics = !!data.diagnostics?.length
-  
+
   // Output 不再依赖 hasInput
   const showOutput = hasOutput || hasError || (isActive && !hasOutput)
-  
+
   return (
     <div className="flex flex-col gap-2">
-      {/* Input - 默认折叠 */}
-      {(hasInput || (isActive && !hasInput)) && (
-        <ContentBlock 
-          label="Input"
-          content={data.input || ''}
-          language={data.inputLang}
-          isLoading={isActive && !hasInput}
-          loadingText=""
-          defaultCollapsed={true}
-        />
-      )}
-      
       {/* Output */}
       {showOutput && (
-        <OutputBlock 
+        <OutputBlock
           tool={tool}
           data={data}
           isActive={isActive}
@@ -66,10 +53,13 @@ interface OutputBlockProps {
 }
 
 function OutputBlock({ tool, data, isActive, hasError, hasOutput }: OutputBlockProps) {
+  const patchTool = isPatchToolName(tool)
+  const outputHeaderMeta = patchTool ? undefined : data.subtitle || summarizeInputForHeader(data.input)
+
   // 1. Error 优先
   if (hasError) {
     return (
-      <ContentBlock 
+      <ContentBlock
         label="Error"
         content={data.error || ''}
         variant="error"
@@ -81,8 +71,11 @@ function OutputBlock({ tool, data, isActive, hasError, hasOutput }: OutputBlockP
   //    所有工具行为一致，权限弹窗已有预览，这里不重复展示
   if (isActive) {
     return (
-      <ContentBlock 
-        label="Output"
+      <ContentBlock
+        label={patchTool ? 'Patch' : 'Output'}
+        filePath={data.filePath}
+        hideLabel={patchTool && !!data.filePath}
+        headerMeta={outputHeaderMeta}
         isLoading={true}
         loadingText="Running..."
       />
@@ -96,14 +89,16 @@ function OutputBlock({ tool, data, isActive, hasError, hasOutput }: OutputBlockP
       return (
         <div className="flex flex-col gap-2">
           {data.files.map((file, idx) => (
-            <ContentBlock 
+            <ContentBlock
               key={idx}
-              label={formatLabel(tool)}
+              label={patchTool ? '' : formatLabel(tool)}
               filePath={file.filePath}
+              hideLabel={patchTool}
               diff={file.diff || (file.before !== undefined && file.after !== undefined 
                 ? { before: file.before, after: file.after } 
                 : undefined)}
               language={detectLanguage(file.filePath)}
+              headerMeta={outputHeaderMeta}
             />
           ))}
         </div>
@@ -113,32 +108,41 @@ function OutputBlock({ tool, data, isActive, hasError, hasOutput }: OutputBlockP
     // Single diff
     if (data.diff) {
       return (
-        <ContentBlock 
-          label="Output"
+        <ContentBlock
+          label={patchTool ? '' : 'Output'}
           filePath={data.filePath}
+          hideLabel={patchTool}
           diff={data.diff}
           diffStats={data.diffStats}
           language={data.outputLang}
+          headerMeta={outputHeaderMeta}
         />
       )
     }
-    
+
     // Regular output
+    const content = patchTool ? sanitizePatchOutput(data.output) : data.output
+
     return (
-      <ContentBlock 
-        label="Output"
-        content={data.output}
+      <ContentBlock
+        label={patchTool ? 'Patch' : 'Output'}
+        content={content}
         language={data.outputLang}
         filePath={data.filePath}
         stats={data.exitCode !== undefined ? { exit: data.exitCode } : undefined}
+        hideLabel={patchTool && !!data.filePath}
+        headerMeta={outputHeaderMeta}
       />
     )
   }
-  
+
   // 4. 无输出
   return (
-    <ContentBlock 
-      label="Output"
+    <ContentBlock
+      label={patchTool ? 'Patch' : 'Output'}
+      filePath={data.filePath}
+      hideLabel={patchTool && !!data.filePath}
+      headerMeta={outputHeaderMeta}
     />
   )
 }
@@ -198,4 +202,84 @@ function formatLabel(name: string): string {
     .split(/[_-]/)
     .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
     .join(' ') + ' Result'
+}
+
+function isPatchToolName(name: string): boolean {
+  const lower = name.toLowerCase()
+  return lower === 'write' || lower === 'edit' || lower === 'patch' || lower === 'apply_patch' || lower === 'apply-patch'
+}
+
+function sanitizePatchOutput(output?: string): string | undefined {
+  if (!output) return output
+
+  const cleaned = output
+    .split('\n')
+    .filter(line => {
+      const trimmed = line.trim()
+      if (!trimmed) return true
+      if (/^success\.?$/i.test(trimmed)) return false
+      if (/^updated the following files?:?$/i.test(trimmed)) return false
+      return true
+    })
+    .join('\n')
+    .trim()
+
+  return cleaned || undefined
+}
+
+function summarizeInputForHeader(input?: string): string | undefined {
+  if (!input?.trim()) return undefined
+
+  try {
+    const parsed = JSON.parse(input) as Record<string, unknown>
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return undefined
+
+    const ignoredKeys = new Set([
+      'content',
+      'oldString',
+      'newString',
+      'patchText',
+      'todos',
+      'command',
+      'filePath',
+      'filepath',
+    ])
+
+    const parts: string[] = []
+
+    for (const [key, value] of Object.entries(parsed)) {
+      if (ignoredKeys.has(key)) continue
+
+      const formatted = formatHeaderValue(value)
+      if (!formatted) continue
+
+      parts.push(`${key}=${formatted}`)
+      if (parts.length >= 2) break
+    }
+
+    return parts.join('  ') || undefined
+  } catch {
+    return undefined
+  }
+}
+
+function formatHeaderValue(value: unknown): string | undefined {
+  if (typeof value === 'string') {
+    const trimmed = value.trim()
+    if (!trimmed) return undefined
+    return trimmed.length > 40 ? `${trimmed.slice(0, 37)}...` : trimmed
+  }
+
+  if (typeof value === 'number' || typeof value === 'boolean') {
+    return String(value)
+  }
+
+  if (Array.isArray(value)) {
+    if (value.length === 0) return undefined
+    const first = formatHeaderValue(value[0])
+    if (!first) return `${value.length} items`
+    return value.length > 1 ? `${first}, +${value.length - 1}` : first
+  }
+
+  return undefined
 }

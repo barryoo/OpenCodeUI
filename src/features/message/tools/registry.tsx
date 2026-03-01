@@ -14,6 +14,7 @@ import {
   WrenchIcon,
 } from './icons'
 import { detectLanguage } from '../../../utils/languageUtils'
+import { BashRenderer } from './renderers'
 
 // ============================================
 // Tool Matchers (复用的匹配函数)
@@ -55,8 +56,11 @@ export function defaultExtractData(part: ToolPart): ExtractedToolData {
   if (metadata && typeof metadata.filepath === 'string') {
     result.filePath = metadata.filepath
   }
-  if (!result.filePath && inputObj?.filePath) {
-    result.filePath = String(inputObj.filePath)
+  if (!result.filePath) {
+    const inputPath = inputObj?.filePath ?? inputObj?.filepath ?? inputObj?.path
+    if (inputPath !== undefined) {
+      result.filePath = String(inputPath)
+    }
   }
   
   // Exit code
@@ -75,6 +79,9 @@ export function defaultExtractData(part: ToolPart): ExtractedToolData {
         additions: f.additions,
         deletions: f.deletions,
       }))
+      if (!result.filePath && result.files.length === 1) {
+        result.filePath = result.files[0].filePath
+      }
     } else if (typeof metadata.diff === 'string') {
       // 优先使用 unified diff
       result.diff = metadata.diff
@@ -89,9 +96,12 @@ export function defaultExtractData(part: ToolPart): ExtractedToolData {
         }
       }
     } else if (metadata.filediff && typeof metadata.filediff === 'object') {
-      const fd = metadata.filediff as { before?: string; after?: string; additions?: number; deletions?: number }
+      const fd = metadata.filediff as { file?: string; before?: string; after?: string; additions?: number; deletions?: number }
       if (fd.before !== undefined && fd.after !== undefined) {
         result.diff = { before: fd.before, after: fd.after }
+      }
+      if (!result.filePath && fd.file) {
+        result.filePath = fd.file
       }
       if (fd.additions !== undefined || fd.deletions !== undefined) {
         result.diffStats = {
@@ -229,6 +239,7 @@ export const toolRegistry: ToolRegistry = [
     match: includes('bash', 'sh', 'cmd', 'terminal', 'shell'),
     icon: <TerminalIcon />,
     extractData: bashExtractData,
+    renderer: BashRenderer,
   },
   
   // Todo (must be before write/read to avoid TodoWrite matching "write")

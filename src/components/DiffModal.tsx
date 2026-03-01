@@ -72,8 +72,15 @@ export const DiffModal = memo(function DiffModal({
     return () => document.removeEventListener('keydown', handleKeyDown)
   }, [isOpen, onClose])
 
-  const { before, after } = useMemo(() => {
-    if (typeof diff === 'object') return diff
+  const { before, after, beforeLineNumbers, afterLineNumbers } = useMemo(() => {
+    if (typeof diff === 'object') {
+      return {
+        before: diff.before,
+        after: diff.after,
+        beforeLineNumbers: undefined,
+        afterLineNumbers: undefined,
+      }
+    }
     return extractContentFromUnifiedDiff(diff)
   }, [diff])
 
@@ -150,6 +157,8 @@ export const DiffModal = memo(function DiffModal({
         <DiffViewer
           before={before}
           after={after}
+          beforeLineNumbers={beforeLineNumbers}
+          afterLineNumbers={afterLineNumbers}
           language={lang}
           viewMode={viewMode}
         />

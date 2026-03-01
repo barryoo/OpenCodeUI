@@ -78,6 +78,10 @@ export type ViewMode = 'split' | 'unified'
 export interface DiffViewerProps {
   before: string
   after: string
+  /** before 每行对应的真实行号（1-based） */
+  beforeLineNumbers?: number[]
+  /** after 每行对应的真实行号（1-based） */
+  afterLineNumbers?: number[]
   language?: string
   viewMode?: ViewMode
   /** 不传则填满父容器 */
@@ -92,7 +96,10 @@ export type LineType = 'add' | 'delete' | 'context' | 'empty'
 interface DiffLine {
   type: LineType
   content: string
+  /** 源文本行号（用于 token 索引） */
   lineNo?: number
+  /** 展示行号（可与 lineNo 不同） */
+  displayLineNo?: number
   highlightedContent?: string
 }
 
@@ -104,6 +111,8 @@ interface PairedLine {
 interface UnifiedLine extends DiffLine {
   oldLineNo?: number
   newLineNo?: number
+  oldDisplayLineNo?: number
+  newDisplayLineNo?: number
 }
 
 // ============================================
@@ -130,6 +139,8 @@ function escapeHtml(str: string): string {
 export const DiffViewer = memo(function DiffViewer({
   before,
   after,
+  beforeLineNumbers,
+  afterLineNumbers,
   language = 'text',
   viewMode = 'split',
   maxHeight,
@@ -148,6 +159,8 @@ export const DiffViewer = memo(function DiffViewer({
       <SplitDiffView
         before={before}
         after={after}
+        beforeLineNumbers={beforeLineNumbers}
+        afterLineNumbers={afterLineNumbers}
         language={language}
         isResizing={isResizing}
         isLargeFile={isLargeFile}
@@ -160,6 +173,8 @@ export const DiffViewer = memo(function DiffViewer({
     <UnifiedDiffView
       before={before}
       after={after}
+      beforeLineNumbers={beforeLineNumbers}
+      afterLineNumbers={afterLineNumbers}
       language={language}
       isResizing={isResizing}
       maxHeight={maxHeight}
@@ -175,6 +190,8 @@ export const DiffViewer = memo(function DiffViewer({
 const SplitDiffView = memo(function SplitDiffView({ 
   before, 
   after, 
+  beforeLineNumbers,
+  afterLineNumbers,
   language,
   isResizing,
   isLargeFile,
@@ -183,6 +200,8 @@ const SplitDiffView = memo(function SplitDiffView({
 }: { 
   before: string
   after: string
+  beforeLineNumbers?: number[]
+  afterLineNumbers?: number[]
   language: string
   isResizing: boolean
   isLargeFile: boolean
@@ -208,10 +227,10 @@ const SplitDiffView = memo(function SplitDiffView({
   const skipWordDiff = isResizing || isLargeFile
   const pairedLines = useMemo(() => {
     if (isResizing && cachedRef.current) return cachedRef.current
-    const result = computePairedLines(before, after, skipWordDiff)
+    const result = computePairedLines(before, after, skipWordDiff, beforeLineNumbers, afterLineNumbers)
     cachedRef.current = result
     return result
-  }, [before, after, isResizing, skipWordDiff])
+  }, [before, after, beforeLineNumbers, afterLineNumbers, isResizing, skipWordDiff])
   
   const totalHeight = pairedLines.length * LINE_HEIGHT
   
@@ -299,7 +318,7 @@ const SplitDiffView = memo(function SplitDiffView({
     leftRows.push(
       <div key={i} className={`flex min-w-full ${getLineBgClass(pair.left.type)}`} style={{ height: LINE_HEIGHT }}>
         <div className="w-8 shrink-0 px-1 text-right text-text-400 text-[11px] leading-5 select-none">
-          {pair.left.lineNo}
+          {pair.left.displayLineNo ?? pair.left.lineNo}
         </div>
         <div className="w-5 shrink-0 text-center text-[11px] leading-5 select-none">
           {pair.left.type === 'delete' && <span className="text-danger-200">−</span>}
@@ -313,7 +332,7 @@ const SplitDiffView = memo(function SplitDiffView({
     rightRows.push(
       <div key={i} className={`flex min-w-full ${getLineBgClass(pair.right.type)}`} style={{ height: LINE_HEIGHT }}>
         <div className="w-8 shrink-0 px-1 text-right text-text-400 text-[11px] leading-5 select-none">
-          {pair.right.lineNo}
+          {pair.right.displayLineNo ?? pair.right.lineNo}
         </div>
         <div className="w-5 shrink-0 text-center text-[11px] leading-5 select-none">
           {pair.right.type === 'add' && <span className="text-success-200">+</span>}
@@ -389,6 +408,8 @@ const SplitDiffView = memo(function SplitDiffView({
 const UnifiedDiffView = memo(function UnifiedDiffView({ 
   before, 
   after, 
+  beforeLineNumbers,
+  afterLineNumbers,
   language,
   isResizing,
   maxHeight,
@@ -396,6 +417,8 @@ const UnifiedDiffView = memo(function UnifiedDiffView({
 }: { 
   before: string
   after: string
+  beforeLineNumbers?: number[]
+  afterLineNumbers?: number[]
   language: string
   isResizing: boolean
   maxHeight?: number
@@ -414,10 +437,10 @@ const UnifiedDiffView = memo(function UnifiedDiffView({
   
   const lines = useMemo(() => {
     if (isResizing && cachedRef.current) return cachedRef.current
-    const result = computeUnifiedLines(before, after)
+    const result = computeUnifiedLines(before, after, beforeLineNumbers, afterLineNumbers)
     cachedRef.current = result
     return result
-  }, [before, after, isResizing])
+  }, [before, after, beforeLineNumbers, afterLineNumbers, isResizing])
   
   const totalHeight = lines.length * LINE_HEIGHT
   
@@ -476,10 +499,10 @@ const UnifiedDiffView = memo(function UnifiedDiffView({
     visibleRows.push(
       <div key={i} className={`flex min-w-full ${getLineBgClass(line.type)}`} style={{ height: LINE_HEIGHT }}>
         <div className="w-8 shrink-0 px-1 text-right text-text-400 text-[11px] leading-5 select-none">
-          {line.oldLineNo}
+          {line.oldDisplayLineNo ?? line.oldLineNo}
         </div>
         <div className="w-8 shrink-0 px-1 text-right text-text-400 text-[11px] leading-5 select-none">
-          {line.newLineNo}
+          {line.newDisplayLineNo ?? line.newLineNo}
         </div>
         <div className="w-5 shrink-0 text-center text-[11px] leading-5 select-none">
           {line.type === 'add' && <span className="text-success-200">+</span>}
@@ -541,7 +564,13 @@ const LineContent = memo(function LineContent({
 // Diff Computation
 // ============================================
 
-function computePairedLines(before: string, after: string, skipWordDiff: boolean): PairedLine[] {
+function computePairedLines(
+  before: string,
+  after: string,
+  skipWordDiff: boolean,
+  beforeLineNumbers?: number[],
+  afterLineNumbers?: number[],
+): PairedLine[] {
   const changes = diffLines(before, after)
   const result: PairedLine[] = []
   const beforeLines = before.split('\n')
@@ -562,6 +591,10 @@ function computePairedLines(before: string, after: string, skipWordDiff: boolean
         for (let j = 0; j < maxCount; j++) {
           const oldLine = j < count ? beforeLines[oldIdx + j] : undefined
           const newLine = j < addCount ? afterLines[newIdx + j] : undefined
+          const oldSourceLineNo = oldIdx + j + 1
+          const newSourceLineNo = newIdx + j + 1
+          const oldDisplayLineNo = beforeLineNumbers?.[oldIdx + j] ?? oldSourceLineNo
+          const newDisplayLineNo = afterLineNumbers?.[newIdx + j] ?? newSourceLineNo
           
           let leftHighlight: string | undefined
           let rightHighlight: string | undefined
@@ -576,10 +609,10 @@ function computePairedLines(before: string, after: string, skipWordDiff: boolean
           
           result.push({
             left: oldLine !== undefined 
-              ? { type: 'delete', content: oldLine, lineNo: oldIdx + j + 1, highlightedContent: leftHighlight }
+              ? { type: 'delete', content: oldLine, lineNo: oldSourceLineNo, displayLineNo: oldDisplayLineNo, highlightedContent: leftHighlight }
               : { type: 'empty', content: '' },
             right: newLine !== undefined
-              ? { type: 'add', content: newLine, lineNo: newIdx + j + 1, highlightedContent: rightHighlight }
+              ? { type: 'add', content: newLine, lineNo: newSourceLineNo, displayLineNo: newDisplayLineNo, highlightedContent: rightHighlight }
               : { type: 'empty', content: '' },
           })
         }
@@ -591,25 +624,33 @@ function computePairedLines(before: string, after: string, skipWordDiff: boolean
       }
       
       for (let j = 0; j < count; j++) {
+        const oldSourceLineNo = oldIdx + j + 1
+        const oldDisplayLineNo = beforeLineNumbers?.[oldIdx + j] ?? oldSourceLineNo
         result.push({
-          left: { type: 'delete', content: beforeLines[oldIdx + j] || '', lineNo: oldIdx + j + 1 },
+          left: { type: 'delete', content: beforeLines[oldIdx + j] || '', lineNo: oldSourceLineNo, displayLineNo: oldDisplayLineNo },
           right: { type: 'empty', content: '' },
         })
       }
       oldIdx += count
     } else if (change.added) {
       for (let j = 0; j < count; j++) {
+        const newSourceLineNo = newIdx + j + 1
+        const newDisplayLineNo = afterLineNumbers?.[newIdx + j] ?? newSourceLineNo
         result.push({
           left: { type: 'empty', content: '' },
-          right: { type: 'add', content: afterLines[newIdx + j] || '', lineNo: newIdx + j + 1 },
+          right: { type: 'add', content: afterLines[newIdx + j] || '', lineNo: newSourceLineNo, displayLineNo: newDisplayLineNo },
         })
       }
       newIdx += count
     } else {
       for (let j = 0; j < count; j++) {
+        const oldSourceLineNo = oldIdx + j + 1
+        const newSourceLineNo = newIdx + j + 1
+        const oldDisplayLineNo = beforeLineNumbers?.[oldIdx + j] ?? oldSourceLineNo
+        const newDisplayLineNo = afterLineNumbers?.[newIdx + j] ?? newSourceLineNo
         result.push({
-          left: { type: 'context', content: beforeLines[oldIdx + j] || '', lineNo: oldIdx + j + 1 },
-          right: { type: 'context', content: afterLines[newIdx + j] || '', lineNo: newIdx + j + 1 },
+          left: { type: 'context', content: beforeLines[oldIdx + j] || '', lineNo: oldSourceLineNo, displayLineNo: oldDisplayLineNo },
+          right: { type: 'context', content: afterLines[newIdx + j] || '', lineNo: newSourceLineNo, displayLineNo: newDisplayLineNo },
         })
       }
       oldIdx += count
@@ -621,7 +662,12 @@ function computePairedLines(before: string, after: string, skipWordDiff: boolean
   return result
 }
 
-function computeUnifiedLines(before: string, after: string): UnifiedLine[] {
+function computeUnifiedLines(
+  before: string,
+  after: string,
+  beforeLineNumbers?: number[],
+  afterLineNumbers?: number[],
+): UnifiedLine[] {
   const changes = diffLines(before, after)
   const result: UnifiedLine[] = []
   const beforeLines = before.split('\n')
@@ -634,17 +680,38 @@ function computeUnifiedLines(before: string, after: string): UnifiedLine[] {
     
     if (change.removed) {
       for (let j = 0; j < count; j++) {
-        result.push({ type: 'delete', content: beforeLines[oldIdx + j] || '', oldLineNo: oldIdx + j + 1 })
+        const oldLineNo = oldIdx + j + 1
+        result.push({
+          type: 'delete',
+          content: beforeLines[oldIdx + j] || '',
+          oldLineNo,
+          oldDisplayLineNo: beforeLineNumbers?.[oldIdx + j] ?? oldLineNo,
+        })
       }
       oldIdx += count
     } else if (change.added) {
       for (let j = 0; j < count; j++) {
-        result.push({ type: 'add', content: afterLines[newIdx + j] || '', newLineNo: newIdx + j + 1 })
+        const newLineNo = newIdx + j + 1
+        result.push({
+          type: 'add',
+          content: afterLines[newIdx + j] || '',
+          newLineNo,
+          newDisplayLineNo: afterLineNumbers?.[newIdx + j] ?? newLineNo,
+        })
       }
       newIdx += count
     } else {
       for (let j = 0; j < count; j++) {
-        result.push({ type: 'context', content: afterLines[newIdx + j] || '', oldLineNo: oldIdx + j + 1, newLineNo: newIdx + j + 1 })
+        const oldLineNo = oldIdx + j + 1
+        const newLineNo = newIdx + j + 1
+        result.push({
+          type: 'context',
+          content: afterLines[newIdx + j] || '',
+          oldLineNo,
+          newLineNo,
+          oldDisplayLineNo: beforeLineNumbers?.[oldIdx + j] ?? oldLineNo,
+          newDisplayLineNo: afterLineNumbers?.[newIdx + j] ?? newLineNo,
+        })
       }
       oldIdx += count
       newIdx += count
@@ -701,14 +768,106 @@ function computeWordDiff(oldLine: string, newLine: string): { left: string; righ
 // Export helper
 // ============================================
 
-export function extractContentFromUnifiedDiff(diff: string): { before: string, after: string } {
-  let before = '', after = ''
-  for (const line of diff.split('\n')) {
-    if (line.startsWith('---') || line.startsWith('+++') || line.startsWith('Index:') || 
-        line.startsWith('===') || line.startsWith('@@') || line.startsWith('\\ No newline')) continue
-    if (line.startsWith('-')) before += line.slice(1) + '\n'
-    else if (line.startsWith('+')) after += line.slice(1) + '\n'
-    else if (line.startsWith(' ')) { before += line.slice(1) + '\n'; after += line.slice(1) + '\n' }
+export interface ExtractedUnifiedDiff {
+  before: string
+  after: string
+  beforeLineNumbers: number[]
+  afterLineNumbers: number[]
+}
+
+export function extractContentFromUnifiedDiff(diff: string): ExtractedUnifiedDiff {
+  const lines = diff.split('\n')
+
+  const beforeLines: string[] = []
+  const afterLines: string[] = []
+  const beforeLineNumbers: number[] = []
+  const afterLineNumbers: number[] = []
+
+  let hasHunk = false
+  let oldLine = 1
+  let newLine = 1
+
+  for (const line of lines) {
+    const hunkMatch = line.match(/^@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@/)
+    if (hunkMatch) {
+      hasHunk = true
+      oldLine = Number(hunkMatch[1])
+      newLine = Number(hunkMatch[2])
+      continue
+    }
+
+    if (!hasHunk) continue
+    if (line.startsWith('\\ No newline')) continue
+
+    const marker = line[0]
+    const content = line.slice(1)
+
+    if (marker === ' ') {
+      beforeLines.push(content)
+      afterLines.push(content)
+      beforeLineNumbers.push(oldLine)
+      afterLineNumbers.push(newLine)
+      oldLine++
+      newLine++
+      continue
+    }
+
+    if (marker === '-') {
+      beforeLines.push(content)
+      beforeLineNumbers.push(oldLine)
+      oldLine++
+      continue
+    }
+
+    if (marker === '+') {
+      afterLines.push(content)
+      afterLineNumbers.push(newLine)
+      newLine++
+      continue
+    }
   }
-  return { before: before.trimEnd(), after: after.trimEnd() }
+
+  // 兜底：非标准 unified diff（没有 @@ 头）仍按旧逻辑提取
+  if (!hasHunk) {
+    let oldSeq = 1
+    let newSeq = 1
+
+    for (const line of lines) {
+      if (
+        line.startsWith('---') ||
+        line.startsWith('+++') ||
+        line.startsWith('Index:') ||
+        line.startsWith('===') ||
+        line.startsWith('@@') ||
+        line.startsWith('\\ No newline')
+      ) {
+        continue
+      }
+
+      if (line.startsWith('-')) {
+        beforeLines.push(line.slice(1))
+        beforeLineNumbers.push(oldSeq)
+        oldSeq++
+      } else if (line.startsWith('+')) {
+        afterLines.push(line.slice(1))
+        afterLineNumbers.push(newSeq)
+        newSeq++
+      } else if (line.startsWith(' ')) {
+        const content = line.slice(1)
+        beforeLines.push(content)
+        afterLines.push(content)
+        beforeLineNumbers.push(oldSeq)
+        afterLineNumbers.push(newSeq)
+        oldSeq++
+        newSeq++
+      }
+    }
+  }
+
+  return {
+    before: beforeLines.join('\n'),
+    after: afterLines.join('\n'),
+    beforeLineNumbers,
+    afterLineNumbers,
+  }
 }
