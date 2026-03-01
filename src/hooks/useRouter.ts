@@ -20,14 +20,17 @@ function parseHash(): RouteState {
   // 分离路径和查询参数
   const [path, queryString] = hash.split('?')
   
-  // 解析 directory 参数（不需要 URL 解码，直接使用原始路径）
+  // 解析 directory 参数
   let directory: string | undefined
   if (queryString) {
-    // 手动解析 dir 参数，避免 URLSearchParams 自动解码
+    // 手动解析 dir 参数
     const dirMatch = queryString.match(/(?:^|&)dir=([^&]*)/)
     if (dirMatch && dirMatch[1]) {
+      // 浏览器读取 window.location.hash 时会对中文等非 ASCII 字符做 percent-encoding，需要 decode
+      let raw = dirMatch[1]
+      try { raw = decodeURIComponent(raw) } catch { /* 解码失败保留原值 */ }
       // 入口标准化：统一转为正斜杠
-      directory = normalizeToForwardSlash(dirMatch[1]) || undefined
+      directory = normalizeToForwardSlash(raw) || undefined
     }
   }
   

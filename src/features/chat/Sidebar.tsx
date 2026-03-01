@@ -17,7 +17,7 @@ interface SidebarProps {
   isOpen: boolean
   selectedSessionId: string | null
   onSelectSession: (session: ApiSession) => void
-  onNewSession: () => void
+  onNewSession: (directory?: string) => void
   onOpen: () => void
   onClose: () => void
   contextLimit?: number

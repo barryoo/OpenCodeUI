@@ -50,7 +50,7 @@ function getParentPath(fullPath: string): string {
 // - 收起宽度 49px，展开宽度 288px
 
 export interface SidePanelProps {
-  onNewSession: () => void
+  onNewSession: (directory?: string) => void
   onSelectSession: (session: ApiSession) => void
   onCloseMobile?: () => void
   selectedSessionId: string | null
@@ -320,7 +320,7 @@ export function SidePanel({
       <div className="flex flex-col gap-0.5 mx-2">
         {/* New Chat - 图标始终在 padding-left: 6px 位置，收起时刚好居中 */}
         <button
-          onClick={onNewSession}
+          onClick={() => onNewSession()}
           className="h-8 flex items-center rounded-lg text-text-300 hover:text-text-100 hover:bg-bg-200 active:scale-[0.98] transition-all duration-300 group overflow-hidden"
           style={{ 
             width: showLabels ? '100%' : 32,

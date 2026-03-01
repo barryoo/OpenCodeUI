@@ -67,7 +67,7 @@ export function useChatSession({ chatAreaRef, currentModel, refetchModels }: Use
 
   // Hooks
   const { resetPermissions } = usePermissions()
-  const { sessionId: routeSessionId, navigateToSession, navigateHome } = useRouter()
+  const { sessionId: routeSessionId, navigateToSession, navigateHome, setDirectory } = useRouter()
   const { currentDirectory, sidebarExpanded, setSidebarExpanded } = useDirectory()
   const { createSession, sessions } = useSessionContext()
   const { sendNotification } = useNotification()
@@ -452,10 +452,15 @@ export function useChatSession({ chatAreaRef, currentModel, refetchModels }: Use
   }, [navigateToSession])
 
   // New session
-  const handleNewSession = useCallback(() => {
-    navigateHome()
+  const handleNewSession = useCallback((directory?: string) => {
+    if (directory) {
+      // setDirectory 直接写 URL hash（同步），navigateHome 读取后就能拿到新目录
+      setDirectory(directory)
+    } else {
+      navigateHome()
+    }
     handleNewChat()
-  }, [navigateHome, handleNewChat])
+  }, [navigateHome, handleNewChat, setDirectory])
 
   // Archive current session
   const handleArchiveSession = useCallback(async () => {

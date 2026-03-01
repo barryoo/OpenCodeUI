@@ -19,6 +19,8 @@ import { isTauri } from './utils/tauri'
 import type { Attachment } from './api'
 import { createPtySession } from './api/pty'
 import type { TerminalTab } from './store/layoutStore'
+import { useDirectory } from './contexts/DirectoryContext'
+import { FolderIcon } from './components/Icons'
 
 function App() {
   // ============================================
@@ -27,6 +29,9 @@ function App() {
   const chatAreaRef = useRef<ChatAreaHandle>(null)
   const modelSelectorRef = useRef<ModelSelectorHandle>(null)
   const lastEscTimeRef = useRef(0)
+
+  // Directory (for new-session project banner)
+  const { currentDirectory, savedDirectories } = useDirectory()
   const escHintTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // ============================================
@@ -541,6 +546,21 @@ function App() {
                 }}
                 onAtBottomChange={setIsAtBottom}
               />
+
+              {/* 新会话空白页：居中显示当前项目名，帮助用户确认所属项目 */}
+              {!routeSessionId && messages.length === 0 && currentDirectory && (() => {
+                const projectName = savedDirectories.find(
+                  d => d.path === currentDirectory || d.path.replace(/\\/g, '/') === currentDirectory.replace(/\\/g, '/')
+                )?.name ?? currentDirectory.replace(/\\/g, '/').split('/').filter(Boolean).pop() ?? currentDirectory
+                return (
+                  <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none select-none">
+                    <div className="flex items-center gap-2 text-text-400/50">
+                      <FolderIcon className="w-4 h-4 shrink-0" />
+                      <span className="text-sm font-medium tracking-wide">{projectName}</span>
+                    </div>
+                  </div>
+                )
+              })()}
             </div>
 
             {/* Outline Index - 消息目录索引 */}

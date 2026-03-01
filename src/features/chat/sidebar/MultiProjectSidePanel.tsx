@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent, type ReactNode, type RefObject } from 'react'
+import { createPortal } from 'react-dom'
 import {
   deleteSession as deleteSessionApi,
   getSession,
@@ -51,23 +52,48 @@ interface PinnedSessionEntry {
 }
 
 type OpenMenuState =
-  | { type: 'project'; projectPath: string }
-  | { type: 'session'; projectPath: string; sessionId: string }
+  | { type: 'project'; projectPath: string; anchorRect: DOMRect }
+  | { type: 'session'; projectPath: string; sessionId: string; source: 'pinned' | 'project'; anchorRect: DOMRect }
   | null
 
 interface ActionMenuProps {
   menuRef?: RefObject<HTMLDivElement | null>
+  anchorRect: DOMRect
   children: ReactNode
 }
 
-function ActionMenu({ menuRef, children }: ActionMenuProps) {
-  return (
+function ActionMenu({ menuRef, anchorRect, children }: ActionMenuProps) {
+  // 菜单宽度固定 160px，放在按钮右侧对齐，垂直方向从按钮底部展开
+  // 若超出视口右边则向左偏移
+  const menuWidth = 160
+  const viewportWidth = window.innerWidth
+  const viewportHeight = window.innerHeight
+
+  let left = anchorRect.right - menuWidth
+  if (left < 4) left = 4
+
+  let top = anchorRect.bottom + 4
+  // 估算菜单高度（每项 28px + padding 8px），若超出视口则向上展开
+  const estimatedHeight = 8 + 5 * 28
+  if (top + estimatedHeight > viewportHeight - 8) {
+    top = anchorRect.top - estimatedHeight - 4
+    if (top < 8) top = 8
+  }
+
+  // 避免菜单超出右侧视口
+  if (left + menuWidth > viewportWidth - 4) {
+    left = viewportWidth - menuWidth - 4
+  }
+
+  return createPortal(
     <div
       ref={menuRef}
-      className="absolute right-0 top-full mt-1 w-40 rounded-lg border border-border-200/60 bg-bg-000 shadow-xl z-30 p-1"
+      style={{ top, left, width: menuWidth, position: 'fixed' }}
+      className="rounded-lg border border-border-200/60 bg-bg-000 shadow-xl z-[9999] p-1"
     >
       {children}
-    </div>
+    </div>,
+    document.body,
   )
 }
 
@@ -561,24 +587,23 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
 
   const handleCreateSessionInProject = useCallback((projectPath: string) => {
     setOpenMenu(null)
-    setCurrentDirectory(projectPath)
     setExpandedProjects((prev) => ({
       ...prev,
       [projectPath]: true,
     }))
 
-    onNewSession()
+    onNewSession(projectPath)
     if (window.innerWidth < 768 && onCloseMobile) {
       onCloseMobile()
     }
-  }, [onCloseMobile, onNewSession, setCurrentDirectory])
+  }, [onCloseMobile, onNewSession])
 
-  const handleToggleProjectMenu = useCallback((projectPath: string) => {
+  const handleToggleProjectMenu = useCallback((projectPath: string, anchorRect: DOMRect) => {
     setOpenMenu((prev) => {
       if (prev?.type === 'project' && prev.projectPath === projectPath) {
         return null
       }
-      return { type: 'project', projectPath }
+      return { type: 'project', projectPath, anchorRect }
     })
   }, [])
 
@@ -600,12 +625,12 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
     setProjectDeleteConfirm(null)
   }, [projects, currentDirectory, removeDirectory, setCurrentDirectory])
 
-  const handleToggleSessionMenu = useCallback((projectPath: string, sessionId: string) => {
+  const handleToggleSessionMenu = useCallback((projectPath: string, sessionId: string, source: 'pinned' | 'project', anchorRect: DOMRect) => {
     setOpenMenu((prev) => {
-      if (prev?.type === 'session' && prev.projectPath === projectPath && prev.sessionId === sessionId) {
+      if (prev?.type === 'session' && prev.projectPath === projectPath && prev.sessionId === sessionId && prev.source === source) {
         return null
       }
-      return { type: 'session', projectPath, sessionId }
+      return { type: 'session', projectPath, sessionId, source, anchorRect }
     })
   }, [])
 
@@ -869,6 +894,7 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
                   (unreadNotificationIdsBySession.get(entry.sessionId)?.length ?? 0) > 0
                 const isSessionMenuOpen =
                   openMenu?.type === 'session' &&
+                  openMenu.source === 'pinned' &&
                   openMenu.projectPath === pinnedProjectPath &&
                   openMenu.sessionId === entry.sessionId
                 const showSessionActions = isMobile || isSessionMenuOpen
@@ -937,7 +963,7 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
                         type="button"
                         onClick={(event) => {
                           event.stopPropagation()
-                          handleToggleSessionMenu(pinnedProjectPath, entry.sessionId)
+                          handleToggleSessionMenu(pinnedProjectPath, entry.sessionId, 'pinned', event.currentTarget.getBoundingClientRect())
                         }}
                         className={`absolute inset-0 rounded-md flex items-center justify-center text-text-400 hover:text-text-100 hover:bg-bg-200/80 transition-colors ${
                           showSessionActions
@@ -950,8 +976,8 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
                       </button>
                     </div>
 
-                    {isSessionMenuOpen && (
-                      <ActionMenu menuRef={menuRef}>
+                    {isSessionMenuOpen && openMenu?.anchorRect && (
+                      <ActionMenu menuRef={menuRef} anchorRect={openMenu.anchorRect}>
                         <ActionMenuItem
                           label="取消置顶"
                           icon={<PinIcon size={12} />}
@@ -1084,7 +1110,7 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
                         type="button"
                         onClick={(event) => {
                           event.stopPropagation()
-                          handleToggleProjectMenu(project.path)
+                          handleToggleProjectMenu(project.path, event.currentTarget.getBoundingClientRect())
                         }}
                         className="h-5 w-5 rounded-md flex items-center justify-center text-text-400 hover:text-text-100 hover:bg-bg-200/80 transition-colors"
                         title="项目菜单"
@@ -1105,8 +1131,8 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
                       </button>
                     </div>
 
-                    {isProjectMenuOpen && (
-                      <ActionMenu menuRef={menuRef}>
+                    {isProjectMenuOpen && openMenu?.anchorRect && (
+                      <ActionMenu menuRef={menuRef} anchorRect={openMenu.anchorRect}>
                         <ActionMenuItem
                           label="移除项目"
                           icon={<TrashIcon size={12} />}
@@ -1146,6 +1172,7 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
                               (unreadNotificationIdsBySession.get(session.id)?.length ?? 0) > 0
                             const isSessionMenuOpen =
                               openMenu?.type === 'session' &&
+                              openMenu.source === 'project' &&
                               openMenu.projectPath === project.path &&
                               openMenu.sessionId === session.id
                             const showSessionActions = isMobile || isSessionMenuOpen
@@ -1207,7 +1234,7 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
                                     type="button"
                                     onClick={(event) => {
                                       event.stopPropagation()
-                                      handleToggleSessionMenu(project.path, session.id)
+                                      handleToggleSessionMenu(project.path, session.id, 'project', event.currentTarget.getBoundingClientRect())
                                     }}
                                     className={`absolute inset-0 rounded-md flex items-center justify-center text-text-400 hover:text-text-100 hover:bg-bg-200/80 transition-colors ${
                                       showSessionActions
@@ -1220,8 +1247,8 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
                                   </button>
                                 </div>
 
-                                {isSessionMenuOpen && (
-                                  <ActionMenu menuRef={menuRef}>
+                                {isSessionMenuOpen && openMenu?.anchorRect && (
+                                  <ActionMenu menuRef={menuRef} anchorRect={openMenu.anchorRect}>
                                     <ActionMenuItem
                                       label={isPinned ? '取消置顶' : '置顶会话'}
                                       icon={<PinIcon size={12} />}
