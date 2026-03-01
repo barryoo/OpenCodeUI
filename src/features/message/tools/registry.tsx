@@ -286,12 +286,12 @@ export const toolRegistry: ToolRegistry = [
         inputObj.directory ??
         inputObj.dir
 
+      // filePath 存路径（供标题行相对化显示），subtitle 存 pattern
+      if (rawPath) {
+        base.filePath = String(rawPath)
+      }
       if (pattern) {
         base.subtitle = String(pattern)
-      }
-      if (rawPath) {
-        // 覆盖 defaultExtractData 可能从 input.filePath 拿到的路径
-        base.filePath = String(rawPath)
       }
 
       return base

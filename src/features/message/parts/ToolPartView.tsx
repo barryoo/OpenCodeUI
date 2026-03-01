@@ -59,19 +59,21 @@ export const ToolPartView = memo(function ToolPartView({ part, isFirst = false, 
   const isActive = state.status === 'running' || state.status === 'pending'
   const isError = state.status === 'error'
 
-  // 提取 subtitle（搜索词）和相对路径，用于标题行展示
+  // 提取 subtitle（pattern）和相对路径，拼成标题行 meta：路径在前、pattern 在后
   const headerMeta = useMemo(() => {
     const data = extractToolData(part)
-    if (!data.subtitle) return ''
-    const parts: string[] = [data.subtitle]
+    if (!data.subtitle && !data.filePath) return ''
+    const parts: string[] = []
     if (data.filePath) {
       parts.push(toRelativePath(data.filePath, cwd))
+    }
+    if (data.subtitle) {
+      parts.push(data.subtitle)
     }
     return parts.join('  ')
   }, [part, cwd])
 
   // 标题行副标题：优先用 state.title，无时使用 headerMeta
-  const displaySubtitle = title || headerMeta
 
   // Shared icon element
   const toolIcon = (
@@ -112,9 +114,14 @@ export const ToolPartView = memo(function ToolPartView({ part, isFirst = false, 
               }`}>
                 {formatToolName(toolName)}
               </span>
-              {displaySubtitle && (
+              {title && (
                 <span className="text-xs text-text-400 truncate font-mono opacity-70">
-                  {displaySubtitle}
+                  {title}
+                </span>
+              )}
+              {headerMeta && (
+                <span className="text-xs text-text-500 truncate font-mono opacity-60">
+                  {headerMeta}
                 </span>
               )}
             </div>
@@ -194,9 +201,14 @@ export const ToolPartView = memo(function ToolPartView({ part, isFirst = false, 
               {formatToolName(toolName)}
             </span>
             
-            {displaySubtitle && (
+            {title && (
               <span className="text-xs text-text-400 truncate font-mono opacity-70">
-                {displaySubtitle}
+                {title}
+              </span>
+            )}
+            {headerMeta && (
+              <span className="text-xs text-text-500 truncate font-mono opacity-60">
+                {headerMeta}
               </span>
             )}
           </div>
