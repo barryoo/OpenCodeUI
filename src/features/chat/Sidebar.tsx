@@ -5,13 +5,12 @@ import { ProjectDialog } from './ProjectDialog'
 import { useDirectory } from '../../hooks'
 import { type ApiSession } from '../../api'
 import type { ThemeMode } from '../../hooks'
+import { useLayoutStore } from '../../store/layoutStore'
 
 const MIN_WIDTH = 240
 const MAX_WIDTH = 480
 const DEFAULT_WIDTH = 288  // 18rem = 288px
 const RAIL_WIDTH = 49      // 3.05rem ≈ 49px
-
-type SidebarViewMode = 'multi' | 'single'
 
 interface SidebarProps {
   isOpen: boolean
@@ -29,34 +28,6 @@ interface SidebarProps {
   projectDialogOpen?: boolean
   onProjectDialogClose?: () => void
 }
-
-interface SidebarModeTabsProps {
-  mode: SidebarViewMode
-  onChange: (mode: SidebarViewMode) => void
-}
-
-const SidebarModeTabs = memo(function SidebarModeTabs({ mode, onChange }: SidebarModeTabsProps) {
-  const baseClass = 'h-7 px-2 rounded-md text-[11px] font-medium transition-all duration-200'
-
-  return (
-    <div className="grid grid-cols-2 gap-1 p-1 rounded-lg bg-bg-200/50 border border-border-200/50">
-      <button
-        type="button"
-        onClick={() => onChange('multi')}
-        className={`${baseClass} ${mode === 'multi' ? 'bg-bg-000 text-text-100 shadow-sm' : 'text-text-400 hover:text-text-200'}`}
-      >
-        多项目视图
-      </button>
-      <button
-        type="button"
-        onClick={() => onChange('single')}
-        className={`${baseClass} ${mode === 'single' ? 'bg-bg-000 text-text-100 shadow-sm' : 'text-text-400 hover:text-text-200'}`}
-      >
-        单项目视图
-      </button>
-    </div>
-  )
-})
 
 export const Sidebar = memo(function Sidebar({
   isOpen,
@@ -77,7 +48,7 @@ export const Sidebar = memo(function Sidebar({
   const [isProjectDialogOpen, setIsProjectDialogOpen] = useState(false)
   const { addDirectory, pathInfo } = useDirectory()
   const [isMobile, setIsMobile] = useState(false)
-  const [sidebarViewMode, setSidebarViewMode] = useState<SidebarViewMode>('multi')
+  const { sidebarViewMode } = useLayoutStore()
 
   // 外部触发打开 ProjectDialog（快捷键 / CommandPalette）
   useEffect(() => {
@@ -186,12 +157,6 @@ export const Sidebar = memo(function Sidebar({
   }, [onSelectSession, isMobile, onClose])
 
   const ActiveSidePanel = sidebarViewMode === 'multi' ? MultiProjectSidePanel : SidePanel
-  const modeTabs = isOpen || isMobile ? (
-    <SidebarModeTabs
-      mode={sidebarViewMode}
-      onChange={setSidebarViewMode}
-    />
-  ) : undefined
 
   // ============================================
   // 移动端：Sidebar 完全不占位，作为 overlay 显示
@@ -279,11 +244,9 @@ export const Sidebar = memo(function Sidebar({
             onThemeChange={onThemeChange}
             isWideMode={isWideMode}
             onToggleWideMode={onToggleWideMode}
-            modeTabs={modeTabs}
           />
         </div>
 
-        {/* Project Dialog */}
         <ProjectDialog
           isOpen={isProjectDialogOpen}
           onClose={closeProjectDialog}
@@ -323,7 +286,6 @@ export const Sidebar = memo(function Sidebar({
           onThemeChange={onThemeChange}
           isWideMode={isWideMode}
           onToggleWideMode={onToggleWideMode}
-          modeTabs={modeTabs}
         />
 
         {/* Resizer Handle (Desktop only, when expanded) */}

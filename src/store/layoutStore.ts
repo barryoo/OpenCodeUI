@@ -8,6 +8,9 @@ export type PanelPosition = 'bottom' | 'right'
 // 面板内容类型
 export type PanelTabType = 'terminal' | 'files' | 'changes' | 'mcp' | 'skill' | 'worktree'
 
+// 侧边栏视图模式
+export type SidebarViewMode = 'multi' | 'single'
+
 // 统一的面板标签
 export interface PanelTab {
   id: string
@@ -45,6 +48,7 @@ interface LayoutState {
   
   // 侧边栏
   sidebarExpanded: boolean
+  sidebarViewMode: SidebarViewMode
   
   // 右侧栏
   rightPanelOpen: boolean
@@ -61,6 +65,7 @@ interface LayoutState {
 type Subscriber = () => void
 
 const STORAGE_KEY_SIDEBAR = 'opencode-sidebar-expanded'
+const STORAGE_KEY_SIDEBAR_VIEW = 'opencode-sidebar-view-mode'
 
 class LayoutStore {
   private state: LayoutState = {
@@ -74,6 +79,7 @@ class LayoutStore {
       right: 'files',
     },
     sidebarExpanded: true,
+    sidebarViewMode: 'multi',
     rightPanelOpen: false,
     rightPanelWidth: 450,
     previewFile: null,
@@ -85,10 +91,16 @@ class LayoutStore {
   constructor() {
     // 从 localStorage 恢复状态
     try {
-      // 侧边栏
+      // 侧边栏展开
       const savedSidebar = localStorage.getItem(STORAGE_KEY_SIDEBAR)
       if (savedSidebar !== null) {
         this.state.sidebarExpanded = savedSidebar !== 'false'
+      }
+
+      // 侧边栏视图模式
+      const savedViewMode = localStorage.getItem(STORAGE_KEY_SIDEBAR_VIEW)
+      if (savedViewMode === 'single' || savedViewMode === 'multi') {
+        this.state.sidebarViewMode = savedViewMode
       }
       
       // 右侧面板宽度
@@ -147,6 +159,21 @@ class LayoutStore {
   
   toggleSidebar() {
     this.setSidebarExpanded(!this.state.sidebarExpanded)
+  }
+
+  getSidebarViewMode(): SidebarViewMode {
+    return this.state.sidebarViewMode
+  }
+
+  setSidebarViewMode(mode: SidebarViewMode) {
+    if (this.state.sidebarViewMode === mode) return
+    this.state.sidebarViewMode = mode
+    try {
+      localStorage.setItem(STORAGE_KEY_SIDEBAR_VIEW, mode)
+    } catch {
+      // ignore
+    }
+    this.notify()
   }
 
   // ============================================

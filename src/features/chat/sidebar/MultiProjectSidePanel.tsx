@@ -913,7 +913,7 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
                       onClick={() => {
                         void handleSelectPinnedSession(entry)
                       }}
-                      className={`w-full h-6 px-1.5 pr-7 rounded-md flex items-center gap-1.5 text-left transition-colors ${
+                      className={`w-full h-7 px-1.5 pr-7 rounded-md flex items-center gap-1.5 text-left transition-colors ${
                         isSelected
                           ? 'bg-bg-200/80 text-text-100'
                           : 'text-text-200 hover:text-text-100 hover:bg-bg-200/40'
@@ -1153,12 +1153,12 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
                     <div className="overflow-hidden">
                       <div className="ml-0 space-y-0.5">
                         {isLoading && sessions.length === 0 ? (
-                          <div className="h-6 flex items-center text-text-400 text-[11px]">
+                          <div className="h-7 flex items-center text-text-400 text-[11px]">
                             <SpinnerIcon size={12} className="animate-spin mr-2" />
                             加载中...
                           </div>
                         ) : sessions.length === 0 ? (
-                          <div className="h-6 flex items-center text-[11px] text-text-500">
+                          <div className="h-7 flex items-center text-[11px] text-text-500">
                             暂无会话
                           </div>
                         ) : (
@@ -1182,7 +1182,7 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
                                 <button
                                   type="button"
                                   onClick={() => handleSelect(session)}
-                                  className={`w-full h-6 px-1.5 pr-7 rounded-md flex items-center gap-1.5 text-left transition-colors ${
+                                  className={`w-full h-7 px-1.5 pr-7 rounded-md flex items-center gap-1.5 text-left transition-colors ${
                                     isSelected
                                       ? 'bg-bg-200/80 text-text-100'
                                       : 'text-text-200 hover:text-text-100 hover:bg-bg-200/40'
@@ -1296,7 +1296,7 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
                           <button
                             type="button"
                             onClick={() => handleLoadMore(project.path)}
-                            className="ml-5 h-6 px-1.5 rounded-md text-[11px] text-text-400 hover:text-text-100 hover:bg-bg-200/40 transition-colors"
+                            className="ml-5 h-7 px-1.5 rounded-md text-[11px] text-text-400 hover:text-text-100 hover:bg-bg-200/40 transition-colors"
                           >
                             加载更多
                           </button>

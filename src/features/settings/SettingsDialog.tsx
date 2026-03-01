@@ -8,6 +8,7 @@ import {
   SettingsIcon, KeyboardIcon, CloseIcon, BellIcon, BoltIcon, CompactIcon, PlugIcon, StopIcon, EyeIcon, ThinkingIcon
 } from '../../components/Icons'
 import { usePathMode, useServerStore, useIsMobile, useNotification, useRouter } from '../../hooks'
+import { layoutStore, useLayoutStore, type SidebarViewMode } from '../../store/layoutStore'
 import { autoApproveStore, messageStore, notificationStore } from '../../store'
 import { serviceStore, useServiceStore } from '../../store/serviceStore'
 import { themeStore, type ReasoningDisplayMode } from '../../store/themeStore'
@@ -439,6 +440,7 @@ function AppearanceSettings({ themeMode, onThemeChange, isWideMode, onToggleWide
   customCSS?: string
   onCustomCSSChange?: (css: string) => void
 }) {
+  const { sidebarViewMode } = useLayoutStore()
 
   return (
     <div className="space-y-4">
@@ -486,6 +488,18 @@ function AppearanceSettings({ themeMode, onThemeChange, isWideMode, onToggleWide
                 { value: 'dark', label: 'Dark', icon: <MoonIcon size={14} /> },
               ]}
               onChange={(v, e) => onThemeChange(v, e)}
+            />
+          </div>
+
+          <div className="pt-3 border-t border-border-100/55">
+            <div className="text-[11px] font-medium text-text-400 uppercase tracking-wider mb-1.5">Sidebar Layout</div>
+            <SegmentedControl
+              value={sidebarViewMode}
+              options={[
+                { value: 'multi' as SidebarViewMode, label: 'Multi-project' },
+                { value: 'single' as SidebarViewMode, label: 'Single project' },
+              ]}
+              onChange={(v) => layoutStore.setSidebarViewMode(v as SidebarViewMode)}
             />
           </div>
 
