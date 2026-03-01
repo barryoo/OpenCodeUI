@@ -62,7 +62,7 @@ export const ToolPartView = memo(function ToolPartView({ part, isFirst = false, 
   // 提取 subtitle（pattern）和相对路径，拼成标题行 meta：路径在前、pattern 在后
   const headerMeta = useMemo(() => {
     const data = extractToolData(part)
-    if (!data.subtitle && !data.filePath) return ''
+    if (!data.subtitle) return ''
     const parts: string[] = []
     if (data.filePath) {
       parts.push(toRelativePath(data.filePath, cwd))
