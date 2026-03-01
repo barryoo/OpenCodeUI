@@ -28,6 +28,8 @@ export interface DirectoryContextValue {
   addDirectory: (path: string) => void
   /** 移除目录 */
   removeDirectory: (path: string) => void
+  /** 调整目录顺序 */
+  reorderDirectory: (sourcePath: string, targetPath: string) => void
   /** 服务端路径信息 */
   pathInfo: ApiPath | null
   /** 侧边栏是否展开（桌面端）- 从 layoutStore 读取 */
@@ -57,6 +59,10 @@ function normalizeDirectoryPath(path: string): string {
   }
 
   return normalized
+}
+
+function getDirectoryKey(path: string): string {
+  return normalizeDirectoryPath(path).toLowerCase()
 }
 
 function pickDefaultProjectPath(projects: SavedDirectory[], recent: RecentProjects): string | undefined {
@@ -120,21 +126,34 @@ export function DirectoryProvider({ children }: { children: ReactNode }) {
       if (fromApi.length === 0) return
 
       setSavedDirectories((prev) => {
-        const synced = fromApi.map((item) => {
-          const existing = prev.find((dir) => isSameDirectory(dir.path, item.path))
-          return {
-            path: item.path,
-            name: item.name || existing?.name || item.path,
-            addedAt: existing?.addedAt ?? item.addedAt,
+        const apiByKey = new Map<string, SavedDirectory>()
+        for (const item of fromApi) {
+          apiByKey.set(getDirectoryKey(item.path), item)
+        }
+
+        const ordered: SavedDirectory[] = []
+        for (const existing of prev) {
+          const key = getDirectoryKey(existing.path)
+          const fromServer = apiByKey.get(key)
+
+          if (fromServer) {
+            ordered.push({
+              path: fromServer.path,
+              name: fromServer.name || existing.name || fromServer.path,
+              addedAt: existing.addedAt ?? fromServer.addedAt,
+            })
+            apiByKey.delete(key)
+          } else {
+            // 保留本地额外目录，避免覆盖用户手动添加项
+            ordered.push(existing)
           }
-        })
+        }
 
-        // 保留本地额外目录，避免覆盖用户手动添加项
-        const localExtras = prev.filter(
-          (dir) => !synced.some((item) => isSameDirectory(item.path, dir.path))
-        )
+        for (const newProject of apiByKey.values()) {
+          ordered.push(newProject)
+        }
 
-        return [...synced, ...localExtras]
+        return ordered
       })
 
       // 无目录上下文时，自动选择默认项目（最近使用优先）
@@ -249,6 +268,30 @@ export function DirectoryProvider({ children }: { children: ReactNode }) {
     }
   }, [urlDirectory, setCurrentDirectory])
 
+  // 调整目录顺序
+  const reorderDirectory = useCallback((sourcePath: string, targetPath: string) => {
+    const normalizedSource = normalizeDirectoryPath(sourcePath)
+    const normalizedTarget = normalizeDirectoryPath(targetPath)
+
+    if (!normalizedSource || !normalizedTarget || isSameDirectory(normalizedSource, normalizedTarget)) {
+      return
+    }
+
+    setSavedDirectories((prev) => {
+      const sourceIndex = prev.findIndex((dir) => isSameDirectory(dir.path, normalizedSource))
+      const targetIndex = prev.findIndex((dir) => isSameDirectory(dir.path, normalizedTarget))
+
+      if (sourceIndex < 0 || targetIndex < 0 || sourceIndex === targetIndex) {
+        return prev
+      }
+
+      const next = [...prev]
+      const [moved] = next.splice(sourceIndex, 1)
+      next.splice(targetIndex, 0, moved)
+      return next
+    })
+  }, [])
+
   // Tauri: 启动时获取 CLI 传入的目录 + 监听后续 open-directory 事件
   // 用 ref 持有最新的 addDirectory 避免 stale closure
   const addDirectoryRef = useRef(addDirectory)
@@ -288,6 +331,7 @@ export function DirectoryProvider({ children }: { children: ReactNode }) {
     savedDirectories,
     addDirectory,
     removeDirectory,
+    reorderDirectory,
     pathInfo,
     sidebarExpanded,
     setSidebarExpanded,
@@ -298,6 +342,7 @@ export function DirectoryProvider({ children }: { children: ReactNode }) {
     savedDirectories,
     addDirectory,
     removeDirectory,
+    reorderDirectory,
     pathInfo,
     sidebarExpanded,
     setSidebarExpanded,

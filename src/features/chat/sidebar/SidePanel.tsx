@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState, useEffect, useRef } from 'react'
+import { useCallback, useMemo, useState, useEffect, useRef, type ReactNode } from 'react'
 import { SessionList } from '../../sessions'
 import { ConfirmDialog } from '../../../components/ui/ConfirmDialog'
 import { ShareDialog } from '../ShareDialog'
@@ -64,6 +64,7 @@ export interface SidePanelProps {
   onThemeChange?: (mode: ThemeMode, event?: React.MouseEvent) => void
   isWideMode?: boolean
   onToggleWideMode?: () => void
+  modeTabs?: ReactNode
 }
 
 interface ProjectItem {
@@ -87,6 +88,7 @@ export function SidePanel({
   onThemeChange,
   isWideMode,
   onToggleWideMode,
+  modeTabs,
 }: SidePanelProps) {
   const { currentDirectory, savedDirectories, setCurrentDirectory, removeDirectory, addDirectory, recentProjects } = useDirectory()
   const [connectionState, setConnectionState] = useState<ConnectionInfo | null>(null)
@@ -307,6 +309,12 @@ export function SidePanel({
           </button>
         </div>
       </div>
+
+      {showLabels && modeTabs && (
+        <div className="mx-2 mb-1 shrink-0">
+          {modeTabs}
+        </div>
+      )}
 
       {/* ===== Navigation - 图标位置固定 ===== */}
       <div className="flex flex-col gap-0.5 mx-2">
@@ -913,7 +921,7 @@ function StatusIndicator({
   )
 }
 
-function SidebarFooter({ 
+export function SidebarFooter({ 
   showLabels, 
   connectionState, 
   stats, 
