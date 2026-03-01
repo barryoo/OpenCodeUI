@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect, useRef, memo } from 'react'
 import { SidePanel } from './sidebar/SidePanel'
+import { MultiProjectSidePanel } from './sidebar/MultiProjectSidePanel'
 import { ProjectDialog } from './ProjectDialog'
 import { useDirectory } from '../../hooks'
 import { type ApiSession } from '../../api'
@@ -9,6 +10,8 @@ const MIN_WIDTH = 240
 const MAX_WIDTH = 480
 const DEFAULT_WIDTH = 288  // 18rem = 288px
 const RAIL_WIDTH = 49      // 3.05rem ≈ 49px
+
+type SidebarViewMode = 'multi' | 'single'
 
 interface SidebarProps {
   isOpen: boolean
@@ -26,6 +29,36 @@ interface SidebarProps {
   projectDialogOpen?: boolean
   onProjectDialogClose?: () => void
 }
+
+interface SidebarModeTabsProps {
+  mode: SidebarViewMode
+  onChange: (mode: SidebarViewMode) => void
+}
+
+const SidebarModeTabs = memo(function SidebarModeTabs({ mode, onChange }: SidebarModeTabsProps) {
+  const baseClass = 'h-7 px-2 rounded-md text-[11px] font-medium transition-all duration-200'
+
+  return (
+    <div className="px-2 pt-2 pb-1 shrink-0">
+      <div className="grid grid-cols-2 gap-1 p-1 rounded-lg bg-bg-200/50 border border-border-200/50">
+        <button
+          type="button"
+          onClick={() => onChange('multi')}
+          className={`${baseClass} ${mode === 'multi' ? 'bg-bg-000 text-text-100 shadow-sm' : 'text-text-400 hover:text-text-200'}`}
+        >
+          多项目视图
+        </button>
+        <button
+          type="button"
+          onClick={() => onChange('single')}
+          className={`${baseClass} ${mode === 'single' ? 'bg-bg-000 text-text-100 shadow-sm' : 'text-text-400 hover:text-text-200'}`}
+        >
+          单项目视图
+        </button>
+      </div>
+    </div>
+  )
+})
 
 export const Sidebar = memo(function Sidebar({
   isOpen,
@@ -46,6 +79,7 @@ export const Sidebar = memo(function Sidebar({
   const [isProjectDialogOpen, setIsProjectDialogOpen] = useState(false)
   const { addDirectory, pathInfo } = useDirectory()
   const [isMobile, setIsMobile] = useState(false)
+  const [sidebarViewMode, setSidebarViewMode] = useState<SidebarViewMode>('multi')
 
   // 外部触发打开 ProjectDialog（快捷键 / CommandPalette）
   useEffect(() => {
@@ -153,6 +187,8 @@ export const Sidebar = memo(function Sidebar({
     }
   }, [onSelectSession, isMobile, onClose])
 
+  const ActiveSidePanel = sidebarViewMode === 'multi' ? MultiProjectSidePanel : SidePanel
+
   // ============================================
   // 移动端：Sidebar 完全不占位，作为 overlay 显示
   // 支持触摸滑动关闭
@@ -224,23 +260,31 @@ export const Sidebar = memo(function Sidebar({
             height: 'calc(100% - var(--safe-area-inset-top))',
           }}
         >
-          {/* 和桌面端展开时一样的内容 */}
-          <SidePanel
-            onNewSession={onNewSession}
-            onSelectSession={handleSelectSession}
-            onCloseMobile={onClose}
-            selectedSessionId={selectedSessionId}
-            onAddProject={openProjectDialog}
-            isMobile={true}
-            isExpanded={true}  // 移动端展开时始终是 expanded 状态
-            onToggleSidebar={onClose}  // 移动端 toggle 就是关闭
-            contextLimit={contextLimit}
-            onOpenSettings={onOpenSettings}
-            themeMode={themeMode}
-            onThemeChange={onThemeChange}
-            isWideMode={isWideMode}
-            onToggleWideMode={onToggleWideMode}
-          />
+          <div className="flex flex-col h-full min-h-0 overflow-hidden">
+            <SidebarModeTabs
+              mode={sidebarViewMode}
+              onChange={setSidebarViewMode}
+            />
+
+            <div className="flex-1 min-h-0 overflow-hidden">
+              <ActiveSidePanel
+                onNewSession={onNewSession}
+                onSelectSession={handleSelectSession}
+                onCloseMobile={onClose}
+                selectedSessionId={selectedSessionId}
+                onAddProject={openProjectDialog}
+                isMobile={true}
+                isExpanded={true}  // 移动端展开时始终是 expanded 状态
+                onToggleSidebar={onClose}  // 移动端 toggle 就是关闭
+                contextLimit={contextLimit}
+                onOpenSettings={onOpenSettings}
+                themeMode={themeMode}
+                onThemeChange={onThemeChange}
+                isWideMode={isWideMode}
+                onToggleWideMode={onToggleWideMode}
+              />
+            </div>
+          </div>
         </div>
 
         {/* Project Dialog */}
@@ -268,22 +312,33 @@ export const Sidebar = memo(function Sidebar({
           ${isResizing ? 'transition-none' : 'transition-[width] duration-300 ease-out'}
         `}
       >
-        <SidePanel
-          onNewSession={onNewSession}
-          onSelectSession={onSelectSession}
-          onCloseMobile={onClose}
-          selectedSessionId={selectedSessionId}
-          onAddProject={openProjectDialog}
-          isMobile={false}
-          isExpanded={isOpen}
-          onToggleSidebar={handleToggle}
-          contextLimit={contextLimit}
-          onOpenSettings={onOpenSettings}
-          themeMode={themeMode}
-          onThemeChange={onThemeChange}
-          isWideMode={isWideMode}
-          onToggleWideMode={onToggleWideMode}
-        />
+        <div className="flex flex-col h-full min-h-0 overflow-hidden">
+          {isOpen && (
+            <SidebarModeTabs
+              mode={sidebarViewMode}
+              onChange={setSidebarViewMode}
+            />
+          )}
+
+          <div className="flex-1 min-h-0 overflow-hidden">
+            <ActiveSidePanel
+              onNewSession={onNewSession}
+              onSelectSession={onSelectSession}
+              onCloseMobile={onClose}
+              selectedSessionId={selectedSessionId}
+              onAddProject={openProjectDialog}
+              isMobile={false}
+              isExpanded={isOpen}
+              onToggleSidebar={handleToggle}
+              contextLimit={contextLimit}
+              onOpenSettings={onOpenSettings}
+              themeMode={themeMode}
+              onThemeChange={onThemeChange}
+              isWideMode={isWideMode}
+              onToggleWideMode={onToggleWideMode}
+            />
+          </div>
+        </div>
 
         {/* Resizer Handle (Desktop only, when expanded) */}
         {isOpen && (

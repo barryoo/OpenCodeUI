@@ -49,7 +49,7 @@ function getParentPath(fullPath: string): string {
 // - 文字用 opacity 过渡，不改变布局
 // - 收起宽度 49px，展开宽度 288px
 
-interface SidePanelProps {
+export interface SidePanelProps {
   onNewSession: () => void
   onSelectSession: (session: ApiSession) => void
   onCloseMobile?: () => void

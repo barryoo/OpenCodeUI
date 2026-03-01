@@ -3,7 +3,7 @@
 // ============================================
 
 import { createContext, useContext, useState, useCallback, useEffect, useMemo, useRef, type ReactNode } from 'react'
-import { getPath, type ApiPath, getPendingPermissions, getPendingQuestions } from '../api'
+import { getPath, type ApiPath, getPendingPermissions, getPendingQuestions, getProjects } from '../api'
 import { useRouter } from '../hooks/useRouter'
 import { handleError, normalizeToForwardSlash, getDirectoryName, isSameDirectory, serverStorage } from '../utils'
 import { layoutStore, useLayoutStore } from '../store/layoutStore'
@@ -46,6 +46,36 @@ const STORAGE_KEY_RECENT = 'opencode-recent-projects'
 // 最近使用记录: { [path]: lastUsedAt }
 type RecentProjects = Record<string, number>
 
+function normalizeDirectoryPath(path: string): string {
+  let normalized = normalizeToForwardSlash(path)
+
+  // normalizeToForwardSlash 会去掉尾斜杠，导致根路径 "/" -> "" 和 "C:/" -> "C:"
+  // 需要修正：如果原始路径是根路径，恢复正确的值
+  const trimmed = path.replace(/\\/g, '/').replace(/\/+$/, '/')
+  if (!normalized && (trimmed === '/' || /^[a-zA-Z]:\/$/.test(trimmed))) {
+    normalized = trimmed.slice(0, -1) || '/'
+  }
+
+  return normalized
+}
+
+function pickDefaultProjectPath(projects: SavedDirectory[], recent: RecentProjects): string | undefined {
+  if (projects.length === 0) return undefined
+
+  let bestPath: string | undefined
+  let bestTime = 0
+
+  for (const project of projects) {
+    const usedAt = recent[project.path] ?? 0
+    if (usedAt > bestTime) {
+      bestTime = usedAt
+      bestPath = project.path
+    }
+  }
+
+  return bestPath ?? projects[0].path
+}
+
 export function DirectoryProvider({ children }: { children: ReactNode }) {
   // 从 URL 获取 directory（替代 localStorage）
   const { directory: urlDirectory, setDirectory: setUrlDirectory } = useRouter()
@@ -63,15 +93,83 @@ export function DirectoryProvider({ children }: { children: ReactNode }) {
   
   const [pathInfo, setPathInfo] = useState<ApiPath | null>(null)
 
+  const syncProjectsFromApi = useCallback(async (
+    targetCurrentDirectory: string | undefined,
+    targetRecentProjects: RecentProjects
+  ) => {
+    try {
+      const apiProjects = await getProjects()
+      if (apiProjects.length === 0) return
+
+      const now = Date.now()
+      const fromApi: SavedDirectory[] = []
+
+      for (const project of apiProjects) {
+        const normalizedPath = normalizeDirectoryPath(project.worktree || '')
+        if (!normalizedPath || normalizedPath === '.') continue
+
+        if (fromApi.some((dir) => isSameDirectory(dir.path, normalizedPath))) continue
+
+        fromApi.push({
+          path: normalizedPath,
+          name: project.name?.trim() || getDirectoryName(normalizedPath) || normalizedPath,
+          addedAt: project.time?.created ?? now,
+        })
+      }
+
+      if (fromApi.length === 0) return
+
+      setSavedDirectories((prev) => {
+        const synced = fromApi.map((item) => {
+          const existing = prev.find((dir) => isSameDirectory(dir.path, item.path))
+          return {
+            path: item.path,
+            name: item.name || existing?.name || item.path,
+            addedAt: existing?.addedAt ?? item.addedAt,
+          }
+        })
+
+        // 保留本地额外目录，避免覆盖用户手动添加项
+        const localExtras = prev.filter(
+          (dir) => !synced.some((item) => isSameDirectory(item.path, dir.path))
+        )
+
+        return [...synced, ...localExtras]
+      })
+
+      // 无目录上下文时，自动选择默认项目（最近使用优先）
+      if (!targetCurrentDirectory) {
+        const defaultPath = pickDefaultProjectPath(fromApi, targetRecentProjects)
+        if (defaultPath) {
+          setCurrentDirectory(defaultPath)
+        }
+      }
+    } catch {
+      // 项目同步失败不阻断基础功能
+    }
+  }, [])
+
   // 服务器切换时，重新从 serverStorage 读取（key 前缀已变）
   useEffect(() => {
     return serverStore.onServerChange(() => {
-      setSavedDirectories(serverStorage.getJSON<SavedDirectory[]>(STORAGE_KEY_SAVED) ?? [])
-      setRecentProjects(serverStorage.getJSON<RecentProjects>(STORAGE_KEY_RECENT) ?? {})
+      const nextSaved = serverStorage.getJSON<SavedDirectory[]>(STORAGE_KEY_SAVED) ?? []
+      const nextRecent = serverStorage.getJSON<RecentProjects>(STORAGE_KEY_RECENT) ?? {}
+
+      setSavedDirectories(nextSaved)
+      setRecentProjects(nextRecent)
       setPathInfo(null) // 重置，等待重新加载
       setUrlDirectory(undefined) // 清除当前目录选择
+
+      void syncProjectsFromApi(undefined, nextRecent)
     })
-  }, [setUrlDirectory])
+  }, [setUrlDirectory, syncProjectsFromApi])
+
+  // 启动时同步服务端项目，自动初始化项目列表
+  useEffect(() => {
+    void syncProjectsFromApi(urlDirectory, recentProjects)
+    // 只在初始化时同步一次，避免频繁请求
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // 加载路径信息
   useEffect(() => {
@@ -121,14 +219,7 @@ export function DirectoryProvider({ children }: { children: ReactNode }) {
 
   // 添加目录
   const addDirectory = useCallback((path: string) => {
-    let normalized = normalizeToForwardSlash(path)
-    
-    // normalizeToForwardSlash 会去掉尾斜杠，导致根路径 "/" → "" 和 "C:/" → "C:"
-    // 需要修正：如果原始路径是根路径，恢复正确的值
-    const trimmed = path.replace(/\\/g, '/').replace(/\/+$/, '/')
-    if (!normalized && (trimmed === '/' || /^[a-zA-Z]:\/$/.test(trimmed))) {
-      normalized = trimmed.slice(0, -1) || '/'
-    }
+    const normalized = normalizeDirectoryPath(path)
     
     // 验证路径非空（只阻止空字符串和 "."）
     if (!normalized || normalized === '.') return
@@ -151,7 +242,7 @@ export function DirectoryProvider({ children }: { children: ReactNode }) {
 
   // 移除目录
   const removeDirectory = useCallback((path: string) => {
-    const normalized = normalizeToForwardSlash(path)
+    const normalized = normalizeDirectoryPath(path)
     setSavedDirectories(prev => prev.filter(d => !isSameDirectory(d.path, normalized)))
     if (isSameDirectory(urlDirectory, normalized)) {
       setCurrentDirectory(undefined)
