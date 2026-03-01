@@ -1,0 +1,190 @@
+ts=2026-02-25T18:14:17.188Z hook=event event_type=message.updated status=dispatched session_id=ses_369fe5573ffeQKHj15LBemgNf7 message_id=msg_c96023b3f0012eYCFPeNNI3CSX hook_trace_id=06014053-2909-4a18-8205-7121cbf4dd76 timeout_sec=90
+ts=2026-02-25T18:14:17.331Z hook=event event_type=message.updated session_id=ses_369fe5573ffeQKHj15LBemgNf7 message_id=msg_c96023b3f0012eYCFPeNNI3CSX elapsed_ms=144 status=ok
+ts=2026-02-25T18:14:20.864Z hook=event event_type=message.updated status=dispatched session_id=ses_369fe5573ffeQKHj15LBemgNf7 message_id=msg_c96024568001S2xRJx2UZ7ZpYU hook_trace_id=d53a3a5d-16cd-4a91-a068-ee11e26b0b22 timeout_sec=90
+ts=2026-02-25T18:14:21.141Z hook=event event_type=message.updated session_id=ses_369fe5573ffeQKHj15LBemgNf7 message_id=msg_c96024568001S2xRJx2UZ7ZpYU elapsed_ms=281 status=ok
+ts=2026-02-25T18:14:23.682Z hook=event event_type=message.updated status=dispatched session_id=ses_369fe5573ffeQKHj15LBemgNf7 message_id=msg_c960253c1001QZcTOczMbQP4L3 hook_trace_id=6073cc9b-311a-4e42-8ec9-b25a455e60c8 timeout_sec=90
+ts=2026-02-25T18:14:23.848Z hook=event event_type=message.updated session_id=ses_369fe5573ffeQKHj15LBemgNf7 message_id=msg_c960253c1001QZcTOczMbQP4L3 elapsed_ms=171 status=ok
+ts=2026-02-25T18:14:27.748Z hook=event event_type=message.updated status=dispatched session_id=ses_369fe5573ffeQKHj15LBemgNf7 message_id=msg_c96025ec3001pYOCA0IDJYyGhr hook_trace_id=067d7cef-1e98-4654-acbe-c00451fa34a6 timeout_sec=90
+ts=2026-02-25T18:14:27.896Z hook=event event_type=message.updated session_id=ses_369fe5573ffeQKHj15LBemgNf7 message_id=msg_c96025ec3001pYOCA0IDJYyGhr elapsed_ms=151 status=ok
+ts=2026-02-25T18:14:31.008Z hook=event event_type=message.updated status=dispatched session_id=ses_369fe5573ffeQKHj15LBemgNf7 message_id=msg_c96026ea500124tW24ORwkceBF hook_trace_id=bfb073c8-6a90-47f5-bbf0-52b349c6097a timeout_sec=90
+ts=2026-02-25T18:14:31.125Z hook=event event_type=message.updated session_id=ses_369fe5573ffeQKHj15LBemgNf7 message_id=msg_c96026ea500124tW24ORwkceBF elapsed_ms=119 status=ok
+ts=2026-02-25T18:14:34.431Z hook=event event_type=message.updated status=dispatched session_id=ses_369fe5573ffeQKHj15LBemgNf7 message_id=msg_c96027b61001w4b7oxlzm9W3nu hook_trace_id=6962c4c4-e022-4fc7-b50d-05a178257a11 timeout_sec=90
+ts=2026-02-25T18:14:34.565Z hook=event event_type=message.updated session_id=ses_369fe5573ffeQKHj15LBemgNf7 message_id=msg_c96027b61001w4b7oxlzm9W3nu elapsed_ms=136 status=ok
+ts=2026-02-25T18:14:40.350Z hook=event event_type=message.updated status=dispatched session_id=ses_369fe5573ffeQKHj15LBemgNf7 message_id=msg_c960288bf001DNyn8u0aEhKrgQ hook_trace_id=3210b052-a165-43d1-b784-357d13b02fd5 timeout_sec=90
+ts=2026-02-25T18:14:40.351Z hook=event event_type=session.status status=dispatched session_id=ses_369fe5573ffeQKHj15LBemgNf7 hook_trace_id=a555e368-2d7a-4470-8794-9a72bab1051c timeout_sec=90
+ts=2026-02-25T18:14:40.465Z hook=event event_type=message.updated session_id=ses_369fe5573ffeQKHj15LBemgNf7 message_id=msg_c960288bf001DNyn8u0aEhKrgQ elapsed_ms=116 status=ok
+ts=2026-02-25T18:14:40.471Z hook=event event_type=session.status session_id=ses_369fe5573ffeQKHj15LBemgNf7 elapsed_ms=122 status=ok
+ts=2026-02-25T18:14:48.655Z hook=event event_type=message.updated status=dispatched session_id=ses_369fe5573ffeQKHj15LBemgNf7 message_id=msg_c96029fdf001e1e0orHJ136gKf hook_trace_id=eae6c08e-6541-48dc-a603-2397306e88c6 timeout_sec=90
+ts=2026-02-25T18:14:48.656Z hook=event event_type=session.status status=dispatched session_id=ses_369fe5573ffeQKHj15LBemgNf7 hook_trace_id=a91d4988-c1ba-4fd2-9068-1593a5099ec7 timeout_sec=90
+ts=2026-02-25T18:14:48.771Z hook=event event_type=message.updated session_id=ses_369fe5573ffeQKHj15LBemgNf7 message_id=msg_c96029fdf001e1e0orHJ136gKf elapsed_ms=118 status=ok
+ts=2026-02-25T18:14:48.775Z hook=event event_type=session.status session_id=ses_369fe5573ffeQKHj15LBemgNf7 elapsed_ms=121 status=ok
+ts=2026-02-25T18:14:51.545Z hook=event event_type=message.updated status=dispatched session_id=ses_369fe5573ffeQKHj15LBemgNf7 message_id=msg_c9602c051001Eg64opmQTSr5Ry hook_trace_id=1a526402-0adf-41d6-9596-63bb1992b2fc timeout_sec=90
+ts=2026-02-25T18:14:51.662Z hook=event event_type=message.updated session_id=ses_369fe5573ffeQKHj15LBemgNf7 message_id=msg_c9602c051001Eg64opmQTSr5Ry elapsed_ms=118 status=ok
+ts=2026-02-25T18:14:54.514Z hook=event event_type=message.updated status=dispatched session_id=ses_369fe5573ffeQKHj15LBemgNf7 message_id=msg_c9602cb9a001cdEqI9ldqI8RzQ hook_trace_id=a756aeca-c931-4724-a114-176da8bdff5f timeout_sec=90
+ts=2026-02-25T18:14:54.628Z hook=event event_type=message.updated session_id=ses_369fe5573ffeQKHj15LBemgNf7 message_id=msg_c9602cb9a001cdEqI9ldqI8RzQ elapsed_ms=115 status=ok
+ts=2026-02-25T18:14:59.665Z hook=event event_type=message.updated status=dispatched session_id=ses_369fe5573ffeQKHj15LBemgNf7 message_id=msg_c9602d733001PJ5xJyVNXi2LGZ hook_trace_id=7338c644-b857-443b-9779-b3d6a1e5dbdb timeout_sec=90
+ts=2026-02-25T18:14:59.796Z hook=event event_type=message.updated session_id=ses_369fe5573ffeQKHj15LBemgNf7 message_id=msg_c9602d733001PJ5xJyVNXi2LGZ elapsed_ms=132 status=ok
+ts=2026-02-25T18:15:04.846Z hook=event event_type=message.updated status=dispatched session_id=ses_369fe5573ffeQKHj15LBemgNf7 message_id=msg_c9602eb530011LWhrMjxtuB7l3 hook_trace_id=a05fdaef-abe8-4135-87ac-bb3a8ca7f554 timeout_sec=90
+ts=2026-02-25T18:15:04.970Z hook=event event_type=message.updated session_id=ses_369fe5573ffeQKHj15LBemgNf7 message_id=msg_c9602eb530011LWhrMjxtuB7l3 elapsed_ms=126 status=ok
+ts=2026-02-25T18:15:12.778Z hook=event event_type=message.updated status=dispatched session_id=ses_369fe5573ffeQKHj15LBemgNf7 message_id=msg_c9602ff8f001yugPSQ7ovLPZ2h hook_trace_id=bca4a702-a67f-4b5f-bf28-fbdb459545cb timeout_sec=90
+ts=2026-02-25T18:15:12.779Z hook=event event_type=session.status status=dispatched session_id=ses_369fe5573ffeQKHj15LBemgNf7 hook_trace_id=91e357b1-7530-44a8-ac44-f5a582279755 timeout_sec=90
+ts=2026-02-25T18:15:12.941Z hook=event event_type=message.updated session_id=ses_369fe5573ffeQKHj15LBemgNf7 message_id=msg_c9602ff8f001yugPSQ7ovLPZ2h elapsed_ms=165 status=ok
+ts=2026-02-25T18:15:12.945Z hook=event event_type=session.status session_id=ses_369fe5573ffeQKHj15LBemgNf7 elapsed_ms=167 status=ok
+ts=2026-02-25T18:15:18.958Z hook=event event_type=message.updated status=dispatched session_id=ses_369fe5573ffeQKHj15LBemgNf7 message_id=msg_c96031e8d001w1e5fuFajTuwzB hook_trace_id=5be19cde-64a2-48ee-b496-417cb8d36160 timeout_sec=90
+ts=2026-02-25T18:15:18.959Z hook=event event_type=session.status status=dispatched session_id=ses_369fe5573ffeQKHj15LBemgNf7 hook_trace_id=1d8e36cd-1a1a-4a8b-a46b-82dbef3cf714 timeout_sec=90
+ts=2026-02-25T18:15:18.965Z hook=event event_type=session.status session_id=ses_369fe5573ffeQKHj15LBemgNf7 status_type=idle status=skipped reason=prefer_session_idle_event
+ts=2026-02-25T18:15:18.965Z hook=event event_type=session.idle status=dispatched session_id=ses_369fe5573ffeQKHj15LBemgNf7 hook_trace_id=c4154a7e-0376-493f-97f9-701d02839e3f timeout_sec=90
+ts=2026-02-25T18:15:19.127Z hook=event event_type=session.status session_id=ses_369fe5573ffeQKHj15LBemgNf7 elapsed_ms=170 status=ok
+ts=2026-02-25T18:15:19.127Z hook=event event_type=message.updated session_id=ses_369fe5573ffeQKHj15LBemgNf7 message_id=msg_c96031e8d001w1e5fuFajTuwzB elapsed_ms=171 status=ok
+ts=2026-02-25T18:15:19.130Z hook=event event_type=session.idle session_id=ses_369fe5573ffeQKHj15LBemgNf7 elapsed_ms=166 status=ok
+ts=2026-02-25T18:18:11.110Z hook=chat.message status=dispatched session_id=ses_369fe5573ffeQKHj15LBemgNf7 message_id=msg_c9605d6cc001DqtVIIdoM2duOi hook_trace_id=dc1396ff-9bd7-497f-b703-616fca159031 timeout_sec=4
+ts=2026-02-25T18:18:11.246Z hook=chat.message status=hook_failed session_id=ses_369fe5573ffeQKHj15LBemgNf7 message_id=msg_c9605d6cc001DqtVIIdoM2duOi elapsed_ms=139 hook_command_ms=134 hook_trace_id=dc1396ff-9bd7-497f-b703-616fca159031 quota_exceeded=false
+ts=2026-02-25T18:18:11.254Z hook=event event_type=session.status status=dispatched session_id=ses_369fe5573ffeQKHj15LBemgNf7 hook_trace_id=b04f0aca-e536-4e11-897a-f3580956a463 timeout_sec=90
+ts=2026-02-25T18:18:11.331Z hook=event event_type=session.status session_id=ses_369fe5573ffeQKHj15LBemgNf7 elapsed_ms=77 status=ok
+ts=2026-02-25T18:18:16.625Z hook=event event_type=message.updated status=dispatched session_id=ses_369fe5573ffeQKHj15LBemgNf7 message_id=msg_c9605d7b7001rMlZg304T0TGwc hook_trace_id=361c2169-d47a-4b00-a604-142d83205600 timeout_sec=90
+ts=2026-02-25T18:18:16.742Z hook=event event_type=message.updated session_id=ses_369fe5573ffeQKHj15LBemgNf7 message_id=msg_c9605d7b7001rMlZg304T0TGwc elapsed_ms=119 status=ok
+ts=2026-02-25T18:18:30.294Z hook=chat.message status=skipped_circuit_open session_id=ses_369f9ddf6ffetyo4xhbgqpk2cQ message_id=msg_c9606221000103ypR9K64QVe5x remaining_ms=10952 fail_count=2
+ts=2026-02-25T18:18:30.303Z hook=event event_type=session.status status=dispatched session_id=ses_369f9ddf6ffetyo4xhbgqpk2cQ hook_trace_id=94869ed5-0bf1-4ac1-8a46-8528cf0e9b95 timeout_sec=90
+ts=2026-02-25T18:18:30.463Z hook=event event_type=session.status session_id=ses_369f9ddf6ffetyo4xhbgqpk2cQ elapsed_ms=161 status=ok
+ts=2026-02-25T18:18:40.732Z hook=event event_type=message.updated status=dispatched session_id=ses_369f9ddf6ffetyo4xhbgqpk2cQ message_id=msg_c96062221001Gwa36FVw2JkGuy hook_trace_id=032f04cf-26fd-4ca0-a74b-c684e47a15ff timeout_sec=90
+ts=2026-02-25T18:18:40.732Z hook=event event_type=session.status status=dispatched session_id=ses_369f9ddf6ffetyo4xhbgqpk2cQ hook_trace_id=07c38727-24e5-4887-af10-51e1cf433276 timeout_sec=90
+ts=2026-02-25T18:18:40.866Z hook=event event_type=message.updated session_id=ses_369f9ddf6ffetyo4xhbgqpk2cQ message_id=msg_c96062221001Gwa36FVw2JkGuy elapsed_ms=136 status=ok
+ts=2026-02-25T18:18:40.866Z hook=event event_type=session.status session_id=ses_369f9ddf6ffetyo4xhbgqpk2cQ elapsed_ms=135 status=ok
+ts=2026-02-25T18:18:52.438Z hook=event event_type=message.updated status=dispatched session_id=ses_369f9ddf6ffetyo4xhbgqpk2cQ message_id=msg_c96064add001mK4xsObxY1OQdq hook_trace_id=7ae749a1-c450-4fef-a248-549275cdae8a timeout_sec=90
+ts=2026-02-25T18:18:52.439Z hook=event event_type=session.status status=dispatched session_id=ses_369f9ddf6ffetyo4xhbgqpk2cQ hook_trace_id=2519c0c8-4152-4008-a306-033b2e9c4924 timeout_sec=90
+ts=2026-02-25T18:18:52.551Z hook=event event_type=session.status session_id=ses_369f9ddf6ffetyo4xhbgqpk2cQ elapsed_ms=113 status=ok
+ts=2026-02-25T18:18:52.554Z hook=event event_type=message.updated session_id=ses_369f9ddf6ffetyo4xhbgqpk2cQ message_id=msg_c96064add001mK4xsObxY1OQdq elapsed_ms=117 status=ok
+ts=2026-02-25T18:19:08.738Z hook=event event_type=message.updated status=dispatched session_id=ses_369f9ddf6ffetyo4xhbgqpk2cQ message_id=msg_c96067897001EujUJ7o4j1sHU2 hook_trace_id=dc079b50-07ff-4fe0-9a76-d2cf61f334e8 timeout_sec=90
+ts=2026-02-25T18:19:08.739Z hook=event event_type=session.status status=dispatched session_id=ses_369f9ddf6ffetyo4xhbgqpk2cQ hook_trace_id=e1c86abe-40a2-4df6-9cf2-efbd20bc83ec timeout_sec=90
+ts=2026-02-25T18:19:08.858Z hook=event event_type=session.status session_id=ses_369f9ddf6ffetyo4xhbgqpk2cQ elapsed_ms=121 status=ok
+ts=2026-02-25T18:19:08.859Z hook=event event_type=message.updated session_id=ses_369f9ddf6ffetyo4xhbgqpk2cQ message_id=msg_c96067897001EujUJ7o4j1sHU2 elapsed_ms=123 status=ok
+ts=2026-02-25T18:19:13.344Z hook=event event_type=message.updated status=dispatched session_id=ses_369f9ddf6ffetyo4xhbgqpk2cQ message_id=msg_c9606b8430014UPBVTixQbjPco hook_trace_id=3ba18380-1800-4718-b23e-85ac563113e2 timeout_sec=90
+ts=2026-02-25T18:19:13.462Z hook=event event_type=message.updated session_id=ses_369f9ddf6ffetyo4xhbgqpk2cQ message_id=msg_c9606b8430014UPBVTixQbjPco elapsed_ms=119 status=ok
+ts=2026-02-25T18:19:18.265Z hook=event event_type=message.updated status=dispatched session_id=ses_369f9ddf6ffetyo4xhbgqpk2cQ message_id=msg_c9606ca41001VN6iKKcI6mlOI3 hook_trace_id=171581ed-5d47-4b4d-9984-facda8c5ff55 timeout_sec=90
+ts=2026-02-25T18:19:18.367Z hook=event event_type=message.updated session_id=ses_369f9ddf6ffetyo4xhbgqpk2cQ message_id=msg_c9606ca41001VN6iKKcI6mlOI3 elapsed_ms=104 status=ok
+ts=2026-02-25T18:19:22.167Z hook=event event_type=message.updated status=dispatched session_id=ses_369f9ddf6ffetyo4xhbgqpk2cQ message_id=msg_c9606dd7a001vgACeCpkL1pbvE hook_trace_id=1cdd555e-dfdc-4136-8e27-7d047d747f54 timeout_sec=90
+ts=2026-02-25T18:19:22.298Z hook=event event_type=message.updated session_id=ses_369f9ddf6ffetyo4xhbgqpk2cQ message_id=msg_c9606dd7a001vgACeCpkL1pbvE elapsed_ms=132 status=ok
+ts=2026-02-25T18:19:28.635Z hook=event event_type=message.updated status=dispatched session_id=ses_369f9ddf6ffetyo4xhbgqpk2cQ message_id=msg_c9606ecb8001Ukz2YpYYnuLrTy hook_trace_id=2f112791-b58e-40e7-9e79-2e2930e7b1c1 timeout_sec=90
+ts=2026-02-25T18:19:28.637Z hook=event event_type=session.status status=dispatched session_id=ses_369f9ddf6ffetyo4xhbgqpk2cQ hook_trace_id=58db2147-6aa5-4d34-b972-0e04dcb4f2f1 timeout_sec=90
+ts=2026-02-25T18:19:28.649Z hook=event event_type=session.status session_id=ses_369f9ddf6ffetyo4xhbgqpk2cQ status_type=idle status=skipped reason=prefer_session_idle_event
+ts=2026-02-25T18:19:28.649Z hook=event event_type=session.idle status=dispatched session_id=ses_369f9ddf6ffetyo4xhbgqpk2cQ hook_trace_id=8dafbd4a-f40f-4acf-8dc5-4c60d5700e35 timeout_sec=90
+ts=2026-02-25T18:19:28.842Z hook=event event_type=message.updated status=dispatched session_id=ses_369fe5573ffeQKHj15LBemgNf7 message_id=msg_c9605ecb2001ojjEbJIeGPbW7M hook_trace_id=42bfa09f-aa48-479a-8d64-95a047658498 timeout_sec=90
+ts=2026-02-25T18:19:28.843Z hook=event event_type=session.status status=dispatched session_id=ses_369fe5573ffeQKHj15LBemgNf7 hook_trace_id=e94ae05f-0370-4d86-a1c2-963e2b1cac77 timeout_sec=90
+ts=2026-02-25T18:19:28.936Z hook=event event_type=session.idle session_id=ses_369f9ddf6ffetyo4xhbgqpk2cQ elapsed_ms=288 status=ok
+ts=2026-02-25T18:19:28.940Z hook=event event_type=message.updated session_id=ses_369f9ddf6ffetyo4xhbgqpk2cQ message_id=msg_c9606ecb8001Ukz2YpYYnuLrTy elapsed_ms=310 status=ok
+ts=2026-02-25T18:19:28.940Z hook=event event_type=session.status session_id=ses_369f9ddf6ffetyo4xhbgqpk2cQ elapsed_ms=306 status=ok
+ts=2026-02-25T18:19:29.002Z hook=event event_type=session.status session_id=ses_369fe5573ffeQKHj15LBemgNf7 elapsed_ms=161 status=ok
+ts=2026-02-25T18:19:29.006Z hook=event event_type=message.updated session_id=ses_369fe5573ffeQKHj15LBemgNf7 message_id=msg_c9605ecb2001ojjEbJIeGPbW7M elapsed_ms=168 status=ok
+ts=2026-02-25T18:19:35.787Z hook=event event_type=message.updated status=dispatched session_id=ses_369fe5573ffeQKHj15LBemgNf7 message_id=msg_c960706cd001yDTZ7hugQHfqDD hook_trace_id=1b9cbafb-ab65-4473-bd06-09633e933635 timeout_sec=90
+ts=2026-02-25T18:19:35.788Z hook=event event_type=session.status status=dispatched session_id=ses_369fe5573ffeQKHj15LBemgNf7 hook_trace_id=8d1273cb-93e9-4d91-ab4e-1414106a4a02 timeout_sec=90
+ts=2026-02-25T18:19:35.792Z hook=event event_type=session.status session_id=ses_369fe5573ffeQKHj15LBemgNf7 status_type=idle status=skipped reason=prefer_session_idle_event
+ts=2026-02-25T18:19:35.792Z hook=event event_type=session.idle status=dispatched session_id=ses_369fe5573ffeQKHj15LBemgNf7 hook_trace_id=aca022a4-993b-4e5a-bb86-09f920358d1b timeout_sec=90
+ts=2026-02-25T18:19:35.918Z hook=event event_type=message.updated session_id=ses_369fe5573ffeQKHj15LBemgNf7 message_id=msg_c960706cd001yDTZ7hugQHfqDD elapsed_ms=133 status=ok
+ts=2026-02-25T18:19:35.918Z hook=event event_type=session.status session_id=ses_369fe5573ffeQKHj15LBemgNf7 elapsed_ms=131 status=ok
+ts=2026-02-25T18:19:35.919Z hook=event event_type=session.idle session_id=ses_369fe5573ffeQKHj15LBemgNf7 elapsed_ms=127 status=ok
+ts=2026-02-25T18:29:24.753Z hook=chat.message status=dispatched session_id=ses_369fe5573ffeQKHj15LBemgNf7 message_id=msg_c96101e1e001pGBtimrhCkaK2u hook_trace_id=b8e0c9c3-64fa-4b8c-ad53-42ba8f88a472 timeout_sec=4
+ts=2026-02-25T18:29:24.889Z hook=chat.message status=hook_failed session_id=ses_369fe5573ffeQKHj15LBemgNf7 message_id=msg_c96101e1e001pGBtimrhCkaK2u elapsed_ms=141 hook_command_ms=132 hook_trace_id=b8e0c9c3-64fa-4b8c-ad53-42ba8f88a472 quota_exceeded=false
+ts=2026-02-25T18:29:24.903Z hook=event event_type=session.status status=dispatched session_id=ses_369fe5573ffeQKHj15LBemgNf7 hook_trace_id=8e14346b-f936-41e6-a608-bcdec6dda8b5 timeout_sec=90
+ts=2026-02-25T18:29:25.031Z hook=event event_type=session.status session_id=ses_369fe5573ffeQKHj15LBemgNf7 elapsed_ms=129 status=ok
+ts=2026-02-25T18:29:40.066Z hook=chat.message status=skipped_circuit_open session_id=ses_369efa5aaffeRoSSBVWlmijjdz message_id=msg_c96105a5e001KMIEZeVP6srdUS remaining_ms=14823 fail_count=4
+ts=2026-02-25T18:29:40.077Z hook=event event_type=session.status status=dispatched session_id=ses_369efa5aaffeRoSSBVWlmijjdz hook_trace_id=d57ab4a9-e005-4f5b-933b-1c1d1883c6a5 timeout_sec=90
+ts=2026-02-25T18:29:40.288Z hook=event event_type=session.status session_id=ses_369efa5aaffeRoSSBVWlmijjdz elapsed_ms=212 status=ok
+ts=2026-02-25T18:29:44.463Z hook=event event_type=message.updated status=dispatched session_id=ses_369efa5aaffeRoSSBVWlmijjdz message_id=msg_c96105a70001PBjJ93VQR95E9h hook_trace_id=9255b1b1-039e-4897-88b5-1dd36e947543 timeout_sec=90
+ts=2026-02-25T18:29:44.628Z hook=event event_type=message.updated session_id=ses_369efa5aaffeRoSSBVWlmijjdz message_id=msg_c96105a70001PBjJ93VQR95E9h elapsed_ms=166 status=ok
+ts=2026-02-25T18:29:53.224Z hook=event event_type=message.updated status=dispatched session_id=ses_369efa5aaffeRoSSBVWlmijjdz message_id=msg_c96106b90001ORUU2HDAskkc7P hook_trace_id=cad76b53-e9c6-4312-a89c-b8b547e124e8 timeout_sec=90
+ts=2026-02-25T18:29:53.225Z hook=event event_type=session.status status=dispatched session_id=ses_369efa5aaffeRoSSBVWlmijjdz hook_trace_id=fba9e1e7-aad2-434b-869a-71f56621898b timeout_sec=90
+ts=2026-02-25T18:29:53.228Z hook=event event_type=session.status session_id=ses_369efa5aaffeRoSSBVWlmijjdz status_type=idle status=skipped reason=prefer_session_idle_event
+ts=2026-02-25T18:29:53.228Z hook=event event_type=session.idle status=dispatched session_id=ses_369efa5aaffeRoSSBVWlmijjdz hook_trace_id=66910cf1-c7c3-40de-bd79-6c705f32dde5 timeout_sec=90
+ts=2026-02-25T18:29:53.476Z hook=event event_type=message.updated status=dispatched session_id=ses_369fe5573ffeQKHj15LBemgNf7 message_id=msg_c96101f28001el4r5pCOZmDEK1 hook_trace_id=cec8b743-28bd-44d0-aed9-ec354205690c timeout_sec=90
+ts=2026-02-25T18:29:53.477Z hook=event event_type=session.status status=dispatched session_id=ses_369fe5573ffeQKHj15LBemgNf7 hook_trace_id=9679b099-4ac1-4fae-b246-8fd619ca940a timeout_sec=90
+ts=2026-02-25T18:29:53.491Z hook=event event_type=session.idle session_id=ses_369efa5aaffeRoSSBVWlmijjdz elapsed_ms=263 status=ok
+ts=2026-02-25T18:29:53.491Z hook=event event_type=message.updated session_id=ses_369efa5aaffeRoSSBVWlmijjdz message_id=msg_c96106b90001ORUU2HDAskkc7P elapsed_ms=269 status=ok
+ts=2026-02-25T18:29:53.511Z hook=event event_type=session.status session_id=ses_369efa5aaffeRoSSBVWlmijjdz elapsed_ms=288 status=ok
+ts=2026-02-25T18:29:53.628Z hook=event event_type=message.updated session_id=ses_369fe5573ffeQKHj15LBemgNf7 message_id=msg_c96101f28001el4r5pCOZmDEK1 elapsed_ms=154 status=ok
+ts=2026-02-25T18:29:53.644Z hook=event event_type=session.status session_id=ses_369fe5573ffeQKHj15LBemgNf7 elapsed_ms=168 status=ok
+ts=2026-02-25T18:30:39.784Z hook=chat.message status=dispatched session_id=ses_369eebc66ffeXCsLSoEGNLu4dc message_id=msg_c961143a3001Pe2n9aZ4tlVivO hook_trace_id=aba2ab4c-4780-483b-91f6-88cd36f89e7f timeout_sec=4
+ts=2026-02-25T18:30:39.978Z hook=chat.message status=hook_failed session_id=ses_369eebc66ffeXCsLSoEGNLu4dc message_id=msg_c961143a3001Pe2n9aZ4tlVivO elapsed_ms=195 hook_command_ms=193 hook_trace_id=aba2ab4c-4780-483b-91f6-88cd36f89e7f quota_exceeded=false
+ts=2026-02-25T18:30:39.992Z hook=event event_type=session.status status=dispatched session_id=ses_369eebc66ffeXCsLSoEGNLu4dc hook_trace_id=f669ae9d-2b19-4399-bef5-22bc92e496c4 timeout_sec=90
+ts=2026-02-25T18:30:40.125Z hook=event event_type=session.status session_id=ses_369eebc66ffeXCsLSoEGNLu4dc elapsed_ms=134 status=ok
+ts=2026-02-25T18:30:56.056Z hook=event event_type=session.status session_id=ses_369eebc66ffeXCsLSoEGNLu4dc status_type=idle status=skipped reason=prefer_session_idle_event
+ts=2026-02-25T18:30:56.057Z hook=event event_type=session.idle status=dispatched session_id=ses_369eebc66ffeXCsLSoEGNLu4dc hook_trace_id=1dbcef68-f8a2-4b1c-99dc-cccbe4ddc95a timeout_sec=90
+ts=2026-02-25T18:30:56.083Z hook=event event_type=session.status session_id=ses_369eebc66ffeXCsLSoEGNLu4dc status_type=idle status=skipped reason=prefer_session_idle_event
+ts=2026-02-25T18:30:56.255Z hook=event event_type=message.updated status=dispatched session_id=ses_369eebc66ffeXCsLSoEGNLu4dc message_id=msg_c9611447a001KTWf1oSJro2rGr hook_trace_id=916e58e9-b792-4a11-9734-39a5499fc398 timeout_sec=90
+ts=2026-02-25T18:30:56.259Z hook=event event_type=session.status session_id=ses_369eebc66ffeXCsLSoEGNLu4dc status_type=idle status=skipped reason=prefer_session_idle_event
+ts=2026-02-25T18:30:56.449Z hook=event event_type=message.updated status=dispatched session_id=ses_369fe5573ffeQKHj15LBemgNf7 message_id=msg_c96108ec90018Rp0Mp0Wkz59tX hook_trace_id=5d9c9141-8a46-498d-9d0c-3956cd7582d5 timeout_sec=90
+ts=2026-02-25T18:30:56.450Z hook=event event_type=session.status status=dispatched session_id=ses_369fe5573ffeQKHj15LBemgNf7 hook_trace_id=8cd32658-bd29-4550-b851-fc34ed4035f3 timeout_sec=90
+ts=2026-02-25T18:30:56.485Z hook=event event_type=session.idle session_id=ses_369eebc66ffeXCsLSoEGNLu4dc elapsed_ms=430 status=ok
+ts=2026-02-25T18:30:56.494Z hook=event event_type=message.updated session_id=ses_369eebc66ffeXCsLSoEGNLu4dc message_id=msg_c9611447a001KTWf1oSJro2rGr elapsed_ms=244 status=ok
+ts=2026-02-25T18:30:56.631Z hook=event event_type=message.updated session_id=ses_369fe5573ffeQKHj15LBemgNf7 message_id=msg_c96108ec90018Rp0Mp0Wkz59tX elapsed_ms=184 status=ok
+ts=2026-02-25T18:30:56.646Z hook=event event_type=session.status session_id=ses_369fe5573ffeQKHj15LBemgNf7 elapsed_ms=197 status=ok
+ts=2026-02-25T18:30:59.914Z hook=event event_type=session.status session_id=ses_369fe5573ffeQKHj15LBemgNf7 status_type=idle status=skipped reason=prefer_session_idle_event
+ts=2026-02-25T18:30:59.914Z hook=event event_type=session.idle status=dispatched session_id=ses_369fe5573ffeQKHj15LBemgNf7 hook_trace_id=c363e74f-a609-48ca-a488-b58e159940a3 timeout_sec=90
+ts=2026-02-25T18:30:59.926Z hook=event event_type=session.status session_id=ses_369fe5573ffeQKHj15LBemgNf7 status_type=idle status=skipped reason=prefer_session_idle_event
+ts=2026-02-25T18:31:00.145Z hook=event event_type=message.updated status=dispatched session_id=ses_369fe5573ffeQKHj15LBemgNf7 message_id=msg_c961184c4001Gry7WzFxOg4k05 hook_trace_id=ba5db70b-9d4e-4b6b-8478-455526dd2d5a timeout_sec=90
+ts=2026-02-25T18:31:00.149Z hook=event event_type=session.status session_id=ses_369fe5573ffeQKHj15LBemgNf7 status_type=idle status=skipped reason=prefer_session_idle_event
+ts=2026-02-25T18:31:00.359Z hook=event event_type=session.idle session_id=ses_369fe5573ffeQKHj15LBemgNf7 elapsed_ms=446 status=ok
+ts=2026-02-25T18:31:00.410Z hook=event event_type=message.updated session_id=ses_369fe5573ffeQKHj15LBemgNf7 message_id=msg_c961184c4001Gry7WzFxOg4k05 elapsed_ms=276 status=ok
+ts=2026-02-25T18:31:23.781Z hook=chat.message status=dispatched session_id=ses_369fe5573ffeQKHj15LBemgNf7 message_id=msg_c9611ef28001NIer9o7qXQfd3b hook_trace_id=79e883bf-ac70-4b8b-ad21-9f68476b663b timeout_sec=4
+ts=2026-02-25T18:31:23.936Z hook=chat.message status=hook_failed session_id=ses_369fe5573ffeQKHj15LBemgNf7 message_id=msg_c9611ef28001NIer9o7qXQfd3b elapsed_ms=159 hook_command_ms=154 hook_trace_id=79e883bf-ac70-4b8b-ad21-9f68476b663b quota_exceeded=false
+ts=2026-02-25T18:31:23.944Z hook=event event_type=session.status status=dispatched session_id=ses_369fe5573ffeQKHj15LBemgNf7 hook_trace_id=26ab66a6-2250-4edd-b6a0-4ae2e2fa8981 timeout_sec=90
+ts=2026-02-25T18:31:24.066Z hook=event event_type=session.status session_id=ses_369fe5573ffeQKHj15LBemgNf7 elapsed_ms=122 status=ok
+ts=2026-02-25T18:31:28.267Z hook=event event_type=message.updated status=dispatched session_id=ses_369fe5573ffeQKHj15LBemgNf7 message_id=msg_c9611f029001Y9teDZROiaZlOd hook_trace_id=1b04ca8c-259a-4174-be47-5fd458e5ceb6 timeout_sec=90
+ts=2026-02-25T18:31:28.482Z hook=event event_type=message.updated session_id=ses_369fe5573ffeQKHj15LBemgNf7 message_id=msg_c9611f029001Y9teDZROiaZlOd elapsed_ms=217 status=ok
+ts=2026-02-25T18:31:33.098Z hook=event event_type=message.updated status=dispatched session_id=ses_369fe5573ffeQKHj15LBemgNf7 message_id=msg_c9612010d001IvW5nXSyNJV2Zh hook_trace_id=e3cca775-1a44-4bd0-8498-62d981eba036 timeout_sec=90
+ts=2026-02-25T18:31:33.114Z hook=event event_type=session.status session_id=ses_369fe5573ffeQKHj15LBemgNf7 status_type=idle status=skipped reason=prefer_session_idle_event
+ts=2026-02-25T18:31:33.114Z hook=event event_type=session.idle status=dispatched session_id=ses_369fe5573ffeQKHj15LBemgNf7 hook_trace_id=5145ff23-4a69-408e-ae00-78c65585ec0d timeout_sec=90
+ts=2026-02-25T18:31:33.452Z hook=event event_type=message.updated session_id=ses_369fe5573ffeQKHj15LBemgNf7 message_id=msg_c9612010d001IvW5nXSyNJV2Zh elapsed_ms=357 status=ok
+ts=2026-02-25T18:31:33.465Z hook=event event_type=session.idle session_id=ses_369fe5573ffeQKHj15LBemgNf7 elapsed_ms=352 status=ok
+ts=2026-02-25T18:31:50.356Z hook=chat.message status=skipped_circuit_open session_id=ses_369fe5573ffeQKHj15LBemgNf7 message_id=msg_c961256f9001JR2v33vlKFBsy0 remaining_ms=3580 fail_count=6
+ts=2026-02-25T18:31:50.373Z hook=event event_type=session.status status=dispatched session_id=ses_369fe5573ffeQKHj15LBemgNf7 hook_trace_id=24ba0e0d-ae60-4d0b-a045-6981fc5eb6df timeout_sec=90
+ts=2026-02-25T18:31:50.494Z hook=event event_type=session.status session_id=ses_369fe5573ffeQKHj15LBemgNf7 elapsed_ms=121 status=ok
+ts=2026-02-25T18:31:58.239Z hook=event event_type=message.updated status=dispatched session_id=ses_369fe5573ffeQKHj15LBemgNf7 message_id=msg_c96125768001dDmd7pV5wOOKdG hook_trace_id=7411813b-4b09-4a52-8d42-9a041bc6c1ea timeout_sec=90
+ts=2026-02-25T18:31:58.239Z hook=event event_type=session.status status=dispatched session_id=ses_369fe5573ffeQKHj15LBemgNf7 hook_trace_id=2fe9cf0a-dc94-4edb-b4c7-cff87199b47d timeout_sec=90
+ts=2026-02-25T18:31:58.466Z hook=event event_type=session.status session_id=ses_369fe5573ffeQKHj15LBemgNf7 elapsed_ms=228 status=ok
+ts=2026-02-25T18:31:58.468Z hook=event event_type=message.updated session_id=ses_369fe5573ffeQKHj15LBemgNf7 message_id=msg_c96125768001dDmd7pV5wOOKdG elapsed_ms=231 status=ok
+ts=2026-02-25T18:32:20.271Z hook=chat.message status=dispatched session_id=ses_369ed33e0ffeTQ7Fu5Q7AmmHba message_id=msg_c9612cc28001wQodeM8REhs890 hook_trace_id=b350c101-cc61-477f-bcbd-7dc1259c9b04 timeout_sec=4
+ts=2026-02-25T18:32:20.510Z hook=chat.message status=hook_failed session_id=ses_369ed33e0ffeTQ7Fu5Q7AmmHba message_id=msg_c9612cc28001wQodeM8REhs890 elapsed_ms=241 hook_command_ms=239 hook_trace_id=b350c101-cc61-477f-bcbd-7dc1259c9b04 quota_exceeded=false
+ts=2026-02-25T18:32:20.514Z hook=event event_type=session.status status=dispatched session_id=ses_369ed33e0ffeTQ7Fu5Q7AmmHba hook_trace_id=8f4790f7-af70-4daa-906d-708a3c734332 timeout_sec=90
+ts=2026-02-25T18:32:20.627Z hook=event event_type=session.status session_id=ses_369ed33e0ffeTQ7Fu5Q7AmmHba elapsed_ms=114 status=ok
+ts=2026-02-25T18:32:29.063Z hook=event event_type=message.updated status=dispatched session_id=ses_369ed33e0ffeTQ7Fu5Q7AmmHba message_id=msg_c9612cd22001Mi0a4ITN1kQnGJ hook_trace_id=77d29f2d-923a-46de-8929-bc726aca7d0a timeout_sec=90
+ts=2026-02-25T18:32:29.064Z hook=event event_type=session.status status=dispatched session_id=ses_369ed33e0ffeTQ7Fu5Q7AmmHba hook_trace_id=fb8abb6b-1081-4b07-bd22-910cf63820d8 timeout_sec=90
+ts=2026-02-25T18:32:29.193Z hook=event event_type=message.updated session_id=ses_369ed33e0ffeTQ7Fu5Q7AmmHba message_id=msg_c9612cd22001Mi0a4ITN1kQnGJ elapsed_ms=131 status=ok
+ts=2026-02-25T18:32:29.193Z hook=event event_type=session.status session_id=ses_369ed33e0ffeTQ7Fu5Q7AmmHba elapsed_ms=130 status=ok
+ts=2026-02-25T18:33:00.015Z hook=event event_type=message.updated status=dispatched session_id=ses_369ed33e0ffeTQ7Fu5Q7AmmHba message_id=msg_c9612ee890015BzKvpgkhPVkVW hook_trace_id=65fb4190-5241-4e29-9aa7-7b2a98d41d72 timeout_sec=90
+ts=2026-02-25T18:33:00.016Z hook=event event_type=session.status status=dispatched session_id=ses_369ed33e0ffeTQ7Fu5Q7AmmHba hook_trace_id=d99dfcb0-3502-427f-b76b-78f579379818 timeout_sec=90
+ts=2026-02-25T18:33:00.172Z hook=event event_type=session.status session_id=ses_369ed33e0ffeTQ7Fu5Q7AmmHba elapsed_ms=158 status=ok
+ts=2026-02-25T18:33:00.172Z hook=event event_type=message.updated session_id=ses_369ed33e0ffeTQ7Fu5Q7AmmHba message_id=msg_c9612ee890015BzKvpgkhPVkVW elapsed_ms=159 status=ok
+ts=2026-02-25T18:33:25.535Z hook=event event_type=message.updated status=dispatched session_id=ses_369ed33e0ffeTQ7Fu5Q7AmmHba message_id=msg_c96136770001cAQKqP9ThiqcbL hook_trace_id=c1578c87-a319-4bbc-8ceb-31e238fccf86 timeout_sec=90
+ts=2026-02-25T18:33:25.537Z hook=event event_type=session.status status=dispatched session_id=ses_369ed33e0ffeTQ7Fu5Q7AmmHba hook_trace_id=ca0e1b9f-2df6-46f6-9148-8264280e40ff timeout_sec=90
+ts=2026-02-25T18:33:25.540Z hook=event event_type=session.status session_id=ses_369ed33e0ffeTQ7Fu5Q7AmmHba status_type=idle status=skipped reason=prefer_session_idle_event
+ts=2026-02-25T18:33:25.540Z hook=event event_type=session.idle status=dispatched session_id=ses_369ed33e0ffeTQ7Fu5Q7AmmHba hook_trace_id=366ef181-81e0-4534-b755-e3495dd7cca2 timeout_sec=90
+ts=2026-02-25T18:33:25.694Z hook=event event_type=message.updated status=dispatched session_id=ses_369fe5573ffeQKHj15LBemgNf7 message_id=msg_c96127622001s9vItQ26QNXR79 hook_trace_id=8fc48457-76bc-4033-8e18-a7e2866df46b timeout_sec=90
+ts=2026-02-25T18:33:25.695Z hook=event event_type=session.status status=dispatched session_id=ses_369fe5573ffeQKHj15LBemgNf7 hook_trace_id=ed858f7b-a2a3-4ee4-bebf-d927a05125c9 timeout_sec=90
+ts=2026-02-25T18:33:25.802Z hook=event event_type=session.idle session_id=ses_369ed33e0ffeTQ7Fu5Q7AmmHba elapsed_ms=263 status=ok
+ts=2026-02-25T18:33:25.804Z hook=event event_type=session.status session_id=ses_369ed33e0ffeTQ7Fu5Q7AmmHba elapsed_ms=270 status=ok
+ts=2026-02-25T18:33:25.811Z hook=event event_type=message.updated session_id=ses_369ed33e0ffeTQ7Fu5Q7AmmHba message_id=msg_c96136770001cAQKqP9ThiqcbL elapsed_ms=278 status=ok
+ts=2026-02-25T18:33:25.901Z hook=event event_type=session.status session_id=ses_369fe5573ffeQKHj15LBemgNf7 elapsed_ms=208 status=ok
+ts=2026-02-25T18:33:25.903Z hook=event event_type=message.updated session_id=ses_369fe5573ffeQKHj15LBemgNf7 message_id=msg_c96127622001s9vItQ26QNXR79 elapsed_ms=211 status=ok
+ts=2026-02-25T18:33:35.218Z hook=event event_type=message.updated status=dispatched session_id=ses_369fe5573ffeQKHj15LBemgNf7 message_id=msg_c9613cbc30012zCdudfCqXa3Og hook_trace_id=04c8fded-1564-4af6-89c6-86d6d57bf519 timeout_sec=90
+ts=2026-02-25T18:33:35.219Z hook=event event_type=session.status status=dispatched session_id=ses_369fe5573ffeQKHj15LBemgNf7 hook_trace_id=c25113f1-99eb-4c4f-8abf-234dc5e3232c timeout_sec=90
+ts=2026-02-25T18:33:35.491Z hook=event event_type=message.updated session_id=ses_369fe5573ffeQKHj15LBemgNf7 message_id=msg_c9613cbc30012zCdudfCqXa3Og elapsed_ms=275 status=ok
+ts=2026-02-25T18:33:35.495Z hook=event event_type=session.status session_id=ses_369fe5573ffeQKHj15LBemgNf7 elapsed_ms=277 status=ok
+ts=2026-02-25T18:34:26.489Z hook=event event_type=message.updated status=dispatched session_id=ses_369fe5573ffeQKHj15LBemgNf7 message_id=msg_c9613f0f50013X5Y6ofKFzglvR hook_trace_id=4b93edff-2ac8-4cea-9342-64703bce63f6 timeout_sec=90
+ts=2026-02-25T18:34:26.491Z hook=event event_type=session.status status=dispatched session_id=ses_369fe5573ffeQKHj15LBemgNf7 hook_trace_id=86b1bed3-2b9e-43ea-8bca-eed83d536f10 timeout_sec=90
+ts=2026-02-25T18:34:26.787Z hook=event event_type=session.status session_id=ses_369fe5573ffeQKHj15LBemgNf7 elapsed_ms=300 status=ok
+ts=2026-02-25T18:34:26.788Z hook=event event_type=message.updated session_id=ses_369fe5573ffeQKHj15LBemgNf7 message_id=msg_c9613f0f50013X5Y6ofKFzglvR elapsed_ms=302 status=ok
+ts=2026-02-25T18:34:32.533Z hook=event event_type=message.updated status=dispatched session_id=ses_369fe5573ffeQKHj15LBemgNf7 message_id=msg_c9614b93d001ce1VHOUi0xK9tx hook_trace_id=313ed2dc-67f8-4598-813c-1930541cfe2a timeout_sec=90
+ts=2026-02-25T18:34:32.713Z hook=event event_type=message.updated session_id=ses_369fe5573ffeQKHj15LBemgNf7 message_id=msg_c9614b93d001ce1VHOUi0xK9tx elapsed_ms=183 status=ok
+ts=2026-02-25T18:34:52.983Z hook=event event_type=message.updated status=dispatched session_id=ses_369fe5573ffeQKHj15LBemgNf7 message_id=msg_c9614d0d7001fZwrAQMtiwc5w7 hook_trace_id=d59a70ef-7a85-4ce3-9875-116da8f6cd4b timeout_sec=90
+ts=2026-02-25T18:34:52.984Z hook=event event_type=session.status status=dispatched session_id=ses_369fe5573ffeQKHj15LBemgNf7 hook_trace_id=f2d5f520-ba80-448e-9216-54b24dfcf50d timeout_sec=90
+ts=2026-02-25T18:34:53.379Z hook=event event_type=session.status session_id=ses_369fe5573ffeQKHj15LBemgNf7 elapsed_ms=397 status=ok
+ts=2026-02-25T18:34:53.380Z hook=event event_type=message.updated session_id=ses_369fe5573ffeQKHj15LBemgNf7 message_id=msg_c9614d0d7001fZwrAQMtiwc5w7 elapsed_ms=400 status=ok
+ts=2026-02-25T18:34:57.818Z hook=event event_type=message.updated status=dispatched session_id=ses_369fe5573ffeQKHj15LBemgNf7 message_id=msg_c961520ba001RUtKLxfBxsVf31 hook_trace_id=5775e19d-2083-4c86-8fbf-70817aeabdb1 timeout_sec=90
+ts=2026-02-25T18:34:58.085Z hook=event event_type=message.updated session_id=ses_369fe5573ffeQKHj15LBemgNf7 message_id=msg_c961520ba001RUtKLxfBxsVf31 elapsed_ms=271 status=ok
+ts=2026-02-25T18:35:09.031Z hook=event event_type=message.updated status=dispatched session_id=ses_369fe5573ffeQKHj15LBemgNf7 message_id=msg_c961533a0001wM5xymFPGBP0Ws hook_trace_id=0c62801b-d164-4169-9d2a-5bd941d51e5e timeout_sec=90
+ts=2026-02-25T18:35:09.032Z hook=event event_type=session.status status=dispatched session_id=ses_369fe5573ffeQKHj15LBemgNf7 hook_trace_id=677d4622-5b88-46e1-b984-4bc64361dbed timeout_sec=90
+ts=2026-02-25T18:35:09.040Z hook=event event_type=session.status session_id=ses_369fe5573ffeQKHj15LBemgNf7 status_type=idle status=skipped reason=prefer_session_idle_event
+ts=2026-02-25T18:35:09.040Z hook=event event_type=session.idle status=dispatched session_id=ses_369fe5573ffeQKHj15LBemgNf7 hook_trace_id=1eeb4f71-f7ed-4555-a155-d6eb22c94b7a timeout_sec=90
+ts=2026-02-25T18:35:09.635Z hook=event event_type=session.idle session_id=ses_369fe5573ffeQKHj15LBemgNf7 elapsed_ms=596 status=ok
+ts=2026-02-25T18:35:09.636Z hook=event event_type=message.updated session_id=ses_369fe5573ffeQKHj15LBemgNf7 message_id=msg_c961533a0001wM5xymFPGBP0Ws elapsed_ms=608 status=ok
+ts=2026-02-25T18:35:09.636Z hook=event event_type=session.status session_id=ses_369fe5573ffeQKHj15LBemgNf7 elapsed_ms=606 status=ok

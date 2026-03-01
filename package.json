@@ -6,6 +6,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:public": "tailscale funnel --bg --yes 5173 && vite",
+    "funnel:off": "tailscale funnel reset",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
