@@ -96,8 +96,9 @@ export function useSessionManager({
     // 如果已经有消息且正在 streaming，不能覆盖消息，但仍需加载元数据
     // 仅在「已经完整加载过」时才跳过覆盖；
     // 对于仅靠 SSE 暂存出来的 session（loadState=idle），仍要做一次完整拉取
-    // force 模式下也不覆盖正在 streaming 且已加载的消息
-    if (hasExistingMessages && existingState.isStreaming && hasLoadedBaseline) {
+    // force 模式（重连后）始终跳过此守卫——本地的 isStreaming 可能是 SSE 断连前的残留
+    // 状态，必须用服务端最新数据覆盖，否则息屏重连后 UI 永远卡住
+    if (!force && hasExistingMessages && existingState.isStreaming && hasLoadedBaseline) {
       // 异步加载 session 元数据（不阻塞）
       const dir = directoryRef.current
       Promise.all([
