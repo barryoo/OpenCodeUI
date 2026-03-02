@@ -24,13 +24,14 @@ import {
   SpinnerIcon,
   TrashIcon,
 } from '../../../components/Icons'
+import { Button, Dialog } from '../../../components/ui'
 import { ConfirmDialog } from '../../../components/ui/ConfirmDialog'
 import { useDirectory, useSessionStats } from '../../../hooks'
 import { useMessageStore } from '../../../store'
 import { useBusySessions } from '../../../store/activeSessionStore'
 import { notificationStore, useNotifications } from '../../../store/notificationStore'
 import { formatRelativeTime } from '../../../utils/dateUtils'
-import { isSameDirectory, serverStorage } from '../../../utils'
+import { isSameDirectory, serverStorage, uiErrorHandler } from '../../../utils'
 import { serverStore } from '../../../store/serverStore'
 import { SidePanel, SidebarFooter, type SidePanelProps } from './SidePanel'
 
@@ -49,6 +50,11 @@ interface PinnedSessionEntry {
   projectPath: string
   updatedAt: number
   pinnedAt: number
+}
+
+interface SessionRenameState {
+  projectPath: string
+  session: ApiSession
 }
 
 type OpenMenuState =
@@ -210,7 +216,11 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
   const [dropTargetProjectPath, setDropTargetProjectPath] = useState<string | null>(null)
   const [projectDeleteConfirm, setProjectDeleteConfirm] = useState<string | null>(null)
   const [sessionDeleteConfirm, setSessionDeleteConfirm] = useState<{ projectPath: string; session: ApiSession } | null>(null)
+  const [sessionRenameState, setSessionRenameState] = useState<SessionRenameState | null>(null)
+  const [sessionRenameInput, setSessionRenameInput] = useState('')
+  const [isRenamingSession, setIsRenamingSession] = useState(false)
   const menuRef = useRef<HTMLDivElement | null>(null)
+  const renameInputRef = useRef<HTMLInputElement | null>(null)
   // 移动端长按检测
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const longPressTouchStartRef = useRef<{ x: number; y: number } | null>(null)
@@ -287,6 +297,12 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
       setPinnedSessions(Array.isArray(saved) ? saved.filter((item) => !!item?.sessionId && !!item?.directory) : [])
     })
   }, [])
+
+  useEffect(() => {
+    if (!sessionRenameState || !renameInputRef.current) return
+    renameInputRef.current.focus()
+    renameInputRef.current.select()
+  }, [sessionRenameState])
 
   const syncPinnedEntriesWithSessions = useCallback((projectPath: string, sessions: ApiSession[]) => {
     if (sessions.length === 0) return
@@ -659,40 +675,60 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
     })
   }, [])
 
-  const handleRenameSession = useCallback(async (projectPath: string, session: ApiSession) => {
-    const currentTitle = session.title || ''
-    const nextTitle = window.prompt('重命名会话', currentTitle)
-    if (nextTitle === null) return
-
+  const applySessionRename = useCallback(async (projectPath: string, session: ApiSession, nextTitle: string) => {
     const trimmed = nextTitle.trim()
+    const updated = await updateSession(session.id, { title: trimmed }, projectPath)
+
+    setSessionsByProject((prev) => ({
+      ...prev,
+      [projectPath]: (prev[projectPath] ?? []).map((item) =>
+        item.id === session.id ? { ...item, ...updated, title: updated.title ?? trimmed } : item
+      ),
+    }))
+    setPinnedSessions((prev) => prev.map((entry) => {
+      if (entry.sessionId !== session.id) return entry
+      return {
+        ...entry,
+        title: updated.title ?? trimmed,
+        updatedAt: updated.time?.updated ?? updated.time?.created ?? entry.updatedAt,
+        projectPath,
+      }
+    }))
+  }, [])
+
+  const handleRequestRenameSession = useCallback((projectPath: string, session: ApiSession) => {
+    setOpenMenu(null)
+    setSessionRenameState({ projectPath, session })
+    setSessionRenameInput(session.title || '')
+  }, [])
+
+  const handleCloseRenameSessionDialog = useCallback(() => {
+    if (isRenamingSession) return
+    setSessionRenameState(null)
+    setSessionRenameInput('')
+  }, [isRenamingSession])
+
+  const handleConfirmRenameSession = useCallback(async () => {
+    if (!sessionRenameState || isRenamingSession) return
+
+    const trimmed = sessionRenameInput.trim()
+    const currentTitle = sessionRenameState.session.title || ''
     if (!trimmed || trimmed === currentTitle) {
-      setOpenMenu(null)
+      handleCloseRenameSessionDialog()
       return
     }
 
+    setIsRenamingSession(true)
     try {
-      const updated = await updateSession(session.id, { title: trimmed }, projectPath)
-      setSessionsByProject((prev) => ({
-        ...prev,
-        [projectPath]: (prev[projectPath] ?? []).map((item) =>
-          item.id === session.id ? { ...item, ...updated, title: updated.title ?? trimmed } : item
-        ),
-      }))
-      setPinnedSessions((prev) => prev.map((entry) => {
-        if (entry.sessionId !== session.id) return entry
-        return {
-          ...entry,
-          title: updated.title ?? trimmed,
-          updatedAt: updated.time?.updated ?? updated.time?.created ?? entry.updatedAt,
-          projectPath,
-        }
-      }))
-    } catch {
-      // ignore rename errors, keep list state untouched
+      await applySessionRename(sessionRenameState.projectPath, sessionRenameState.session, trimmed)
+      setSessionRenameState(null)
+      setSessionRenameInput('')
+    } catch (e) {
+      uiErrorHandler('rename session', e)
     } finally {
-      setOpenMenu(null)
+      setIsRenamingSession(false)
     }
-  }, [])
+  }, [applySessionRename, handleCloseRenameSessionDialog, isRenamingSession, sessionRenameInput, sessionRenameState])
 
   const handleArchiveSession = useCallback(async (projectPath: string, session: ApiSession) => {
     try {
@@ -1040,7 +1076,7 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
                           label="重命名"
                           icon={<PencilIcon size={12} />}
                           onClick={() => {
-                            void handleRenameSession(pinnedProjectPath, sessionForPinnedAction)
+                            handleRequestRenameSession(pinnedProjectPath, sessionForPinnedAction)
                           }}
                         />
                         <ActionMenuItem
@@ -1319,7 +1355,7 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
                                       label="重命名"
                                       icon={<PencilIcon size={12} />}
                                       onClick={() => {
-                                        void handleRenameSession(project.path, session)
+                                        handleRequestRenameSession(project.path, session)
                                       }}
                                     />
                                     <ActionMenuItem
@@ -1381,6 +1417,57 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
         isWideMode={isWideMode}
         onToggleWideMode={onToggleWideMode}
       />
+
+      <Dialog
+        isOpen={sessionRenameState !== null}
+        onClose={handleCloseRenameSessionDialog}
+        title="重命名会话"
+        width={420}
+        showCloseButton={!isRenamingSession}
+      >
+        <form
+          className="space-y-4"
+          onSubmit={(event) => {
+            event.preventDefault()
+            void handleConfirmRenameSession()
+          }}
+        >
+          <div className="space-y-1.5">
+            <label htmlFor="session-rename-input" className="block text-[11px] font-medium text-text-300">
+              新名称
+            </label>
+            <input
+              id="session-rename-input"
+              ref={renameInputRef}
+              type="text"
+              value={sessionRenameInput}
+              onChange={(event) => setSessionRenameInput(event.target.value)}
+              maxLength={120}
+              className="w-full h-9 px-3 rounded-lg bg-bg-000 border border-border-200/70 text-sm text-text-100 placeholder:text-text-500 focus:outline-none focus:ring-1 focus:ring-accent-main-100/40 focus:border-accent-main-100/60"
+              placeholder="输入会话名称"
+              disabled={isRenamingSession}
+            />
+          </div>
+
+          <div className="flex items-center justify-end gap-2">
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={handleCloseRenameSessionDialog}
+              disabled={isRenamingSession}
+            >
+              取消
+            </Button>
+            <Button
+              type="submit"
+              isLoading={isRenamingSession}
+              disabled={!sessionRenameInput.trim()}
+            >
+              保存
+            </Button>
+          </div>
+        </form>
+      </Dialog>
 
       <ConfirmDialog
         isOpen={projectDeleteConfirm !== null}
