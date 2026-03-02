@@ -36,6 +36,8 @@ import { serverStore } from '../../../store/serverStore'
 import { SidePanel, SidebarFooter, type SidePanelProps } from './SidePanel'
 
 const DEFAULT_VISIBLE_COUNT = 3
+const DEFAULT_RECENT_VISIBLE_COUNT = 10
+const RECENT_WINDOW_MS = 24 * 60 * 60 * 1000
 const PINNED_SESSIONS_STORAGE_KEY = 'opencode-pinned-sessions'
 
 interface ProjectNode {
@@ -59,7 +61,7 @@ interface SessionRenameState {
 
 type OpenMenuState =
   | { type: 'project'; projectPath: string; anchorRect: DOMRect }
-  | { type: 'session'; projectPath: string; sessionId: string; source: 'pinned' | 'project'; anchorRect: DOMRect }
+  | { type: 'session'; projectPath: string; sessionId: string; source: 'pinned' | 'project' | 'recent'; anchorRect: DOMRect }
   | null
 
 interface ActionMenuProps {
@@ -143,6 +145,7 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
     onSelectSession,
     onCloseMobile,
     selectedSessionId,
+    onAddProject,
     isMobile = false,
     isExpanded = true,
     onToggleSidebar,
@@ -203,6 +206,10 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
       }))
   }, [savedDirectories])
 
+  const [recentSessions, setRecentSessions] = useState<ApiSession[]>([])
+  const [recentLimit, setRecentLimit] = useState(DEFAULT_RECENT_VISIBLE_COUNT)
+  const [recentHasMore, setRecentHasMore] = useState(false)
+  const [recentLoading, setRecentLoading] = useState(false)
   const [expandedProjects, setExpandedProjects] = useState<Record<string, boolean>>({})
   const [visibleCountByProject, setVisibleCountByProject] = useState<Record<string, number>>({})
   const [sessionsByProject, setSessionsByProject] = useState<Record<string, ApiSession[]>>({})
@@ -221,6 +228,7 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
   const [isRenamingSession, setIsRenamingSession] = useState(false)
   const menuRef = useRef<HTMLDivElement | null>(null)
   const renameInputRef = useRef<HTMLInputElement | null>(null)
+  const recentRefreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   // 移动端长按检测
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const longPressTouchStartRef = useRef<{ x: number; y: number } | null>(null)
@@ -283,6 +291,47 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
     return pinnedSessionsForDisplay.length * rowHeight + Math.max(0, pinnedSessionsForDisplay.length - 1) * rowGap
   }, [pinnedSessionsForDisplay.length])
 
+  const getSessionUpdatedAt = useCallback((session: ApiSession): number => {
+    return session.time.updated ?? session.time.created ?? 0
+  }, [])
+
+  const loadRecentSessions = useCallback(async (limit: number) => {
+    setRecentLoading(true)
+
+    try {
+      const windowStart = Date.now() - RECENT_WINDOW_MS
+      const data = await getSessions({
+        roots: true,
+        start: windowStart,
+        limit: limit + 1,
+      })
+
+      const withinWindow = data
+        .filter((session) => getSessionUpdatedAt(session) >= windowStart)
+        .sort((a, b) => getSessionUpdatedAt(b) - getSessionUpdatedAt(a))
+
+      setRecentSessions(withinWindow.slice(0, limit))
+      setRecentHasMore(withinWindow.length > limit)
+    } catch {
+      setRecentSessions([])
+      setRecentHasMore(false)
+    } finally {
+      setRecentLoading(false)
+    }
+  }, [getSessionUpdatedAt])
+
+  const scheduleRecentRefresh = useCallback((delay = 120) => {
+    if (recentRefreshTimerRef.current) {
+      clearTimeout(recentRefreshTimerRef.current)
+      recentRefreshTimerRef.current = null
+    }
+
+    recentRefreshTimerRef.current = setTimeout(() => {
+      recentRefreshTimerRef.current = null
+      void loadRecentSessions(recentLimit)
+    }, delay)
+  }, [loadRecentSessions, recentLimit])
+
   useEffect(() => {
     return subscribeToConnectionState(setConnectionState)
   }, [])
@@ -295,7 +344,23 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
     return serverStore.onServerChange(() => {
       const saved = serverStorage.getJSON<PinnedSessionEntry[]>(PINNED_SESSIONS_STORAGE_KEY)
       setPinnedSessions(Array.isArray(saved) ? saved.filter((item) => !!item?.sessionId && !!item?.directory) : [])
+
+      setRecentLimit(DEFAULT_RECENT_VISIBLE_COUNT)
+      void loadRecentSessions(DEFAULT_RECENT_VISIBLE_COUNT)
     })
+  }, [loadRecentSessions])
+
+  useEffect(() => {
+    void loadRecentSessions(recentLimit)
+  }, [loadRecentSessions, recentLimit])
+
+  useEffect(() => {
+    return () => {
+      if (recentRefreshTimerRef.current) {
+        clearTimeout(recentRefreshTimerRef.current)
+        recentRefreshTimerRef.current = null
+      }
+    }
   }, [])
 
   useEffect(() => {
@@ -484,6 +549,8 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
           })
           return changed ? next : prev
         })
+
+        scheduleRecentRefresh()
       },
       onSessionUpdated: (session) => {
         const sessionDirectory = session.directory
@@ -523,6 +590,8 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
           })
           return changed ? next : prev
         })
+
+        scheduleRecentRefresh()
       },
       onSessionDeleted: (sessionId) => {
         setSessionsByProject((prev) => {
@@ -541,6 +610,7 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
         })
 
         setPinnedSessions((prev) => prev.filter((entry) => entry.sessionId !== sessionId))
+        scheduleRecentRefresh()
       },
       onReconnected: () => {
         for (const project of projects) {
@@ -552,11 +622,13 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
           )
           void loadProjectSessions(project.path, currentLimit)
         }
+
+        scheduleRecentRefresh(0)
       },
     })
 
     return unsubscribe
-  }, [projects, expandedProjects, loadedLimitByProject, visibleCountByProject, loadProjectSessions])
+  }, [projects, expandedProjects, loadedLimitByProject, visibleCountByProject, loadProjectSessions, scheduleRecentRefresh])
 
   useEffect(() => {
     if (!selectedSessionId || !currentDirectory) return
@@ -642,7 +714,7 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
     setProjectDeleteConfirm(null)
   }, [projects, currentDirectory, removeDirectory, setCurrentDirectory])
 
-  const handleToggleSessionMenu = useCallback((projectPath: string, sessionId: string, source: 'pinned' | 'project', anchorRect: DOMRect) => {
+  const handleToggleSessionMenu = useCallback((projectPath: string, sessionId: string, source: 'pinned' | 'project' | 'recent', anchorRect: DOMRect) => {
     setOpenMenu((prev) => {
       if (prev?.type === 'session' && prev.projectPath === projectPath && prev.sessionId === sessionId && prev.source === source) {
         return null
@@ -694,7 +766,14 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
         projectPath,
       }
     }))
-  }, [])
+    setRecentSessions((prev) => prev.map((item) => (
+      item.id === session.id
+        ? { ...item, ...updated, title: updated.title ?? trimmed }
+        : item
+    )))
+
+    scheduleRecentRefresh()
+  }, [scheduleRecentRefresh])
 
   const handleRequestRenameSession = useCallback((projectPath: string, session: ApiSession) => {
     setOpenMenu(null)
@@ -738,13 +817,15 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
         [projectPath]: (prev[projectPath] ?? []).filter((item) => item.id !== session.id),
       }))
       setPinnedSessions((prev) => prev.filter((entry) => entry.sessionId !== session.id))
+      setRecentSessions((prev) => prev.filter((item) => item.id !== session.id))
       reloadProjectSessions(projectPath)
+      scheduleRecentRefresh()
     } catch {
       // ignore archive errors, keep list state untouched
     } finally {
       setOpenMenu(null)
     }
-  }, [reloadProjectSessions])
+  }, [reloadProjectSessions, scheduleRecentRefresh])
 
   const handleRequestDeleteSession = useCallback((projectPath: string, session: ApiSession) => {
     setOpenMenu(null)
@@ -759,15 +840,17 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
         [projectPath]: (prev[projectPath] ?? []).filter((item) => item.id !== session.id),
       }))
       setPinnedSessions((prev) => prev.filter((entry) => entry.sessionId !== session.id))
+      setRecentSessions((prev) => prev.filter((item) => item.id !== session.id))
       if (selectedSessionId === session.id) {
         onNewSession()
       }
+      scheduleRecentRefresh()
     } catch {
       // ignore delete errors, keep list state untouched
     } finally {
       setSessionDeleteConfirm(null)
     }
-  }, [onNewSession, selectedSessionId])
+  }, [onNewSession, scheduleRecentRefresh, selectedSessionId])
 
   const handleCopySessionDirectory = useCallback(async (session: ApiSession) => {
     const targetDirectory = session.directory || ''
@@ -830,7 +913,7 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
 
   // 移动端长按：touch 开始
   const handleSessionLongPressStart = useCallback(
-    (e: React.TouchEvent<HTMLButtonElement>, projectPath: string, sessionId: string, source: 'pinned' | 'project') => {
+    (e: React.TouchEvent<HTMLButtonElement>, projectPath: string, sessionId: string, source: 'pinned' | 'project' | 'recent') => {
       if (!isMobile) return
       const touch = e.touches[0]
       longPressTouchStartRef.current = { x: touch.clientX, y: touch.clientY }
@@ -917,6 +1000,33 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
     }
   }, [onSelectSession, onCloseMobile, markSessionNotificationsRead])
 
+  const handleSelectRecentSession = useCallback((session: ApiSession) => {
+    setOpenMenu(null)
+
+    const sessionDirectory = session.directory
+    if (sessionDirectory) {
+      const matchedProjectPath = projects.find((project) => isSameDirectory(project.path, sessionDirectory))?.path ?? sessionDirectory
+      setCurrentDirectory(matchedProjectPath)
+      setExpandedProjects((prev) => ({
+        ...prev,
+        [matchedProjectPath]: true,
+      }))
+    }
+
+    markSessionNotificationsRead(session.id)
+    onSelectSession(session)
+
+    if (window.innerWidth < 768 && onCloseMobile) {
+      onCloseMobile()
+    }
+  }, [markSessionNotificationsRead, onCloseMobile, onSelectSession, projects, setCurrentDirectory])
+
+  const handleLoadMoreRecent = useCallback(() => {
+    if (recentLoading || !recentHasMore) return
+
+    setRecentLimit((prev) => prev + DEFAULT_RECENT_VISIBLE_COUNT)
+  }, [recentHasMore, recentLoading])
+
   const handleLoadMore = useCallback((projectPath: string) => {
     setVisibleCountByProject((prev) => ({
       ...prev,
@@ -939,6 +1049,22 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
         </div>
 
         <div className="flex-1 flex items-center justify-end pr-2 transition-all duration-300 ease-out">
+          <button
+            onClick={onAddProject}
+            aria-label="Add project"
+            className="h-8 w-8 mr-1 flex items-center justify-center rounded-lg text-text-400 hover:text-text-100 hover:bg-bg-200 active:scale-[0.98] transition-all duration-200"
+            title="Add project"
+          >
+            <FolderIcon size={16} />
+          </button>
+          <button
+            onClick={() => onNewSession(currentDirectory)}
+            aria-label="New session"
+            className="h-8 w-8 mr-1 flex items-center justify-center rounded-lg text-text-400 hover:text-text-100 hover:bg-bg-200 active:scale-[0.98] transition-all duration-200"
+            title="New chat"
+          >
+            <ComposeIcon size={16} />
+          </button>
           <button
             onClick={onToggleSidebar}
             aria-label={isExpanded ? 'Collapse sidebar' : 'Expand sidebar'}
@@ -1106,6 +1232,173 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
                   </div>
                 )
               })}
+          </div>
+        </div>
+
+        <div className="mb-1">
+          <div className="flex items-center justify-between px-1.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-text-400/80">
+            <span>最近会话</span>
+          </div>
+
+          <div className="space-y-0.5">
+            {recentLoading && recentSessions.length === 0 ? (
+              <div className="h-7 px-1.5 flex items-center text-text-400 text-[11px]">
+                <SpinnerIcon size={12} className="animate-spin mr-2" />
+                加载中...
+              </div>
+            ) : recentSessions.length === 0 ? (
+              <div className="ml-5 h-7 px-1.5 flex items-center text-[11px] text-text-500">
+                24 小时内暂无会话
+              </div>
+            ) : (
+              recentSessions.map((session) => {
+                const recentProjectPath = session.directory || ''
+                const updatedTime = getSessionUpdatedAt(session)
+                const isSelected = session.id === selectedSessionId
+                const isPinned = pinnedSessionIds.has(session.id)
+                const isRunning = busySessionIds.has(session.id)
+                const hasUnreadNotification =
+                  !isSelected &&
+                  (unreadNotificationIdsBySession.get(session.id)?.length ?? 0) > 0
+                const isSessionMenuOpen =
+                  openMenu?.type === 'session' &&
+                  openMenu.source === 'recent' &&
+                  openMenu.projectPath === recentProjectPath &&
+                  openMenu.sessionId === session.id
+
+                return (
+                  <div key={session.id} className="group/recent relative">
+                    <button
+                      type="button"
+                      onClick={() => handleSelectRecentSession(session)}
+                      onTouchStart={(e) => handleSessionLongPressStart(e, recentProjectPath, session.id, 'recent')}
+                      onTouchMove={handleSessionLongPressMove}
+                      onTouchEnd={handleSessionLongPressEnd}
+                      onContextMenu={(e) => e.preventDefault()}
+                      className={`w-full h-7 px-1.5 pr-12 rounded-md flex items-center gap-1.5 text-left transition-colors ${
+                        isSelected
+                          ? 'bg-bg-200/80 text-text-100'
+                          : 'text-text-200 hover:text-text-100 hover:bg-bg-200/40'
+                      }`}
+                      title={session.title || 'Untitled Chat'}
+                    >
+                      <span className="relative h-4 w-4 shrink-0">
+                        <span
+                          className={`absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 h-1.5 w-1.5 rounded-full transition-opacity ${
+                            hasUnreadNotification
+                              ? 'bg-accent-main-100 opacity-100'
+                              : 'bg-transparent opacity-0'
+                          } group-hover/recent:opacity-0 group-focus-within/recent:opacity-0`}
+                        />
+                        <span
+                          role="button"
+                          tabIndex={-1}
+                          onMouseDown={(event) => event.preventDefault()}
+                          onClick={(event) => {
+                            event.stopPropagation()
+                            handleToggleSessionPin(recentProjectPath, session)
+                          }}
+                          className={`absolute inset-0 rounded flex items-center justify-center transition-all duration-150 ${
+                            isPinned
+                              ? 'text-accent-main-100 opacity-0 group-hover/recent:opacity-100 group-focus-within/recent:opacity-100'
+                              : 'text-text-400 opacity-0 group-hover/recent:opacity-100 group-focus-within/recent:opacity-100 hover:text-text-100'
+                          }`}
+                          title={isPinned ? '取消置顶' : '置顶会话'}
+                        >
+                          <PinIcon size={11} />
+                        </span>
+                      </span>
+
+                      <span className="truncate text-[12px] font-medium leading-none flex-1 min-w-0">
+                        {session.title || 'Untitled Chat'}
+                      </span>
+                    </button>
+
+                    <div className="absolute right-1 top-1/2 -translate-y-1/2 h-5 w-10 flex items-center justify-center">
+                      <span className={`flex items-center justify-center transition-opacity duration-150 ${!isMobile ? (isSessionMenuOpen ? 'opacity-0' : 'group-hover/recent:opacity-0') : ''}`}>
+                        {isRunning ? (
+                          <RunningIndicator />
+                        ) : (
+                          <span className="text-[9px] text-text-400/90 whitespace-nowrap">
+                            {formatRelativeTime(updatedTime)}
+                          </span>
+                        )}
+                      </span>
+
+                      {!isMobile && (
+                        <button
+                          type="button"
+                          onClick={(event) => {
+                            event.stopPropagation()
+                            handleToggleSessionMenu(recentProjectPath, session.id, 'recent', event.currentTarget.getBoundingClientRect())
+                          }}
+                          className={`absolute inset-0 rounded-md flex items-center justify-center text-text-400 hover:text-text-100 hover:bg-bg-200/80 transition-all duration-150 ${
+                            isSessionMenuOpen
+                              ? 'opacity-100 pointer-events-auto'
+                              : 'opacity-0 pointer-events-none group-hover/recent:opacity-100 group-hover/recent:pointer-events-auto'
+                          }`}
+                          title="会话菜单"
+                        >
+                          <MoreHorizontalIcon size={12} />
+                        </button>
+                      )}
+                    </div>
+
+                    {isSessionMenuOpen && openMenu?.anchorRect && (
+                      <ActionMenu menuRef={menuRef} anchorRect={openMenu.anchorRect}>
+                        <ActionMenuItem
+                          label={isPinned ? '取消置顶' : '置顶会话'}
+                          icon={<PinIcon size={12} />}
+                          onClick={() => {
+                            handleToggleSessionPin(recentProjectPath, session)
+                          }}
+                        />
+                        <ActionMenuItem
+                          label="重命名"
+                          icon={<PencilIcon size={12} />}
+                          onClick={() => {
+                            handleRequestRenameSession(recentProjectPath, session)
+                          }}
+                        />
+                        <ActionMenuItem
+                          label="归档"
+                          icon={<ClockIcon size={12} />}
+                          onClick={() => {
+                            void handleArchiveSession(recentProjectPath, session)
+                          }}
+                        />
+                        <ActionMenuItem
+                          label="复制工作目录"
+                          icon={<CopyIcon size={12} />}
+                          onClick={() => {
+                            void handleCopySessionDirectory(session)
+                          }}
+                        />
+                        <ActionMenuItem
+                          label="移除会话"
+                          icon={<TrashIcon size={12} />}
+                          danger
+                          onClick={() => {
+                            handleRequestDeleteSession(recentProjectPath, session)
+                          }}
+                        />
+                      </ActionMenu>
+                    )}
+                  </div>
+                )
+              })
+            )}
+
+            {recentHasMore && (
+              <button
+                type="button"
+                onClick={handleLoadMoreRecent}
+                disabled={recentLoading}
+                className="ml-5 h-7 px-1.5 rounded-md text-[11px] text-text-500 hover:text-text-100 hover:bg-bg-200/40 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {recentLoading ? '加载中...' : '加载更多'}
+              </button>
+            )}
           </div>
         </div>
 

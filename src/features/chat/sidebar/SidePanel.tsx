@@ -7,6 +7,7 @@ import {
   SidebarIcon, 
   FolderIcon, 
   GlobeIcon, 
+  ComposeIcon,
   PlusIcon, 
   TrashIcon, 
   SearchIcon,
@@ -308,6 +309,16 @@ export function SidePanel({
               title="Add project"
             >
               <FolderIcon size={16} />
+            </button>
+          )}
+          {showLabels && (
+            <button
+              onClick={() => onNewSession(currentDirectory)}
+              aria-label="New session"
+              className="h-8 w-8 mr-1 flex items-center justify-center rounded-lg text-text-400 hover:text-text-100 hover:bg-bg-200 active:scale-[0.98] transition-all duration-200"
+              title="New chat"
+            >
+              <ComposeIcon size={16} />
             </button>
           )}
           <button
