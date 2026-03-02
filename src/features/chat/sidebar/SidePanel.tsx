@@ -300,6 +300,16 @@ export function SidePanel({
           className="flex-1 flex items-center transition-all duration-300 ease-out"
           style={{ justifyContent: showLabels ? 'flex-end' : 'center', paddingRight: showLabels ? 8 : 0 }}
         >
+          {showLabels && (
+            <button
+              onClick={onAddProject}
+              aria-label="Add project"
+              className="h-8 w-8 mr-1 flex items-center justify-center rounded-lg text-text-400 hover:text-text-100 hover:bg-bg-200 active:scale-[0.98] transition-all duration-200"
+              title="Add project"
+            >
+              <FolderIcon size={16} />
+            </button>
+          )}
           <button
             onClick={onToggleSidebar}
             aria-label={isExpanded ? 'Collapse sidebar' : 'Expand sidebar'}
