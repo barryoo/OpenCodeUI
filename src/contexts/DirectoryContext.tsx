@@ -300,7 +300,8 @@ export function DirectoryProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!isTauri()) return
 
-    let unlisten: (() => void) | undefined
+    let unlistenOpenDirectory: (() => void) | undefined
+    let unlistenDragDrop: (() => void) | undefined
 
     // 拉取启动时的 CLI 目录（一次性）
     import('@tauri-apps/api/core').then(({ invoke }) => {
@@ -313,10 +314,23 @@ export function DirectoryProvider({ children }: { children: ReactNode }) {
     import('@tauri-apps/api/event').then(({ listen }) => {
       listen<string>('open-directory', (event) => {
         addDirectoryRef.current(event.payload)
-      }).then(fn => { unlisten = fn })
+      }).then(fn => { unlistenOpenDirectory = fn })
     })
 
-    return () => { unlisten?.() }
+    // 监听 Tauri 窗口拖拽（仅桌面端）
+    import('@tauri-apps/api/window').then(({ getCurrentWindow }) => {
+      getCurrentWindow().onDragDropEvent((event) => {
+        if (event.payload.type !== 'drop') return
+        for (const path of event.payload.paths) {
+          addDirectoryRef.current(path)
+        }
+      }).then(fn => { unlistenDragDrop = fn })
+    })
+
+    return () => {
+      unlistenOpenDirectory?.()
+      unlistenDragDrop?.()
+    }
   }, [])
 
   // 设置侧边栏展开 - 委托给 layoutStore
