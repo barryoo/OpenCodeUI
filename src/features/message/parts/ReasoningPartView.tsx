@@ -11,17 +11,26 @@ interface ReasoningPartViewProps {
   isStreaming?: boolean
 }
 
+function normalizeThinkingText(text: string): string {
+  if (!text) return ''
+  const trimmed = text.trim()
+  const withoutLeading = trimmed.startsWith('**') ? trimmed.slice(2) : trimmed
+  const withoutTrailing = withoutLeading.endsWith('**') ? withoutLeading.slice(0, -2) : withoutLeading
+  return withoutTrailing.trim()
+}
+
 export const ReasoningPartView = memo(function ReasoningPartView({ part, isStreaming }: ReasoningPartViewProps) {
-  if (!part.text?.trim()) return null
   const { reasoningDisplayMode } = useTheme()
   const rawText = part.text || ''
+  const normalizedText = useMemo(() => normalizeThinkingText(rawText), [rawText])
+  if (!normalizedText.trim()) return null
   
   const isPartStreaming = isStreaming && !part.time?.end
-  const hasContent = !!rawText.trim()
+  const hasContent = !!normalizedText.trim()
   
   // 使用 smooth streaming 实现打字机效果
   const { displayText } = useSmoothStream(
-    rawText,
+    normalizedText,
     !!isPartStreaming,
     { charDelay: 6, disableAnimation: !isPartStreaming }  // 稍快一点，因为是思考过程
   )
@@ -45,7 +54,7 @@ export const ReasoningPartView = memo(function ReasoningPartView({ part, isStrea
     return `${Math.round(durationMs / 1000)}s`
   }, [part.time?.start, part.time?.end])
   const summaryText = collapsedPreview || (isPartStreaming ? 'Thinking...' : '')
-  const hasLineBreak = /[\r\n]/.test(rawText)
+  const hasLineBreak = /[\r\n]/.test(normalizedText)
 
   const measureSummaryOverflow = useCallback(() => {
     if (reasoningDisplayMode !== 'italic') return

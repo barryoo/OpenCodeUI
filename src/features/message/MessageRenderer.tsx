@@ -40,6 +40,28 @@ interface MessageRendererProps {
   onEnsureParts?: (messageId: string) => void
 }
 
+function formatMessageTime(timestamp?: number): string {
+  if (!timestamp) return ''
+  return new Date(timestamp).toLocaleTimeString([], {
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}
+
+function formatMessageDateTime(timestamp?: number): string {
+  if (!timestamp) return ''
+  return new Date(timestamp).toLocaleString()
+}
+
+function formatDuration(ms: number): string {
+  if (ms < 1000) return `${ms}ms`
+  const s = ms / 1000
+  if (s < 60) return `${s.toFixed(1)}s`
+  const m = Math.floor(s / 60)
+  const rem = Math.round(s % 60)
+  return rem > 0 ? `${m}m${rem}s` : `${m}m`
+}
+
 export const MessageRenderer = memo(function MessageRenderer({ message, turnDuration, onUndo, canUndo, onEnsureParts }: MessageRendererProps) {
   const { info } = message
   const isUser = info.role === 'user'
@@ -131,6 +153,8 @@ const UserMessageView = memo(function UserMessageView({ message, onUndo, canUndo
   const [showSystemContext, setShowSystemContext] = useState(false)
   const shouldRenderSystemContext = useDelayedRender(showSystemContext)
   const { collapseUserMessages } = useTheme()
+  const messageTime = formatMessageTime(info.time.created)
+  const messageDateTime = formatMessageDateTime(info.time.created)
   
   // 分离不同类型的 parts
   const textParts = parts.filter((p): p is TextPart => p.type === 'text' && !p.synthetic)
@@ -190,22 +214,29 @@ const UserMessageView = memo(function UserMessageView({ message, onUndo, canUndo
           </div>
         )}
 
-        {/* Action buttons */}
-        <div className="flex items-center gap-1 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
-          {/* Undo button */}
-          {canUndo && onUndo && (
-            <button
-              onClick={() => onUndo(info.id)}
-              className="p-1.5 rounded-md transition-colors duration-150 text-text-300 hover:text-text-100"
-              title="Undo from here"
-            >
-              <UndoIcon />
-            </button>
+        {/* Footer */}
+        <div className="flex items-center justify-end gap-2 text-[10px] text-text-300 mt-0.5">
+          {messageTime && (
+            <span className="text-text-400 tabular-nums" title={messageDateTime}>
+              {messageTime}
+            </span>
           )}
-          {/* Copy button */}
-          {messageText && (
-            <CopyButton text={messageText} position="static" />
-          )}
+          <div className="flex items-center gap-1 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+            {/* Undo button */}
+            {canUndo && onUndo && (
+              <button
+                onClick={() => onUndo(info.id)}
+                className="p-1.5 rounded-md transition-colors duration-150 text-text-300 hover:text-text-100"
+                title="Undo from here"
+              >
+                <UndoIcon />
+              </button>
+            )}
+            {/* Copy button */}
+            {messageText && (
+              <CopyButton text={messageText} position="static" />
+            )}
+          </div>
         </div>
       </div>
     </div>
@@ -218,6 +249,7 @@ const UserMessageView = memo(function UserMessageView({ message, onUndo, canUndo
 
 const AssistantMessageView = memo(function AssistantMessageView({ message, turnDuration, onEnsureParts }: { message: Message; turnDuration?: number; onEnsureParts?: (messageId: string) => void }) {
   const { parts, isStreaming, info } = message
+  const { stepFinishDisplay } = useTheme()
 
   useEffect(() => {
     if (parts.length === 0 && onEnsureParts) {
@@ -259,6 +291,17 @@ const AssistantMessageView = memo(function AssistantMessageView({ message, turnD
   // 消息总耗时
   const { created, completed } = info.time
   const duration = completed ? completed - created : undefined
+  const messageTime = formatMessageTime(created)
+  const messageDateTime = formatMessageDateTime(created)
+  const showTurnDuration = stepFinishDisplay.turnDuration && turnDuration != null && turnDuration > 0
+  const lastStepFinish = useMemo(() => {
+    for (let i = parts.length - 1; i >= 0; i--) {
+      if (parts[i].type === 'step-finish') return parts[i] as StepFinishPart
+    }
+    return undefined
+  }, [parts])
+  const showFooterTokens = stepFinishDisplay.tokens && !!lastStepFinish
+  const footerTokenText = lastStepFinish ? formatTokens(lastStepFinish.tokens) : ''
 
   if (!isStreaming && parts.length === 0) {
     // 有错误时直接显示错误信息
@@ -302,7 +345,6 @@ const AssistantMessageView = memo(function AssistantMessageView({ message, turnD
               parts={item.parts as ToolPart[]}
               stepFinish={item.stepFinish}
               duration={isLastStepFinish ? duration : undefined}
-              turnDuration={isLastStepFinish ? turnDuration : undefined}
             />
           )
         }
@@ -335,7 +377,8 @@ const AssistantMessageView = memo(function AssistantMessageView({ message, turnD
                 key={part.id} 
                 part={part as StepFinishPart}
                 duration={isLastStepFinish ? duration : undefined}
-                turnDuration={isLastStepFinish ? turnDuration : undefined}
+                showTokens={false}
+                showDuration={false}
               />
             )
           case 'subtask':
@@ -369,10 +412,18 @@ const AssistantMessageView = memo(function AssistantMessageView({ message, turnD
         <MessageErrorView error={messageError} />
       )}
 
-      {/* Copy button */}
-      {fullText.trim() && (
-        <div className="md:opacity-0 md:group-hover:opacity-100 transition-opacity">
-          <CopyButton text={fullText} position="static" />
+      {/* Footer */}
+      {(messageTime || showFooterTokens || showTurnDuration || fullText.trim()) && (
+        <div className="flex items-center gap-2 pl-5 py-0.5 text-[10px] text-text-300 min-w-0">
+          <span className="text-text-400 tabular-nums whitespace-nowrap" title={messageDateTime}>{messageTime}</span>
+          {showFooterTokens && <span className="whitespace-nowrap">{footerTokenText}</span>}
+          {duration != null && duration > 0 && <span className="whitespace-nowrap">{formatDuration(duration)}</span>}
+          {showTurnDuration && <span className="whitespace-nowrap">total {formatDuration(turnDuration!)}</span>}
+          {fullText.trim() && (
+            <div className="ml-auto md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+              <CopyButton text={fullText} position="static" />
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -387,10 +438,9 @@ interface ToolGroupProps {
   parts: ToolPart[]
   stepFinish?: StepFinishPart
   duration?: number
-  turnDuration?: number
 }
 
-const ToolGroup = memo(function ToolGroup({ parts, stepFinish, duration, turnDuration }: ToolGroupProps) {
+const ToolGroup = memo(function ToolGroup({ parts, stepFinish, duration }: ToolGroupProps) {
   const [expanded, setExpanded] = useState(true)
   const shouldRenderBody = useDelayedRender(expanded)
   
@@ -398,25 +448,27 @@ const ToolGroup = memo(function ToolGroup({ parts, stepFinish, duration, turnDur
   const totalCount = parts.length
   const isAllDone = doneCount === totalCount
   
-  // ── Single tool: render directly without steps header ──
-  // Uses compact layout to align icon with ReasoningPartView
-  if (totalCount === 1) {
+  // ── 1~2 tools: render directly without steps header ──
+  if (totalCount < 3) {
     return (
       <div className="flex flex-col">
-        <ToolPartView 
-          part={parts[0]} 
-          isFirst={true}
-          isLast={true}
-          compact={true}
-        />
+        {parts.map((part, idx) => (
+          <ToolPartView 
+            key={part.id}
+            part={part}
+            isFirst={idx === 0}
+            isLast={idx === parts.length - 1}
+            compact={totalCount === 1}
+          />
+        ))}
         {stepFinish && (
-          <StepFinishPartView part={stepFinish} duration={duration} turnDuration={turnDuration} />
+          <StepFinishPartView part={stepFinish} duration={duration} showTokens={false} showDuration={false} />
         )}
       </div>
     )
   }
   
-  // ── Multi-tool: collapsible steps group with timeline ──
+  // ── 3+ tools: collapsible steps group with timeline ──
   return (
     <div className="flex flex-col">
       <button
@@ -430,11 +482,6 @@ const ToolGroup = memo(function ToolGroup({ parts, stepFinish, duration, turnDur
           <span className="text-[13px] font-medium leading-tight">
             {isAllDone ? `${totalCount} steps` : `${doneCount}/${totalCount} steps`}
           </span>
-          {!expanded && stepFinish && (
-            <span className="text-xs text-text-400">
-              {formatTokens(stepFinish.tokens)}
-            </span>
-          )}
         </span>
       </button>
 
@@ -454,7 +501,7 @@ const ToolGroup = memo(function ToolGroup({ parts, stepFinish, duration, turnDur
       </div>
 
       {stepFinish && (
-        <StepFinishPartView part={stepFinish} duration={duration} turnDuration={turnDuration} />
+        <StepFinishPartView part={stepFinish} duration={duration} showTokens={false} showDuration={false} />
       )}
     </div>
   )

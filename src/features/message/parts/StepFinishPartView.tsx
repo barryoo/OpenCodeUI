@@ -6,8 +6,10 @@ interface StepFinishPartViewProps {
   part: StepFinishPart
   /** 单条消息耗时（毫秒） */
   duration?: number
-  /** 整个回合总耗时（毫秒），从用户发送到最后一条 assistant 完成 */
-  turnDuration?: number
+  /** 是否显示 token 信息（可在外层 footer 统一展示） */
+  showTokens?: boolean
+  /** 是否显示时长信息（可在外层 footer 统一展示） */
+  showDuration?: boolean
 }
 
 function formatNumber(num: number): string {
@@ -30,23 +32,24 @@ function formatDuration(ms: number): string {
   return rem > 0 ? `${m}m${rem}s` : `${m}m`
 }
 
-export const StepFinishPartView = memo(function StepFinishPartView({ part, duration, turnDuration }: StepFinishPartViewProps) {
+export const StepFinishPartView = memo(function StepFinishPartView({ part, duration, showTokens = true, showDuration = true }: StepFinishPartViewProps) {
   const { stepFinishDisplay: show } = useTheme()
   const { tokens, cost } = part
   const totalTokens = tokens.input + tokens.output + tokens.reasoning + tokens.cache.read + tokens.cache.write
   const cacheHit = tokens.cache.read
+  const showTokenUsage = showTokens && show.tokens && totalTokens > 0
+  const showDurationUsage = showDuration && show.duration && duration != null && duration > 0
   
   // 所有项都关闭时不渲染
-  const hasAny = (show.tokens && totalTokens > 0)
+  const hasAny = showTokenUsage
     || (show.cache && cacheHit > 0)
     || (show.cost && cost > 0)
-    || (show.duration && duration != null && duration > 0)
-    || (show.turnDuration && turnDuration != null && turnDuration > 0)
+    || showDurationUsage
   if (!hasAny) return null
   
   return (
     <div className="flex items-center gap-3 text-[10px] text-text-300 pl-5 py-0.5">
-      {show.tokens && totalTokens > 0 && (
+      {showTokenUsage && (
         <span
           title={`Input: ${tokens.input}, Output: ${tokens.output}, Reasoning: ${tokens.reasoning}, Cache read: ${tokens.cache.read}, Cache write: ${tokens.cache.write}`}
         >
@@ -61,11 +64,8 @@ export const StepFinishPartView = memo(function StepFinishPartView({ part, durat
       {show.cost && cost > 0 && (
         <span>{formatCost(cost)}</span>
       )}
-      {show.duration && duration != null && duration > 0 && (
+      {showDurationUsage && (
         <span>{formatDuration(duration)}</span>
-      )}
-      {show.turnDuration && turnDuration != null && turnDuration > 0 && (
-        <span>total {formatDuration(turnDuration)}</span>
       )}
     </div>
   )
