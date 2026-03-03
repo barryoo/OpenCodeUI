@@ -213,7 +213,28 @@ export function useGlobalEvents(callbacks?: GlobalEventsCallbacks) {
 
         // Toast 通知 — 不属于当前 session family 的才弹
         if (!belongsToCurrentSession(request.sessionID)) {
-          notificationStore.push('permission', `${sessionLabel} — Permission`, desc, request.sessionID, meta?.directory)
+          const metadata = request.metadata as Record<string, unknown> | undefined
+          const operation = typeof metadata?.operation === 'string'
+            ? metadata.operation
+            : request.permission
+          const intent = typeof metadata?.intent === 'string'
+            ? metadata.intent
+            : undefined
+          const keyDetail = request.patterns?.[0]
+          notificationStore.push(
+            'permission',
+            sessionLabel,
+            desc,
+            request.sessionID,
+            meta?.directory,
+            {
+              kind: 'permission',
+              requestId: request.id,
+              operation,
+              intent,
+              keyDetail,
+            },
+          )
         }
 
         // 回调给 UI 处理权限弹框

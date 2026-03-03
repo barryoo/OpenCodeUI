@@ -16,6 +16,16 @@ import { useSyncExternalStore } from 'react'
 
 export type NotificationType = 'permission' | 'question' | 'completed' | 'error'
 
+export interface PermissionNotificationAction {
+  kind: 'permission'
+  requestId: string
+  operation: string
+  intent?: string
+  keyDetail?: string
+}
+
+export type NotificationAction = PermissionNotificationAction
+
 export interface NotificationEntry {
   id: string
   type: NotificationType
@@ -25,6 +35,7 @@ export interface NotificationEntry {
   directory?: string
   timestamp: number
   read: boolean
+  action?: NotificationAction
 }
 
 export interface ToastItem {
@@ -121,6 +132,7 @@ class NotificationStore {
     body: string,
     sessionId: string,
     directory?: string,
+    action?: NotificationAction,
   ) {
     const entry: NotificationEntry = {
       id: `notif_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
@@ -131,6 +143,7 @@ class NotificationStore {
       directory,
       timestamp: Date.now(),
       read: false,
+      action,
     }
 
     // 加到历史
@@ -147,7 +160,9 @@ class NotificationStore {
       this.state = { ...this.state, toasts, notifications }
       this.persist()
       this.notify()
-      this.scheduleToastDismiss(entry.id)
+      if (entry.action?.kind !== 'permission') {
+        this.scheduleToastDismiss(entry.id)
+      }
     } else {
       this.state = { ...this.state, notifications }
       this.persist()
@@ -213,8 +228,8 @@ class NotificationStore {
   }
 
   resumeToast(id: string) {
-    const exists = this.state.toasts.some(t => t.notification.id === id && !t.exiting)
-    if (exists) {
+    const toast = this.state.toasts.find(t => t.notification.id === id && !t.exiting)
+    if (toast && toast.notification.action?.kind !== 'permission') {
       this.scheduleToastDismiss(id)
     }
   }

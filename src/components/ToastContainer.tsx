@@ -11,6 +11,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useNotificationStore, notificationStore, type ToastItem, type NotificationType } from '../store/notificationStore'
 import { CloseIcon, HandIcon, QuestionIcon, CheckIcon, AlertCircleIcon } from './Icons'
+import { replyPermission, type PermissionReply } from '../api'
 
 // ============================================
 // 类型图标映射
@@ -58,6 +59,34 @@ function Toast({ item, onDismiss, onClick }: {
   }, [notification.id])
 
   const show = isVisible && !exiting
+  const action = notification.type === 'permission' ? notification.action : undefined
+  const [replying, setReplying] = useState<PermissionReply | null>(null)
+
+  const handlePermissionReply = useCallback(async (reply: PermissionReply) => {
+    if (!action || replying) return
+    setReplying(reply)
+    try {
+      await replyPermission(action.requestId, reply, undefined, notification.directory)
+      notificationStore.markRead(notification.id)
+      notificationStore.dismissToast(notification.id)
+    } catch {
+      // 回复失败时保留 toast，便于用户重试
+    } finally {
+      setReplying(null)
+    }
+  }, [action, notification.directory, notification.id, replying])
+
+  const handleLater = useCallback(() => {
+    notificationStore.dismissToast(notification.id)
+  }, [notification.id])
+
+  const isPermissionToast = action?.kind === 'permission'
+  const permissionLine1 = isPermissionToast
+    ? (action.intent || action.keyDetail || notification.body || '')
+    : ''
+  const permissionLine2 = isPermissionToast
+    ? [action.operation, action.keyDetail].filter(Boolean).join(' · ')
+    : ''
 
   return (
     <div
@@ -69,7 +98,7 @@ function Toast({ item, onDismiss, onClick }: {
         transform: show ? 'translateY(0) translateX(0)' : 'translateY(-8px) translateX(8px)',
         pointerEvents: show ? 'auto' : 'none',
       }}
-      className="group relative flex items-center gap-2.5 p-3 bg-bg-000 border border-border-200/50 backdrop-blur-xl rounded-xl shadow-lg cursor-pointer hover:bg-bg-100 hover:border-border-300 transition-colors duration-150"
+      className={`group relative flex gap-2.5 p-3 bg-bg-000 border border-border-200/50 backdrop-blur-xl rounded-xl shadow-lg cursor-pointer hover:bg-bg-100 hover:border-border-300 transition-colors duration-150 ${isPermissionToast ? 'items-start pb-12' : 'items-center'}`}
       onClick={onClick}
       role="alert"
     >
@@ -83,10 +112,24 @@ function Toast({ item, onDismiss, onClick }: {
         <div className="text-xs font-medium text-text-100 truncate leading-tight">
           {notification.title}
         </div>
-        {notification.body && (
+        {!isPermissionToast && notification.body && (
           <div className="text-[11px] text-text-300 truncate mt-0.5 leading-tight">
             {notification.body}
           </div>
+        )}
+        {isPermissionToast && (
+          <>
+            {permissionLine1 && (
+              <div className="text-[11px] text-text-300 truncate mt-0.5 leading-tight" title={permissionLine1}>
+                {permissionLine1}
+              </div>
+            )}
+            {permissionLine2 && (
+              <div className="text-[11px] text-text-400 truncate mt-0.5 leading-tight" title={permissionLine2}>
+                {permissionLine2}
+              </div>
+            )}
+          </>
         )}
       </div>
 
@@ -98,6 +141,35 @@ function Toast({ item, onDismiss, onClick }: {
       >
         <CloseIcon size={12} />
       </button>
+
+      {isPermissionToast && (
+        <div
+          className="absolute left-2.5 right-2.5 bottom-2.5 grid grid-cols-3 gap-1.5"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <button
+            className="h-7 rounded-md bg-text-100 text-bg-000 text-[11px] font-medium hover:bg-text-200 transition-colors disabled:opacity-50"
+            disabled={!!replying}
+            onClick={() => handlePermissionReply('once')}
+          >
+            {replying === 'once' ? 'Allowing…' : 'Allow'}
+          </button>
+          <button
+            className="h-7 rounded-md border border-border-200/60 text-text-100 text-[11px] hover:bg-bg-200 transition-colors disabled:opacity-50"
+            disabled={!!replying}
+            onClick={() => handlePermissionReply('always')}
+          >
+            {replying === 'always' ? 'Saving…' : 'Always allow'}
+          </button>
+          <button
+            className="h-7 rounded-md text-text-300 text-[11px] hover:bg-bg-200 transition-colors"
+            disabled={!!replying}
+            onClick={handleLater}
+          >
+            Later
+          </button>
+        </div>
+      )}
     </div>
   )
 }
