@@ -28,7 +28,7 @@ export default defineConfig(() => {
         // 开发环境代理 - 将 /api 前缀的请求转发到 OpenCode 后端
         // 注意：Tauri 模式下前端直接请求后端（通过 plugin-http），不走此代理
         "/api": {
-          target: "http://100.66.48.126:4096", // OpenCode 后端（Tailscale IP）
+          target: "http://100.66.48.126:4097", // OpenCode 后端（Tailscale IP）
           changeOrigin: true,
           rewrite: (path) => path.replace(/^\/api/, ""),
         },

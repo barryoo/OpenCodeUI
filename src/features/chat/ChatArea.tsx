@@ -178,6 +178,11 @@ function mergeConsecutiveToolMessages(messages: Message[]): Message[] {
 
 // 大数字作为起始索引，允许向前 prepend
 const START_INDEX = VIRTUOSO_START_INDEX
+const NEW_SESSION_SCROLL_KEY = '__new_session__'
+
+function getScrollSessionKey(sessionId?: string | null): string {
+  return sessionId ?? NEW_SESSION_SCROLL_KEY
+}
 
 export const ChatArea = memo(forwardRef<ChatAreaHandle, ChatAreaProps>(({ 
   messages, 
@@ -213,9 +218,11 @@ export const ChatArea = memo(forwardRef<ChatAreaHandle, ChatAreaProps>(({
   // 程序触发的滚动标志 - 用于区分用户手动滚动和 scrollToIndex 触发的滚动
   const programmaticScrollRef = useRef(false)
   const programmaticScrollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  
-  // Session 切换：追踪上一个 sessionId，用于检测切换并触发滚动+动画
-  const prevSessionIdRef = useRef(sessionId)
+
+  // Session 级滚动记忆：每个会话独立保存 scrollTop / 是否在底部
+  const sessionScrollTopRef = useRef<Map<string, number>>(new Map())
+  const sessionAtBottomRef = useRef<Map<string, boolean>>(new Map())
+  const activeScrollSessionKeyRef = useRef(getScrollSessionKey(sessionId))
   
   // 向上滚动加载更多历史消息的 loading 状态
   const [isLoadingMore, setIsLoadingMore] = useState(false)
@@ -250,6 +257,19 @@ export const ChatArea = memo(forwardRef<ChatAreaHandle, ChatAreaProps>(({
     handleScroll() // 初始检查
     scrollParent.addEventListener('scroll', handleScroll, { passive: true })
     return () => scrollParent.removeEventListener('scroll', handleScroll)
+  }, [scrollParent])
+
+  // 持续记录当前 session 的滚动位置
+  useEffect(() => {
+    if (!scrollParent) return
+
+    const persistScrollTop = () => {
+      sessionScrollTopRef.current.set(activeScrollSessionKeyRef.current, scrollParent.scrollTop)
+    }
+
+    persistScrollTop()
+    scrollParent.addEventListener('scroll', persistScrollTop, { passive: true })
+    return () => scrollParent.removeEventListener('scroll', persistScrollTop)
   }, [scrollParent])
   
   // 监听用户直接交互事件（wheel/touch），确保第一时间标记用户主动滚动
@@ -450,28 +470,60 @@ export const ChatArea = memo(forwardRef<ChatAreaHandle, ChatAreaProps>(({
     }
   }, [isStreaming])
   
-  // Session 切换时：滚动到底部 + 触发淡入动画
-  // 因为不再用 key 重新挂载 Virtuoso，需要在 sessionId 变化时主动处理
+  // Session 切换时：恢复该 session 的滚动位置 + 触发淡入动画
   useEffect(() => {
-    if (sessionId === prevSessionIdRef.current) return
-    prevSessionIdRef.current = sessionId
+    if (!scrollParent) return
+
+    const nextSessionKey = getScrollSessionKey(sessionId)
+    const currentSessionKey = activeScrollSessionKeyRef.current
+    if (nextSessionKey === currentSessionKey) return
+
+    // 保存离开前 session 的滚动状态
+    sessionScrollTopRef.current.set(currentSessionKey, scrollParent.scrollTop)
+    sessionAtBottomRef.current.set(currentSessionKey, isUserAtBottomRef.current)
+    activeScrollSessionKeyRef.current = nextSessionKey
+
+    const savedScrollTop = sessionScrollTopRef.current.get(nextSessionKey)
+    const wasAtBottom = sessionAtBottomRef.current.get(nextSessionKey) ?? true
     
     // 触发淡入动画：移除再添加 animate-fade-in class
-    if (scrollParent) {
-      scrollParent.classList.remove('animate-fade-in')
-      // 强制 reflow 让浏览器重新识别动画
-      void scrollParent.offsetWidth
-      scrollParent.classList.add('animate-fade-in')
-    }
-    
-    // 滚动到底部 —— 使用 requestAnimationFrame 确保 Virtuoso 已处理新数据
-    // 不需要 setTimeout，因为 Virtuoso 没有被重新挂载，只是数据更新了
+    scrollParent.classList.remove('animate-fade-in')
+    // 强制 reflow 让浏览器重新识别动画
+    void scrollParent.offsetWidth
+    scrollParent.classList.add('animate-fade-in')
+
+    // 使用 requestAnimationFrame 确保 Virtuoso 已处理新数据
     requestAnimationFrame(() => {
-      virtuosoRef.current?.scrollToIndex({
-        index: visibleMessagesCountRef.current - 1,
-        align: 'end',
-        behavior: 'auto',
+      // 之前停在底部的 session，回到该 session 时保持在底部
+      if (wasAtBottom || savedScrollTop === undefined) {
+        isUserAtBottomRef.current = true
+        if (visibleMessagesCountRef.current > 0) {
+          virtuosoRef.current?.scrollToIndex({
+            index: visibleMessagesCountRef.current - 1,
+            align: 'end',
+            behavior: 'auto',
+          })
+        }
+        return
+      }
+
+      // 非底部 session：恢复离开前的滚动位置
+      programmaticScrollRef.current = true
+      if (programmaticScrollTimerRef.current) {
+        clearTimeout(programmaticScrollTimerRef.current)
+      }
+
+      scrollParent.scrollTop = savedScrollTop
+      // 再补一帧，避免虚拟列表重新测量导致偏移
+      requestAnimationFrame(() => {
+        scrollParent.scrollTop = savedScrollTop
       })
+
+      isUserAtBottomRef.current = false
+
+      programmaticScrollTimerRef.current = setTimeout(() => {
+        programmaticScrollRef.current = false
+      }, 150)
     })
   }, [sessionId, scrollParent])
   
@@ -550,12 +602,16 @@ export const ChatArea = memo(forwardRef<ChatAreaHandle, ChatAreaProps>(({
   // 追踪用户滚动位置
   const handleAtBottomStateChange = useCallback((atBottom: boolean) => {
     isUserAtBottomRef.current = atBottom
+    sessionAtBottomRef.current.set(activeScrollSessionKeyRef.current, atBottom)
+    if (scrollParent) {
+      sessionScrollTopRef.current.set(activeScrollSessionKeyRef.current, scrollParent.scrollTop)
+    }
     // 用户滚回底部，重置"滚离"标志，恢复自动滚动
     if (atBottom) {
       userScrolledAwayRef.current = false
     }
     onAtBottomChange?.(atBottom)
-  }, [onAtBottomChange])
+  }, [onAtBottomChange, scrollParent])
   
   // 追踪用户是否正在滚动
   const handleIsScrolling = useCallback((scrolling: boolean) => {

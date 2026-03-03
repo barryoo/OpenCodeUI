@@ -67,22 +67,27 @@ function OutputBlock({ tool, data, isActive, hasError, hasOutput }: OutputBlockP
     )
   }
   
-  // 2. 工具活跃时（running/pending）统一显示 loading
-  //    所有工具行为一致，权限弹窗已有预览，这里不重复展示
+  // 2. 工具活跃时（running/pending）：
+  //    - patch 类工具（edit/write）如果已有 diff，优先展示 diff，让用户在授权前能看到变更内容
+  //    - 其他工具统一显示 loading
   if (isActive) {
-    return (
-      <ContentBlock
-        label={patchTool ? 'Patch' : 'Output'}
-        filePath={data.filePath}
-        hideLabel={patchTool && !!data.filePath}
-        headerMeta={outputHeaderMeta}
-        isLoading={true}
-        loadingText="Running..."
-      />
-    )
+    if (patchTool && (data.diff || data.files)) {
+      // fall through 到下面的 hasOutput 分支展示 diff
+    } else {
+      return (
+        <ContentBlock
+          label={patchTool ? 'Patch' : 'Output'}
+          filePath={data.filePath}
+          hideLabel={patchTool && !!data.filePath}
+          headerMeta={outputHeaderMeta}
+          isLoading={true}
+          loadingText="Running..."
+        />
+      )
+    }
   }
   
-  // 3. 完成后显示结果
+  // 3. 完成后或 patch 工具已有 diff 时显示结果
   if (hasOutput) {
     // Multiple files with diff
     if (data.files) {

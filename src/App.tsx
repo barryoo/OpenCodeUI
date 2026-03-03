@@ -1,5 +1,6 @@
 import { useRef, useEffect, useState, useCallback, useMemo } from 'react'
-import { Header, InputBox, PermissionDialog, QuestionDialog, Sidebar, ChatArea, type ChatAreaHandle } from './features/chat'
+import { Header, InputBox, QuestionDialog, Sidebar, ChatArea, type ChatAreaHandle } from './features/chat'
+import { PermissionActionBar } from './features/chat/PermissionActionBar'
 import { type ModelSelectorHandle } from './features/chat/ModelSelector'
 import { SettingsDialog } from './features/settings/SettingsDialog'
 import { CommandPalette, type CommandItem } from './components/CommandPalette'
@@ -20,6 +21,7 @@ import type { Attachment } from './api'
 import { createPtySession } from './api/pty'
 import type { TerminalTab } from './store/layoutStore'
 import { useDirectory } from './contexts/DirectoryContext'
+import { PermissionContext } from './contexts/PermissionContext'
 import { FolderIcon } from './components/Icons'
 
 function App() {
@@ -454,15 +456,11 @@ function App() {
   // ============================================
   // Dialog Collapsed State
   // ============================================
-  const [permissionCollapsed, setPermissionCollapsed] = useState(false)
   const [questionCollapsed, setQuestionCollapsed] = useState(false)
+  const hasPendingPermission = pendingPermissionRequests.length > 0
 
   // 新的 request 到来时自动展开
-  const permissionRequestId = pendingPermissionRequests[0]?.id
   const questionRequestId = pendingQuestionRequests[0]?.id
-  useEffect(() => {
-    if (permissionRequestId) setPermissionCollapsed(false)
-  }, [permissionRequestId])
   useEffect(() => {
     if (questionRequestId) setQuestionCollapsed(false)
   }, [questionRequestId])
@@ -521,26 +519,36 @@ function App() {
 
             {/* Scrollable Area */}
             <div className="absolute inset-0">
-              <ChatArea 
-                ref={chatAreaRef} 
-                messages={messages}
-                sessionId={routeSessionId}
-                isStreaming={isStreaming}
-                prependedCount={prependedCount}
-                loadState={loadState}
-                hasMoreHistory={hasMoreHistory}
-                onLoadMore={loadMoreHistory}
-                onUndo={handleUndoWithAnimation}
-                canUndo={canUndo}
-                registerMessage={registerMessage}
-                isWideMode={isWideMode}
-                bottomPadding={inputBoxHeight}
-                onVisibleMessageIdsChange={(ids) => {
-                  handleVisibleMessageIdsChange(ids)
-                  setVisibleMessageIds(ids)
-                }}
-                onAtBottomChange={setIsAtBottom}
-              />
+              <PermissionContext.Provider value={{
+                pendingPermission: pendingPermissionRequests.length > 0 ? pendingPermissionRequests[0] : null,
+                queueLength: pendingPermissionRequests.length,
+                isReplying,
+                onReply: (reply) => pendingPermissionRequests.length > 0
+                  ? handlePermissionReply(pendingPermissionRequests[0].id, reply, effectiveDirectory)
+                  : Promise.resolve(),
+                currentSessionId: routeSessionId,
+              }}>
+                <ChatArea 
+                  ref={chatAreaRef} 
+                  messages={messages}
+                  sessionId={routeSessionId}
+                  isStreaming={isStreaming}
+                  prependedCount={prependedCount}
+                  loadState={loadState}
+                  hasMoreHistory={hasMoreHistory}
+                  onLoadMore={loadMoreHistory}
+                  onUndo={handleUndoWithAnimation}
+                  canUndo={canUndo}
+                  registerMessage={registerMessage}
+                  isWideMode={isWideMode}
+                  bottomPadding={inputBoxHeight}
+                  onVisibleMessageIdsChange={(ids) => {
+                    handleVisibleMessageIdsChange(ids)
+                    setVisibleMessageIds(ids)
+                  }}
+                  onAtBottomChange={setIsAtBottom}
+                />
+              </PermissionContext.Provider>
 
               {/* 新会话空白页：居中显示当前项目名，帮助用户确认所属项目 */}
               {!routeSessionId && messages.length === 0 && currentDirectory && (() => {
@@ -565,78 +573,93 @@ function App() {
               visibleMessageIds={visibleMessageIds}
             />
 
-            {/* Floating Input Box */}
-            <div
-              ref={inputBoxWrapperRef}
-              className="absolute bottom-0 left-0 right-0 z-10 pointer-events-none"
-            >
-              {/* Double-Esc cancel hint */}
-              {showCancelHint && (
-                <div className="flex justify-center mb-2 pointer-events-none">
-                  <div className="px-3 py-1.5 bg-bg-000/95 border border-border-200 rounded-lg shadow-lg text-xs text-text-300 backdrop-blur-sm animate-in fade-in slide-in-from-bottom-2 duration-150">
-                    Press <kbd className="mx-0.5 px-1.5 py-0.5 bg-bg-200 border border-border-200 rounded text-[11px] font-medium text-text-200">Esc</kbd> again to stop
-                  </div>
-                </div>
+            {/* 底部交互区：capsule 按钮 + InputBox/PermissionActionBar 在同一容器 */}
+            <div ref={inputBoxWrapperRef} className="absolute bottom-0 left-0 right-0 z-10 pointer-events-none">
+              {hasPendingPermission ? (
+                /* PermissionActionBar 模式 */
+                (() => {
+                  const req = pendingPermissionRequests[0]
+                  const handleReply = (reply: Parameters<typeof handlePermissionReply>[1]) =>
+                    handlePermissionReply(req.id, reply, effectiveDirectory)
+                  return (
+                    <div className="mx-auto max-w-3xl px-4 pb-4 pointer-events-auto">
+                      {/* Capsule 按钮 */}
+                      {!isAtBottom && (
+                        <div className="flex items-center justify-center gap-2 mb-2">
+                          <button
+                            onClick={() => chatAreaRef.current?.scrollToBottom()}
+                            className="h-[32px] w-[32px] min-w-[32px] rounded-full bg-accent-main-100/10 border border-accent-main-100/20 backdrop-blur-md flex items-center justify-center text-accent-main-000 hover:bg-accent-main-100/20 transition-colors shrink-0"
+                            aria-label="Scroll to bottom"
+                          >
+                            <span className="text-base">↓</span>
+                          </button>
+                        </div>
+                      )}
+                      {/* PermissionActionBar */}
+                      <PermissionActionBar
+                        request={req}
+                        queueLength={pendingPermissionRequests.length}
+                        isReplying={isReplying}
+                        onReply={handleReply}
+                      />
+                    </div>
+                  )
+                })()
+              ) : (
+                /* InputBox 模式 */
+                <>
+                  {/* Double-Esc cancel hint - 独立渲染 */}
+                  {showCancelHint && (
+                    <div className="flex justify-center mb-2 pointer-events-none">
+                      <div className="px-3 py-1.5 bg-bg-000/95 border border-border-200 rounded-lg shadow-lg text-xs text-text-300 backdrop-blur-sm animate-in fade-in slide-in-from-bottom-2 duration-150">
+                        Press <kbd className="mx-0.5 px-1.5 py-0.5 bg-bg-200 border border-border-200 rounded text-[11px] font-medium text-text-200">Esc</kbd> again to stop
+                      </div>
+                    </div>
+                  )}
+                  <InputBox
+                    onSend={handleSend}
+                    onAbort={handleAbort}
+                    onCommand={handleCommand}
+                    onNewChat={handleNewSession}
+                    disabled={false}
+                    isStreaming={isStreaming}
+                    agents={agents}
+                    selectedAgent={selectedAgent}
+                    onAgentChange={handleAgentChange}
+                    variants={currentModel?.variants ?? []}
+                    selectedVariant={selectedVariant}
+                    onVariantChange={handleVariantChange}
+                    supportsImages={currentModel?.supportsImages ?? false}
+                    models={models}
+                    selectedModelKey={selectedModelKey}
+                    onModelChange={handleModelChange}
+                    modelsLoading={modelsLoading}
+                    modelSelectorRef={modelSelectorRef}
+                    rootPath={effectiveDirectory}
+                    sessionId={routeSessionId}
+                    revertedText={revertedMessage?.text}
+                    revertedAttachments={revertedMessage?.attachments}
+                    canRedo={canRedo}
+                    revertSteps={redoSteps}
+                    onRedo={handleRedoWithAnimation}
+                    onRedoAll={handleRedoAll}
+                    onClearRevert={clearRevert}
+                    registerInputBox={registerInputBox}
+                    isAtBottom={isAtBottom}
+                    showScrollToBottom={!isAtBottom}
+                    onScrollToBottom={() => chatAreaRef.current?.scrollToBottom()}
+                    collapsedQuestion={
+                      pendingQuestionRequests.length > 0 && questionCollapsed
+                        ? { label: 'Question', queueLength: pendingQuestionRequests.length, onExpand: () => setQuestionCollapsed(false) }
+                        : undefined
+                    }
+                    hideCapsuleButtons={false}
+                  />
+                </>
               )}
-              <InputBox
-                onSend={handleSend}
-                onAbort={handleAbort}
-                onCommand={handleCommand}
-                onNewChat={handleNewSession}
-                disabled={false}
-                isStreaming={isStreaming}
-                agents={agents}
-                selectedAgent={selectedAgent}
-                onAgentChange={handleAgentChange}
-                variants={currentModel?.variants ?? []}
-                selectedVariant={selectedVariant}
-                onVariantChange={handleVariantChange}
-                supportsImages={currentModel?.supportsImages ?? false}
-                models={models}
-                selectedModelKey={selectedModelKey}
-                onModelChange={handleModelChange}
-                modelsLoading={modelsLoading}
-                modelSelectorRef={modelSelectorRef}
-                rootPath={effectiveDirectory}
-                sessionId={routeSessionId}
-                revertedText={revertedMessage?.text}
-                revertedAttachments={revertedMessage?.attachments}
-                canRedo={canRedo}
-                revertSteps={redoSteps}
-                onRedo={handleRedoWithAnimation}
-                onRedoAll={handleRedoAll}
-                onClearRevert={clearRevert}
-                registerInputBox={registerInputBox}
-                isAtBottom={isAtBottom}
-                showScrollToBottom={!isAtBottom}
-                onScrollToBottom={() => chatAreaRef.current?.scrollToBottom()}
-                collapsedPermission={
-                  pendingPermissionRequests.length > 0 && permissionCollapsed
-                    ? { label: `Permission: ${pendingPermissionRequests[0].permission}`, queueLength: pendingPermissionRequests.length, onExpand: () => setPermissionCollapsed(false) }
-                    : undefined
-                }
-                collapsedQuestion={
-                  pendingPermissionRequests.length === 0 && pendingQuestionRequests.length > 0 && questionCollapsed
-                    ? { label: 'Question', queueLength: pendingQuestionRequests.length, onExpand: () => setQuestionCollapsed(false) }
-                    : undefined
-                }
-              />
             </div>
 
-            {/* Permission Dialog */}
-            {pendingPermissionRequests.length > 0 && (
-              <PermissionDialog
-                request={pendingPermissionRequests[0]}
-                onReply={(reply) => handlePermissionReply(pendingPermissionRequests[0].id, reply, effectiveDirectory)}
-                queueLength={pendingPermissionRequests.length}
-                isReplying={isReplying}
-                currentSessionId={routeSessionId}
-                collapsed={permissionCollapsed}
-                onCollapsedChange={setPermissionCollapsed}
-              />
-            )}
-
-            {/* Question Dialog */}
+            {/* Question Dialog - 仍然使用弹窗，因为需要聚焦用户注意力 */}
             {pendingPermissionRequests.length === 0 && pendingQuestionRequests.length > 0 && (
               <QuestionDialog
                 request={pendingQuestionRequests[0]}

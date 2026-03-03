@@ -25,6 +25,17 @@ interface HistoryEntry {
   attachments: Attachment[]
 }
 
+interface InputDraft {
+  text: string
+  attachments: Attachment[]
+}
+
+const NEW_SESSION_DRAFT_KEY = '__new_session__'
+
+function getDraftSessionKey(sessionId?: string | null): string {
+  return sessionId ?? NEW_SESSION_DRAFT_KEY
+}
+
 export interface CollapsedDialogInfo {
   label: string
   queueLength: number
@@ -69,6 +80,8 @@ export interface InputBoxProps {
   // Collapsed dialog capsules
   collapsedPermission?: CollapsedDialogInfo
   collapsedQuestion?: CollapsedDialogInfo
+  // Hide capsule buttons (for external rendering)
+  hideCapsuleButtons?: boolean
 }
 
 // ============================================
@@ -109,6 +122,7 @@ function InputBoxComponent({
   onScrollToBottom,
   collapsedPermission,
   collapsedQuestion,
+  hideCapsuleButtons = false,
 }: InputBoxProps) {
   // 文本状态
   const [text, setText] = useState('')
@@ -134,8 +148,11 @@ function InputBoxComponent({
   const mentionMenuRef = useRef<MentionMenuHandle>(null)
   const slashMenuRef = useRef<SlashCommandMenuHandle>(null)
   const prevRevertedTextRef = useRef<string | undefined>(undefined)
+  const prevRevertedSessionKeyRef = useRef(getDraftSessionKey(sessionId))
   const contentWrapRef = useRef<HTMLDivElement>(null)
   const expandedHeightRef = useRef(0)
+  const draftBySessionRef = useRef<Map<string, InputDraft>>(new Map())
+  const activeDraftSessionKeyRef = useRef(getDraftSessionKey(sessionId))
 
   // ============================================
   // 历史消息导航（类终端体验）
@@ -251,8 +268,49 @@ function InputBoxComponent({
     }
   }, [registerInputBox, isCollapsed])
 
+  // Session 草稿切换：保存旧 session 草稿并恢复新 session 草稿
+  useEffect(() => {
+    const nextSessionKey = getDraftSessionKey(sessionId)
+    const currentSessionKey = activeDraftSessionKeyRef.current
+
+    if (nextSessionKey === currentSessionKey) return
+
+    // 切换前先保存当前草稿
+    draftBySessionRef.current.set(currentSessionKey, {
+      text,
+      attachments: [...attachments],
+    })
+
+    // 切换后恢复目标 session 草稿
+    const nextDraft = draftBySessionRef.current.get(nextSessionKey)
+    activeDraftSessionKeyRef.current = nextSessionKey
+
+    // 重置输入框临时状态，避免跨 session 污染
+    historyIndexRef.current = -1
+    savedInputRef.current = { text: '', attachments: [] }
+    setMentionOpen(false)
+    setMentionQuery('')
+    setMentionStartIndex(-1)
+    setSlashOpen(false)
+    setSlashQuery('')
+    setSlashStartIndex(-1)
+
+    setText(nextDraft?.text ?? '')
+    setAttachments(nextDraft ? [...nextDraft.attachments] : [])
+  }, [sessionId, text, attachments])
+
+  // 输入变化时，持续写回当前 session 草稿
+  useEffect(() => {
+    draftBySessionRef.current.set(activeDraftSessionKeyRef.current, {
+      text,
+      attachments: [...attachments],
+    })
+  }, [text, attachments])
+
   // 处理 revert 恢复
   useEffect(() => {
+    const currentSessionKey = getDraftSessionKey(sessionId)
+
     if (revertedText !== undefined) {
       setText(revertedText)
       setAttachments(revertedAttachments || [])
@@ -261,12 +319,18 @@ function InputBoxComponent({
         textareaRef.current.focus()
         textareaRef.current.setSelectionRange(revertedText.length, revertedText.length)
       }
-    } else if (prevRevertedTextRef.current !== undefined && revertedText === undefined) {
+    } else if (
+      prevRevertedTextRef.current !== undefined
+      && revertedText === undefined
+      && prevRevertedSessionKeyRef.current === currentSessionKey
+    ) {
       setText('')
       setAttachments([])
     }
+
     prevRevertedTextRef.current = revertedText
-  }, [revertedText, revertedAttachments])
+    prevRevertedSessionKeyRef.current = currentSessionKey
+  }, [revertedText, revertedAttachments, sessionId])
 
   // 自动调整 textarea 高度
   useEffect(() => {
@@ -763,7 +827,7 @@ function InputBoxComponent({
             : undefined
           }
         >
-          {(showScrollToBottom || canRedo || collapsedPermission || collapsedQuestion) && (
+          {!hideCapsuleButtons && (showScrollToBottom || canRedo || collapsedPermission || collapsedQuestion) && (
             <div className={`flex items-center justify-center gap-2`}>
               {/* Collapsed Permission Capsule */}
               {collapsedPermission && (

@@ -14,7 +14,7 @@ import { CopyButton } from './ui'
 import { DiffViewer, extractContentFromUnifiedDiff, type ViewMode } from './DiffViewer'
 import { CodePreview } from './FileExplorer'
 import { detectLanguage } from '../utils/languageUtils'
-import { FullscreenViewer } from './FullscreenViewer'
+import { FullscreenViewer, ViewModeSwitch } from './FullscreenViewer'
 
 // ============================================
 // Types
@@ -81,6 +81,7 @@ export const ContentBlock = memo(function ContentBlock({
   const [collapsed, setCollapsed] = useState(defaultCollapsed)
   const [fullscreenOpen, setFullscreenOpen] = useState(false)
   const [diffViewMode, setDiffViewMode] = useState<ViewMode>('split')
+  const [userOverrideDiffMode, setUserOverrideDiffMode] = useState(false)
   const contentRef = useRef<HTMLDivElement>(null)
   
   const isError = variant === 'error'
@@ -128,9 +129,10 @@ export const ContentBlock = memo(function ContentBlock({
     return extractContentFromUnifiedDiff(diff)
   }, [diff])
 
-  // 自动响应式切换 diff view mode
+  // 自动响应式切换 diff view mode（用户手动切换后不再自动覆盖）
   useEffect(() => {
     if (!isDiff) return
+    if (userOverrideDiffMode) return
     const container = contentRef.current
     if (!container) return
 
@@ -144,7 +146,7 @@ export const ContentBlock = memo(function ContentBlock({
     const observer = new ResizeObserver(updateViewMode)
     observer.observe(container)
     return () => observer.disconnect()
-  }, [isDiff])
+  }, [isDiff, userOverrideDiffMode])
 
   // 是否展开内容区
   const showBody = (hasContent && !collapsed) || (isLoading && !hasContent)
@@ -210,6 +212,19 @@ export const ContentBlock = memo(function ContentBlock({
             </div>
           )}
           
+          {/* Split/Unified 切换（仅 diff 且展开时显示） */}
+          {isDiff && !collapsed && (
+            <div onClick={(e) => e.stopPropagation()}>
+              <ViewModeSwitch
+                viewMode={diffViewMode}
+                onChange={(mode) => {
+                  setUserOverrideDiffMode(true)
+                  setDiffViewMode(mode)
+                }}
+              />
+            </div>
+          )}
+
           {/* Fullscreen button - 支持 diff 和代码 */}
           {(isDiff || content?.trim()) && !collapsed && (
             <button

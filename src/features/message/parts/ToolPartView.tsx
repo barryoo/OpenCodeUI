@@ -1,8 +1,9 @@
-import { memo, useState, useMemo } from 'react'
+import { memo, useState, useMemo, useEffect } from 'react'
 import { ChevronDownIcon, ChevronRightIcon } from '../../../components/Icons'
 import type { ToolPart } from '../../../types/message'
 import { useDelayedRender } from '../../../hooks'
 import { useCurrentDirectory } from '../../../contexts/DirectoryContext'
+import { usePermissionContext } from '../../../contexts/PermissionContext'
 import { 
   getToolIcon, 
   extractToolData, 
@@ -19,7 +20,6 @@ import {
 
 function toRelativePath(absPath: string, cwd: string | undefined): string {
   if (!cwd) return absPath
-  // 统一分隔符
   const normalize = (p: string) => p.replace(/\\/g, '/')
   const normAbs = normalize(absPath)
   const normCwd = normalize(cwd).replace(/\/$/, '')
@@ -43,12 +43,28 @@ interface ToolPartViewProps {
 }
 
 export const ToolPartView = memo(function ToolPartView({ part, isFirst = false, isLast = false, compact = false }: ToolPartViewProps) {
-  const [expanded, setExpanded] = useState(() => {
-    return part.state.status === 'running' || part.state.status === 'pending'
-  })
-  const shouldRenderBody = useDelayedRender(expanded)
   const cwd = useCurrentDirectory()
-  
+  const permission = usePermissionContext()
+
+  // 判断当前 tool 是否有待处理的 permission 请求（用于强制展开，按钮在底部）
+  const hasPendingPermission = !!(
+    permission.pendingPermission?.tool?.callID &&
+    permission.pendingPermission.tool.callID === part.callID
+  )
+
+  const [expanded, setExpanded] = useState(() => {
+    return hasPendingPermission || part.state.status === 'running' || part.state.status === 'pending'
+  })
+
+  // 有 pending permission 时自动展开，让用户看到 diff 内容再决策
+  useEffect(() => {
+    if (hasPendingPermission) {
+      setExpanded(true)
+    }
+  }, [hasPendingPermission])
+
+  const shouldRenderBody = useDelayedRender(expanded)
+
   const { state, tool: toolName } = part
   const title = state.title || ''
   const isPatchTool = isPatchToolName(toolName)
@@ -62,23 +78,15 @@ export const ToolPartView = memo(function ToolPartView({ part, isFirst = false, 
   const isActive = state.status === 'running' || state.status === 'pending'
   const isError = state.status === 'error'
 
-  // 提取 subtitle（pattern）和相对路径，拼成标题行 meta：路径在前、pattern 在后
   const headerMeta = useMemo(() => {
     const data = extractToolData(part)
     const parts: string[] = []
-
     const path = data.filePath || (data.files?.length === 1 ? data.files[0].filePath : undefined)
-    if (path) {
-      parts.push(toRelativePath(path, cwd))
-    }
-    if (data.subtitle) {
-      parts.push(data.subtitle)
-    }
-
+    if (path) parts.push(toRelativePath(path, cwd))
+    if (data.subtitle) parts.push(data.subtitle)
     return parts.join('  ')
   }, [part, cwd])
 
-  // Shared icon element
   const toolIcon = (
     <div className={`
       relative flex items-center justify-center transition-colors duration-200
@@ -94,16 +102,13 @@ export const ToolPartView = memo(function ToolPartView({ part, isFirst = false, 
   )
 
   // ── Compact layout (single-tool, no timeline) ──
-  // Grid: [14px icon] [gap 6px] [content] — mirrors ReasoningPartView alignment
   if (compact) {
     return (
       <div className="group relative grid grid-cols-[14px_minmax(0,1fr)] gap-x-1.5 items-start py-1">
-        {/* Icon column — fixed, outside of interactive area */}
         <span className="inline-flex h-[34px] w-[14px] items-center justify-center shrink-0">
           {toolIcon}
         </span>
 
-        {/* Content column */}
         <div className="min-w-0">
           <button
             className="flex items-center gap-2 w-full h-[34px] text-left px-2 -ml-2 hover:bg-bg-200/40 rounded-lg transition-colors group/header"
@@ -118,39 +123,28 @@ export const ToolPartView = memo(function ToolPartView({ part, isFirst = false, 
                 {displayToolName}
               </span>
               {displayTitle && (
-                <span className="text-xs text-text-300 truncate">
-                  {displayTitle}
-                </span>
+                <span className="text-xs text-text-300 truncate">{displayTitle}</span>
               )}
               {headerMeta && (
-                <span className="text-xs text-text-400 truncate">
-                  {headerMeta}
-                </span>
+                <span className="text-xs text-text-400 truncate">{headerMeta}</span>
               )}
             </div>
             <div className="flex items-center gap-2 ml-auto shrink-0">
               {duration !== undefined && state.status === 'completed' && (
-                <span className="text-[10px] text-text-400 tabular-nums">
-                  {formatDuration(duration)}
-                </span>
+                <span className="text-[10px] text-text-400 tabular-nums">{formatDuration(duration)}</span>
               )}
               <span className={`text-[10px] font-medium transition-all duration-300 ${
                 isActive ? 'opacity-100 text-accent-main-100' : 'opacity-0 w-0 overflow-hidden'
-              }`}>
-                Running
-              </span>
+              }`}>Running</span>
               <span className={`text-[10px] font-medium transition-all duration-300 ${
                 isError ? 'opacity-100 text-danger-100' : 'opacity-0 w-0 overflow-hidden'
-              }`}>
-                Failed
-              </span>
+              }`}>Failed</span>
               <span className="text-text-400">
                 {expanded ? <ChevronDownIcon size={12} /> : <ChevronRightIcon size={12} />}
               </span>
             </div>
           </button>
 
-          {/* Body */}
           <div className={`grid transition-[grid-template-rows] duration-300 ease-in-out ${
             expanded ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'
           }`}>
@@ -170,27 +164,19 @@ export const ToolPartView = memo(function ToolPartView({ part, isFirst = false, 
   // ── Timeline layout (multi-tool groups) ──
   return (
     <div className="group relative flex">
-      {/* Timeline Column */}
       <div className="w-8 shrink-0 relative">
-        {/* Top connector — 留 4px gap 到 icon */}
         {!isFirst && (
           <div className="absolute left-1/2 -translate-x-1/2 top-0 h-[7px] w-px bg-border-300/40" />
         )}
-
-        {/* Tool icon — h-9 和右侧 header 等高，flex 自然居中 */}
         <div className="h-9 flex items-center justify-center relative z-10">
           {toolIcon}
         </div>
-
-        {/* Bottom connector — 留 4px gap 到 icon */}
         {!isLast && (
           <div className="absolute left-1/2 -translate-x-1/2 top-[29px] bottom-0 w-px bg-border-300/40" />
         )}
       </div>
 
-      {/* Content Column */}
       <div className="flex-1 min-w-0">
-        {/* Header - h-9 和 timeline 图标行等高 */}
         <button
           className="flex items-center gap-2.5 w-full h-9 text-left px-2 hover:bg-bg-200/40 rounded-lg transition-colors group/header"
           onClick={() => setExpanded(!expanded)}
@@ -203,42 +189,29 @@ export const ToolPartView = memo(function ToolPartView({ part, isFirst = false, 
             }`}>
               {displayToolName}
             </span>
-            
             {displayTitle && (
-              <span className="text-xs text-text-300 truncate">
-                {displayTitle}
-              </span>
+              <span className="text-xs text-text-300 truncate">{displayTitle}</span>
             )}
             {headerMeta && (
-              <span className="text-xs text-text-400 truncate">
-                {headerMeta}
-              </span>
+              <span className="text-xs text-text-400 truncate">{headerMeta}</span>
             )}
           </div>
-            
           <div className="flex items-center gap-2 ml-auto shrink-0">
             {duration !== undefined && state.status === 'completed' && (
-              <span className="text-[10px] text-text-400 tabular-nums transition-opacity duration-300">
-                {formatDuration(duration)}
-              </span>
+              <span className="text-[10px] text-text-400 tabular-nums transition-opacity duration-300">{formatDuration(duration)}</span>
             )}
             <span className={`text-[10px] font-medium transition-all duration-300 ${
               isActive ? 'opacity-100 text-accent-main-100' : 'opacity-0 w-0 overflow-hidden'
-            }`}>
-              Running
-            </span>
+            }`}>Running</span>
             <span className={`text-[10px] font-medium transition-all duration-300 ${
               isError ? 'opacity-100 text-danger-100' : 'opacity-0 w-0 overflow-hidden'
-            }`}>
-              Failed
-            </span>
+            }`}>Failed</span>
             <span className="text-text-400">
               {expanded ? <ChevronDownIcon size={12} /> : <ChevronRightIcon size={12} />}
             </span>
           </div>
         </button>
 
-        {/* Body - grid collapse */}
         <div className={`grid transition-[grid-template-rows] duration-300 ease-in-out ${
           expanded ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'
         }`}>
@@ -267,17 +240,14 @@ function ToolBody({ part }: { part: ToolPart }) {
   if (lowerTool === 'task') {
     return <TaskRenderer part={part} data={data} />
   }
-  
   if (lowerTool.includes('todo') && hasTodos(part)) {
     return <TodoRenderer part={part} data={data} />
   }
-  
   const config = getToolConfig(tool)
   if (config?.renderer) {
     const CustomRenderer = config.renderer
     return <CustomRenderer part={part} data={data} />
   }
-  
   return <DefaultRenderer part={part} data={data} />
 }
 
