@@ -786,7 +786,7 @@ function NotificationItem({ entry, resolvedSession, onSelect }: NotificationItem
   const Icon = config.icon
 
   const handleClick = () => {
-    notificationStore.markRead(entry.id)
+    notificationStore.acknowledgeSession(entry.sessionId)
     if (resolvedSession) {
       onSelect(resolvedSession)
     } else {

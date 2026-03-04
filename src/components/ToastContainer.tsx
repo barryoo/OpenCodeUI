@@ -188,10 +188,9 @@ export function ToastContainer() {
   if (toasts.length === 0) return null
 
   const handleClick = (item: ToastItem) => {
-    const { id, sessionId, directory } = item.notification
-    notificationStore.dismissToast(id)
-    notificationStore.markRead(id)
+    const { sessionId, directory } = item.notification
     if (sessionId) {
+      notificationStore.acknowledgeSession(sessionId)
       const dir = directory ? `?dir=${directory}` : ''
       window.location.hash = `#/session/${sessionId}${dir}`
     }

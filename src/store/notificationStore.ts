@@ -192,6 +192,31 @@ class NotificationStore {
     this.notify()
   }
 
+  acknowledgeSession(sessionId: string) {
+    let changed = false
+
+    const notifications = this.state.notifications.map(n => {
+      if (n.sessionId === sessionId && !n.read) {
+        changed = true
+        return { ...n, read: true }
+      }
+      return n
+    })
+
+    const toasts = this.state.toasts.filter(t => {
+      if (t.notification.sessionId !== sessionId) return true
+      changed = true
+      this.clearToastTimer(t.notification.id)
+      return false
+    })
+
+    if (!changed) return
+
+    this.state = { ...this.state, notifications, toasts }
+    this.persist()
+    this.notify()
+  }
+
   dismiss(id: string) {
     const notifications = this.state.notifications.filter(n => n.id !== id)
     this.state = { ...this.state, notifications }

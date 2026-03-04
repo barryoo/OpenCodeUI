@@ -946,13 +946,8 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
   }, [cancelLongPress])
 
   const markSessionNotificationsRead = useCallback((sessionId: string) => {
-    const unreadIds = unreadNotificationIdsBySession.get(sessionId)
-    if (!unreadIds || unreadIds.length === 0) return
-
-    for (const notificationId of unreadIds) {
-      notificationStore.markRead(notificationId)
-    }
-  }, [unreadNotificationIdsBySession])
+    notificationStore.acknowledgeSession(sessionId)
+  }, [])
 
   useEffect(() => {
     if (!selectedSessionId) return

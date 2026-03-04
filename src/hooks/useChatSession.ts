@@ -3,7 +3,7 @@
 // ============================================
 
 import { useState, useCallback, useEffect } from 'react'
-import { useMessageStore, messageStore, useSessionFamily, autoApproveStore, childSessionStore } from '../store'
+import { useMessageStore, messageStore, useSessionFamily, autoApproveStore, childSessionStore, notificationStore } from '../store'
 import { useSessionManager, useGlobalEvents } from '../hooks'
 import { usePermissions, useRouter, usePermissionHandler, useMessageAnimation, useDirectory, useSessionContext } from '../hooks'
 import { useNotification } from './useNotification'
@@ -269,6 +269,8 @@ export function useChatSession({ chatAreaRef, currentModel, refetchModels }: Use
       resetPendingRequests()
       return
     }
+
+    notificationStore.acknowledgeSession(routeSessionId)
 
     let cancelled = false
 
