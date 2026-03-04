@@ -16,6 +16,7 @@ import {
   CompactionPartView,
   MessageErrorView,
 } from './parts'
+import { FileChangeSummary } from './parts/FileChangeSummary'
 import type { 
   Message, 
   Part, 
@@ -35,6 +36,8 @@ interface MessageRendererProps {
   message: Message
   /** 回合总时长（毫秒），仅在回合最后一条 assistant 消息上有值 */
   turnDuration?: number
+  /** 回合内所有 tool parts，仅在回合最后一条 assistant 消息上有值，用于文件改动汇总 */
+  turnToolParts?: ToolPart[]
   onUndo?: (userMessageId: string) => void
   canUndo?: boolean
   onEnsureParts?: (messageId: string) => void
@@ -62,7 +65,7 @@ function formatDuration(ms: number): string {
   return rem > 0 ? `${m}m${rem}s` : `${m}m`
 }
 
-export const MessageRenderer = memo(function MessageRenderer({ message, turnDuration, onUndo, canUndo, onEnsureParts }: MessageRendererProps) {
+export const MessageRenderer = memo(function MessageRenderer({ message, turnDuration, turnToolParts, onUndo, canUndo, onEnsureParts }: MessageRendererProps) {
   const { info } = message
   const isUser = info.role === 'user'
   
@@ -70,7 +73,7 @@ export const MessageRenderer = memo(function MessageRenderer({ message, turnDura
     return <UserMessageView message={message} onUndo={onUndo} canUndo={canUndo} />
   }
   
-  return <AssistantMessageView message={message} turnDuration={turnDuration} onEnsureParts={onEnsureParts} />
+  return <AssistantMessageView message={message} turnDuration={turnDuration} turnToolParts={turnToolParts} onEnsureParts={onEnsureParts} />
 })
 
 // ============================================
@@ -247,7 +250,7 @@ const UserMessageView = memo(function UserMessageView({ message, onUndo, canUndo
 // Assistant Message View
 // ============================================
 
-const AssistantMessageView = memo(function AssistantMessageView({ message, turnDuration, onEnsureParts }: { message: Message; turnDuration?: number; onEnsureParts?: (messageId: string) => void }) {
+const AssistantMessageView = memo(function AssistantMessageView({ message, turnDuration, turnToolParts, onEnsureParts }: { message: Message; turnDuration?: number; turnToolParts?: ToolPart[]; onEnsureParts?: (messageId: string) => void }) {
   const { parts, isStreaming, info } = message
   const { stepFinishDisplay } = useTheme()
 
@@ -410,6 +413,11 @@ const AssistantMessageView = memo(function AssistantMessageView({ message, turnD
       {/* Message-level error */}
       {messageError && (
         <MessageErrorView error={messageError} />
+      )}
+
+      {/* File Changes Summary */}
+      {!isStreaming && turnToolParts && turnToolParts.length > 0 && (
+        <FileChangeSummary toolParts={turnToolParts} />
       )}
 
       {/* Footer */}

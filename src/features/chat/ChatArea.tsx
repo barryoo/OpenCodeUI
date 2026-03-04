@@ -7,7 +7,7 @@ import { Virtuoso, type VirtuosoHandle } from 'react-virtuoso'
 import { MessageRenderer } from '../message'
 import { messageStore } from '../../store'
 import { SpinnerIcon } from '../../components/Icons'
-import type { Message } from '../../types/message'
+import type { Message, ToolPart } from '../../types/message'
 import {
   VIRTUOSO_START_INDEX,
   SCROLL_CHECK_INTERVAL_MS,
@@ -351,6 +351,29 @@ export const ChatArea = memo(forwardRef<ChatAreaHandle, ChatAreaProps>(({
     }
     return map
   }, [visibleMessages])
+
+  // 收集每个回合所有 tool parts，挂在最后一条 assistant 消息 ID 上
+  // 用于消息末尾的文件改动汇总
+  const turnToolPartsMap = useMemo(() => {
+    const map = new Map<string, ToolPart[]>()
+    for (let i = 0; i < visibleMessages.length; i++) {
+      if (visibleMessages[i].info.role !== 'user') continue
+      // 收集这个 user 之后直到下一个 user 的所有 assistant 消息的 tool parts
+      const toolParts: ToolPart[] = []
+      let lastAssistant: Message | undefined
+      for (let j = i + 1; j < visibleMessages.length && visibleMessages[j].info.role !== 'user'; j++) {
+        const msg = visibleMessages[j]
+        lastAssistant = msg
+        for (const part of msg.parts) {
+          if (part.type === 'tool') toolParts.push(part as ToolPart)
+        }
+      }
+      if (lastAssistant && toolParts.length > 0) {
+        map.set(lastAssistant.info.id, toolParts)
+      }
+    }
+    return map
+  }, [visibleMessages])
   
   // 用 ref 追踪最新的消息数量，确保回调和 effect 中能获取到
   const visibleMessagesCountRef = useRef(visibleMessages.length)
@@ -664,6 +687,7 @@ export const ChatArea = memo(forwardRef<ChatAreaHandle, ChatAreaProps>(({
             <MessageRenderer
               message={msg}
               turnDuration={turnDurationMap.get(msg.info.id)}
+              turnToolParts={turnToolPartsMap.get(msg.info.id)}
               onUndo={onUndo}
               canUndo={canUndo}
               onEnsureParts={(id) => {
@@ -675,7 +699,7 @@ export const ChatArea = memo(forwardRef<ChatAreaHandle, ChatAreaProps>(({
         </div>
       </div>
     )
-  }, [registerMessage, onUndo, canUndo, isWideMode, sessionId, turnDurationMap])
+  }, [registerMessage, onUndo, canUndo, isWideMode, sessionId, turnDurationMap, turnToolPartsMap])
 
   // Session 正在加载且没有消息 → 显示全屏 spinner（仅在有 sessionId 时，新建对话不显示）
   const showSessionLoading = !!sessionId && loadState === 'loading' && visibleMessages.length === 0
