@@ -26,6 +26,46 @@ import { FolderIcon } from './components/Icons'
 import { extractToolData } from './features/message/tools'
 import type { ToolPart } from './types/message'
 
+function normalizeIntentText(value: unknown): string | undefined {
+  if (typeof value !== 'string') return undefined
+  const compact = value.replace(/\s+/g, ' ').trim()
+  if (!compact) return undefined
+  return compact.length > 120 ? `${compact.slice(0, 117)}...` : compact
+}
+
+function summarizeIntentFromToolInput(part: ToolPart, filePath?: string, subtitle?: string): string | undefined {
+  const input = part.state.input as Record<string, unknown> | undefined
+  if (!input) return subtitle
+
+  const descriptionLike =
+    normalizeIntentText(input.description) ||
+    normalizeIntentText(input.intent) ||
+    normalizeIntentText(input.summary)
+
+  const command = normalizeIntentText(input.command)
+  if (descriptionLike) return descriptionLike
+  if (command) return `Run: ${command}`
+
+  const queryLike =
+    normalizeIntentText(input.query) ||
+    normalizeIntentText(input.pattern) ||
+    normalizeIntentText(input.url) ||
+    normalizeIntentText(input.prompt)
+  if (queryLike) return queryLike
+
+  const pathLike =
+    normalizeIntentText(input.filePath) ||
+    normalizeIntentText(input.filepath) ||
+    normalizeIntentText(input.path)
+  if (pathLike && !filePath) return pathLike
+
+  if (normalizeIntentText(input.patchText) && filePath) {
+    return `Modify ${filePath}`
+  }
+
+  return subtitle
+}
+
 function App() {
   // ============================================
   // Refs
@@ -465,6 +505,9 @@ function App() {
   const pendingToolInfo = useMemo(() => {
     if (!hasPendingPermission) return null
     const req = pendingPermissionRequests[0]
+    const requestMetadata = req.metadata as Record<string, unknown> | undefined
+    const metadataIntent = normalizeIntentText(requestMetadata?.intent)
+    const metadataOperation = normalizeIntentText(requestMetadata?.operation)
     if (!req.tool) return null
 
     // 从 messages 中查找对应的 ToolPart
@@ -476,9 +519,11 @@ function App() {
         if (part.type === 'tool' && part.callID === req.tool.callID) {
           const toolPart = part as ToolPart
           const data = extractToolData(toolPart)
+          const intent = metadataIntent || summarizeIntentFromToolInput(toolPart, data.filePath, data.subtitle) || metadataOperation
           return {
             toolName: toolPart.tool,
             filePath: data.filePath,
+            intent,
             callID: toolPart.callID,
           }
         }

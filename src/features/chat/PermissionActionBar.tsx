@@ -17,7 +17,7 @@ export interface PermissionActionBarProps {
   isReplying: boolean
   onReply: (reply: PermissionReply) => void
   /** 工具信息（用于显示工具名称和文件路径） */
-  toolInfo?: { toolName: string; filePath?: string; callID: string } | null
+  toolInfo?: { toolName: string; filePath?: string; intent?: string; callID: string } | null
   /** 是否处于底部吸附状态（保留兼容，当前统一在底部渲染） */
   isSticky?: boolean
   /** Jump to 回调（仅 isSticky 时显示） */
@@ -34,7 +34,8 @@ export const PermissionActionBar = memo(function PermissionActionBar({
   onScrollTo,
 }: PermissionActionBarProps) {
   const isMobile = useIsMobile()
-  const intent = request.metadata?.intent as string | undefined
+  const metadata = request.metadata as Record<string, unknown> | undefined
+  const intent = buildPermissionIntent(request, toolInfo, metadata) || buildPermissionDetail(request)
 
   const handleAlwaysAllow = () => {
     if (autoApproveStore.enabled) {
@@ -73,6 +74,12 @@ export const PermissionActionBar = memo(function PermissionActionBar({
             <span className="text-xs font-medium text-text-100 truncate">
               {displayTitle}
             </span>
+            {intent && (
+              <>
+                <span className="text-text-500 shrink-0">·</span>
+                <span className="text-xs text-text-300 truncate">{intent}</span>
+              </>
+            )}
             {toolInfo?.filePath && (
               <>
                 <span className="text-text-500 shrink-0">→</span>
@@ -83,12 +90,6 @@ export const PermissionActionBar = memo(function PermissionActionBar({
               <span className="text-[10px] text-text-400 bg-bg-200 px-1.5 py-0.5 rounded shrink-0">
                 +{queueLength - 1}
               </span>
-            )}
-            {intent && !toolInfo && (
-              <>
-                <span className="text-text-500 shrink-0">·</span>
-                <span className="text-xs text-text-400 truncate">{intent}</span>
-              </>
             )}
           </div>
 
@@ -152,3 +153,122 @@ export const PermissionActionBar = memo(function PermissionActionBar({
     </div>
   )
 })
+
+function normalizeIntent(value: unknown): string | undefined {
+  if (typeof value !== 'string') return undefined
+  const compact = value.replace(/\s+/g, ' ').trim()
+  if (!compact) return undefined
+  return compact.length > 140 ? `${compact.slice(0, 137)}...` : compact
+}
+
+function buildPermissionIntent(
+  request: ApiPermissionRequest,
+  toolInfo: PermissionActionBarProps['toolInfo'],
+  metadata?: Record<string, unknown>,
+): string | undefined {
+  return firstNonEmpty(
+    normalizeIntent(toolInfo?.intent),
+    extractIntentFromMetadata(metadata),
+    inferIntentFromToolInfo(toolInfo),
+    inferIntentFromPermission(request.permission, request.patterns),
+  )
+}
+
+function extractIntentFromMetadata(metadata?: Record<string, unknown>): string | undefined {
+  if (!metadata) return undefined
+
+  const direct = firstNonEmpty(
+    normalizeIntent(metadata.intent),
+    normalizeIntent(metadata.operation),
+    normalizeIntent(metadata.action),
+    normalizeIntent(metadata.summary),
+    normalizeIntent(metadata.description),
+    normalizeIntent(metadata.reason),
+  )
+  if (direct) return direct
+
+  const command = normalizeIntent(metadata.command)
+  if (command) return `Run: ${command}`
+
+  const query = firstNonEmpty(
+    normalizeIntent(metadata.query),
+    normalizeIntent(metadata.pattern),
+    normalizeIntent(metadata.prompt),
+  )
+  if (query) return `Query: ${query}`
+
+  const location = firstNonEmpty(
+    normalizeIntent(metadata.filePath),
+    normalizeIntent(metadata.filepath),
+    normalizeIntent(metadata.path),
+    normalizeIntent(metadata.url),
+  )
+  if (location) return `Target: ${location}`
+
+  return undefined
+}
+
+function inferIntentFromToolInfo(toolInfo: PermissionActionBarProps['toolInfo']): string | undefined {
+  if (!toolInfo) return undefined
+  const filePath = normalizeIntent(toolInfo.filePath)
+  if (!filePath) return undefined
+
+  const toolName = toolInfo.toolName.toLowerCase()
+  if (toolName.includes('read')) return `Read ${filePath}`
+  if (toolName.includes('write') || toolName.includes('edit') || toolName.includes('patch')) return `Modify ${filePath}`
+  if (toolName.includes('delete') || toolName.includes('remove')) return `Delete ${filePath}`
+  if (toolName.includes('list') || toolName.includes('glob')) return `Inspect ${filePath}`
+  return `Access ${filePath}`
+}
+
+function inferIntentFromPermission(permission: string, patterns: string[] | undefined): string | undefined {
+  const normalizedPermission = permission.toLowerCase()
+  const firstPattern = normalizeIntent(patterns?.[0])
+
+  if (firstPattern && firstPattern !== '*') {
+    if (normalizedPermission.includes('read')) return `Read ${firstPattern}`
+    if (
+      normalizedPermission.includes('write') ||
+      normalizedPermission.includes('edit') ||
+      normalizedPermission.includes('patch')
+    ) {
+      return `Modify ${firstPattern}`
+    }
+    if (normalizedPermission.includes('delete') || normalizedPermission.includes('remove')) {
+      return `Delete ${firstPattern}`
+    }
+    if (
+      normalizedPermission.includes('bash') ||
+      normalizedPermission.includes('shell') ||
+      normalizedPermission.includes('command')
+    ) {
+      return `Run command matching ${firstPattern}`
+    }
+    if (normalizedPermission.includes('web') || normalizedPermission.includes('http')) {
+      return `Fetch ${firstPattern}`
+    }
+    return `${formatToolName(permission)} on ${firstPattern}`
+  }
+
+  if (normalizedPermission.includes('read')) return 'Read files'
+  if (normalizedPermission.includes('write') || normalizedPermission.includes('edit') || normalizedPermission.includes('patch')) return 'Modify files'
+  if (normalizedPermission.includes('delete') || normalizedPermission.includes('remove')) return 'Delete files'
+  if (normalizedPermission.includes('bash') || normalizedPermission.includes('shell') || normalizedPermission.includes('command')) return 'Run shell command'
+  if (normalizedPermission.includes('web') || normalizedPermission.includes('http')) return 'Fetch web content'
+  return `Use ${formatToolName(permission)}`
+}
+
+function firstNonEmpty(...values: Array<string | undefined>): string | undefined {
+  for (const value of values) {
+    if (value) return value
+  }
+  return undefined
+}
+
+function buildPermissionDetail(request: ApiPermissionRequest): string {
+  const pattern = normalizeIntent(request.patterns?.[0])
+  if (pattern && pattern !== '*') {
+    return `${request.permission} -> ${pattern}`
+  }
+  return request.permission || 'Permission request'
+}

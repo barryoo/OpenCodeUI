@@ -239,6 +239,22 @@ function summarizeInputForHeader(input?: string): string | undefined {
     const parsed = JSON.parse(input) as Record<string, unknown>
     if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return undefined
 
+    const command = formatHeaderValue(parsed.command)
+    if (command) return `cmd=${command}`
+
+    const target =
+      formatHeaderValue(parsed.filePath) ||
+      formatHeaderValue(parsed.filepath) ||
+      formatHeaderValue(parsed.path) ||
+      formatHeaderValue(parsed.url)
+    if (target) return `target=${target}`
+
+    const query =
+      formatHeaderValue(parsed.query) ||
+      formatHeaderValue(parsed.pattern) ||
+      formatHeaderValue(parsed.prompt)
+    if (query) return `query=${query}`
+
     const ignoredKeys = new Set([
       'content',
       'oldString',
