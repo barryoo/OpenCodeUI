@@ -104,7 +104,9 @@ export const ToolPartView = memo(function ToolPartView({ part, isFirst = false, 
   // ── Compact layout (single-tool, no timeline) ──
   if (compact) {
     return (
-      <div className="group relative grid grid-cols-[14px_minmax(0,1fr)] gap-x-1.5 items-start py-1">
+      <div className={`group relative grid grid-cols-[14px_minmax(0,1fr)] gap-x-1.5 items-start py-1 ${
+        hasPendingPermission ? 'px-2 -mx-2 rounded-lg border border-accent-main-100/60 animate-permission-pulse' : ''
+      }`}>
         <span className="inline-flex h-[34px] w-[14px] items-center justify-center shrink-0">
           {toolIcon}
         </span>
@@ -163,7 +165,9 @@ export const ToolPartView = memo(function ToolPartView({ part, isFirst = false, 
 
   // ── Timeline layout (multi-tool groups) ──
   return (
-    <div className="group relative flex">
+    <div className={`group relative flex ${
+      hasPendingPermission ? 'px-2 -mx-2 rounded-lg border border-accent-main-100/60 animate-permission-pulse' : ''
+    }`}>
       <div className="w-8 shrink-0 relative">
         {!isFirst && (
           <div className="absolute left-1/2 -translate-x-1/2 top-0 h-[7px] w-px bg-border-300/40" />

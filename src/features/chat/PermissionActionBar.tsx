@@ -8,6 +8,7 @@ import { memo } from 'react'
 import { PermissionListIcon, HandIcon, CheckIcon, CloseIcon, ChevronDownIcon } from '../../components/Icons'
 import { autoApproveStore } from '../../store'
 import { useIsMobile } from '../../hooks'
+import { formatToolName } from '../../utils/toolUtils'
 import type { ApiPermissionRequest, PermissionReply } from '../../api'
 
 export interface PermissionActionBarProps {
@@ -15,6 +16,8 @@ export interface PermissionActionBarProps {
   queueLength: number
   isReplying: boolean
   onReply: (reply: PermissionReply) => void
+  /** 工具信息（用于显示工具名称和文件路径） */
+  toolInfo?: { toolName: string; filePath?: string; callID: string } | null
   /** 是否处于底部吸附状态（保留兼容，当前统一在底部渲染） */
   isSticky?: boolean
   /** Jump to 回调（仅 isSticky 时显示） */
@@ -26,6 +29,7 @@ export const PermissionActionBar = memo(function PermissionActionBar({
   queueLength,
   isReplying,
   onReply,
+  toolInfo,
   isSticky = false,
   onScrollTo,
 }: PermissionActionBarProps) {
@@ -48,6 +52,11 @@ export const PermissionActionBar = memo(function PermissionActionBar({
     onReply('always')
   }
 
+  // 构建显示标题：优先显示工具名称，否则显示 permission 类型
+  const displayTitle = toolInfo 
+    ? formatToolName(toolInfo.toolName)
+    : `Permission: ${request.permission}`
+
   return (
     <div className="relative rounded-2xl overflow-hidden shadow-float">
       {/* 脉冲边框动画层 */}
@@ -62,14 +71,20 @@ export const PermissionActionBar = memo(function PermissionActionBar({
           <div className="flex items-center gap-2 flex-1 min-w-0">
             <PermissionListIcon size={14} className="text-accent-main-100 shrink-0" />
             <span className="text-xs font-medium text-text-100 truncate">
-              Permission: {request.permission}
+              {displayTitle}
             </span>
+            {toolInfo?.filePath && (
+              <>
+                <span className="text-text-500 shrink-0">→</span>
+                <span className="text-xs text-text-400 truncate">{toolInfo.filePath}</span>
+              </>
+            )}
             {queueLength > 1 && (
               <span className="text-[10px] text-text-400 bg-bg-200 px-1.5 py-0.5 rounded shrink-0">
                 +{queueLength - 1}
               </span>
             )}
-            {intent && (
+            {intent && !toolInfo && (
               <>
                 <span className="text-text-500 shrink-0">·</span>
                 <span className="text-xs text-text-400 truncate">{intent}</span>

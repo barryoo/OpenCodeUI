@@ -23,6 +23,8 @@ import type { TerminalTab } from './store/layoutStore'
 import { useDirectory } from './contexts/DirectoryContext'
 import { PermissionContext } from './contexts/PermissionContext'
 import { FolderIcon } from './components/Icons'
+import { extractToolData } from './features/message/tools'
+import type { ToolPart } from './types/message'
 
 function App() {
   // ============================================
@@ -459,6 +461,32 @@ function App() {
   const [questionCollapsed, setQuestionCollapsed] = useState(false)
   const hasPendingPermission = pendingPermissionRequests.length > 0
 
+  // 查找当前待授权工具的信息
+  const pendingToolInfo = useMemo(() => {
+    if (!hasPendingPermission) return null
+    const req = pendingPermissionRequests[0]
+    if (!req.tool) return null
+
+    // 从 messages 中查找对应的 ToolPart
+    for (const msg of messages) {
+      if (msg.info.id !== req.tool.messageID) continue
+      if (msg.info.role !== 'assistant') continue
+
+      for (const part of msg.parts) {
+        if (part.type === 'tool' && part.callID === req.tool.callID) {
+          const toolPart = part as ToolPart
+          const data = extractToolData(toolPart)
+          return {
+            toolName: toolPart.tool,
+            filePath: data.filePath,
+            callID: toolPart.callID,
+          }
+        }
+      }
+    }
+    return null
+  }, [hasPendingPermission, pendingPermissionRequests, messages])
+
   // 新的 request 到来时自动展开
   const questionRequestId = pendingQuestionRequests[0]?.id
   useEffect(() => {
@@ -601,6 +629,7 @@ function App() {
                         queueLength={pendingPermissionRequests.length}
                         isReplying={isReplying}
                         onReply={handleReply}
+                        toolInfo={pendingToolInfo}
                       />
                     </div>
                   )
