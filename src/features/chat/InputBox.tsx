@@ -818,7 +818,10 @@ function InputBoxComponent({
 
   return (
     <div className="w-full">
-      <div className="mx-auto max-w-3xl px-4 pb-4 pointer-events-auto transition-[max-width] duration-300 ease-in-out" style={{ paddingBottom: 'max(16px, var(--safe-area-inset-bottom, 16px))' }}>
+      <div
+        className={`mx-auto max-w-3xl px-4 pb-4 transition-[max-width] duration-300 ease-in-out ${isCollapsed ? 'pointer-events-none' : 'pointer-events-auto'}`}
+        style={{ paddingBottom: 'max(16px, var(--safe-area-inset-bottom, 16px))' }}
+      >
         <div
           ref={contentWrapRef}
           className={`flex flex-col gap-2 ${isCollapsed ? 'justify-end' : ''}`}
@@ -828,7 +831,7 @@ function InputBoxComponent({
           }
         >
           {!hideCapsuleButtons && (showScrollToBottom || canRedo || collapsedPermission || collapsedQuestion) && (
-            <div className={`flex items-center justify-center gap-2`}>
+            <div className="flex items-center justify-center gap-2 pointer-events-auto">
               {/* Collapsed Permission Capsule */}
               {collapsedPermission && (
                 <button
@@ -882,7 +885,7 @@ function InputBoxComponent({
 
           {/* Collapsed Capsule - 移动端收起状态 */}
           {isCollapsed ? (
-            <div className="flex items-center justify-center gap-2 animate-in fade-in slide-in-from-bottom-2 duration-200">
+            <div className="flex items-center justify-center gap-2 animate-in fade-in slide-in-from-bottom-2 duration-200 pointer-events-auto">
               <button
                 type="button"
                 onClick={handleExpandInput}
