@@ -30,6 +30,8 @@ import type { NotificationEntry } from '../../../store/notificationStore'
 import { updateSession, getSession, subscribeToConnectionState, type ApiSession, type ConnectionInfo } from '../../../api'
 import { uiErrorHandler } from '../../../utils'
 import type { SessionStats } from '../../../hooks'
+import { TauriWindowControls } from '../../../components/TauriWindowControls'
+import { handleWindowTitlebarMouseDown, isTauri, isTauriMacOS } from '../../../utils/tauri'
 
 // 获取路径的父目录部分（用于显示项目位置）
 function getParentPath(fullPath: string): string {
@@ -101,6 +103,9 @@ export function SidePanel({
   const [sidebarTab, setSidebarTab] = useState<'recents' | 'active'>('recents')
   
   const showLabels = isExpanded || isMobile
+  const tauriWindowMode = isTauri()
+  const nativeMacTitlebar = isTauriMacOS()
+  const customTauriWindowMode = tauriWindowMode && !nativeMacTitlebar
   const newChatShortcut = useKeybindingLabel('newSession')
   
   // Session stats
@@ -277,59 +282,140 @@ export function SidePanel({
     }
   }, [isExpanded])
 
+  const handleHeaderMouseDown = useCallback((event: React.MouseEvent<HTMLDivElement>) => {
+    if (!tauriWindowMode) {
+      return
+    }
+
+    void handleWindowTitlebarMouseDown(event.target, event.button, event.detail)
+  }, [tauriWindowMode])
+
   // 统一的结构，通过 CSS 控制显示/隐藏
   return (
     <div className="flex flex-col h-full overflow-hidden">
       {/* ===== Header ===== */}
-      <div className="h-14 shrink-0 flex items-center">
-        {/* Logo 区域 - 展开时显示 */}
-        <div 
-          className="overflow-hidden transition-all duration-300 ease-out"
-          style={{ 
-            width: showLabels ? 'auto' : 0,
-            paddingLeft: showLabels ? 16 : 0,
-            opacity: showLabels ? 1 : 0,
-          }}
-        >
-          <a href="/" className="flex items-center whitespace-nowrap">
-            <span className="text-base font-semibold text-text-100 tracking-tight">OpenCode</span>
-          </a>
-        </div>
-        
-        {/* Toggle Button - 桌面端和移动端都显示 */}
-        <div 
-          className="flex-1 flex items-center transition-all duration-300 ease-out"
-          style={{ justifyContent: showLabels ? 'flex-end' : 'center', paddingRight: showLabels ? 8 : 0 }}
-        >
-          {showLabels && (
-            <button
-              onClick={onAddProject}
-              aria-label="Add project"
-              className="h-8 w-8 mr-1 flex items-center justify-center rounded-lg text-text-400 hover:text-text-100 hover:bg-bg-200 active:scale-[0.98] transition-all duration-200"
-              title="Add project"
-            >
-              <FolderIcon size={16} />
-            </button>
-          )}
-          {showLabels && (
-            <button
-              onClick={() => onNewSession(currentDirectory)}
-              aria-label="New session"
-              className="h-8 w-8 mr-1 flex items-center justify-center rounded-lg text-text-400 hover:text-text-100 hover:bg-bg-200 active:scale-[0.98] transition-all duration-200"
-              title="New chat"
-            >
-              <ComposeIcon size={16} />
-            </button>
-          )}
-          <button
-            onClick={onToggleSidebar}
-            aria-label={isExpanded ? 'Collapse sidebar' : 'Expand sidebar'}
-            className="h-8 w-8 flex items-center justify-center rounded-lg text-text-400 hover:text-text-100 hover:bg-bg-200 active:scale-[0.98] transition-all duration-200"
+      {customTauriWindowMode ? (
+        showLabels ? (
+          <div className="h-14 shrink-0 flex items-center gap-2 px-3 select-none" onMouseDown={handleHeaderMouseDown}>
+            <div className="shrink-0">
+              <TauriWindowControls />
+            </div>
+            <div className="flex-1 min-w-0" />
+            <div className="flex items-center shrink-0" data-no-window-drag="true">
+              <button
+                onClick={onAddProject}
+                aria-label="Add project"
+                className="h-8 w-8 mr-1 flex items-center justify-center rounded-lg text-text-400 hover:text-text-100 hover:bg-bg-200 active:scale-[0.98] transition-all duration-200"
+                title="Add project"
+              >
+                <FolderIcon size={16} />
+              </button>
+              <button
+                onClick={() => onNewSession(currentDirectory)}
+                aria-label="New session"
+                className="h-8 w-8 mr-1 flex items-center justify-center rounded-lg text-text-400 hover:text-text-100 hover:bg-bg-200 active:scale-[0.98] transition-all duration-200"
+                title="New chat"
+              >
+                <ComposeIcon size={16} />
+              </button>
+              <button
+                onClick={onToggleSidebar}
+                aria-label={isExpanded ? 'Collapse sidebar' : 'Expand sidebar'}
+                className="h-8 w-8 flex items-center justify-center rounded-lg text-text-400 hover:text-text-100 hover:bg-bg-200 active:scale-[0.98] transition-all duration-200"
+              >
+                <SidebarIcon size={18} />
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="h-14 shrink-0 flex items-center justify-center select-none" onMouseDown={handleHeaderMouseDown}>
+            <TauriWindowControls />
+          </div>
+        )
+      ) : nativeMacTitlebar ? (
+        showLabels ? (
+          <div className="h-14 shrink-0 flex items-center pr-2 pl-[4.75rem]" onMouseDown={handleHeaderMouseDown}>
+            <div className="flex-1 min-w-0" />
+            <div className="flex items-center shrink-0" data-no-window-drag="true">
+              <button
+                onClick={onAddProject}
+                aria-label="Add project"
+                className="h-8 w-8 mr-1 flex items-center justify-center rounded-lg text-text-400 hover:text-text-100 hover:bg-bg-200 active:scale-[0.98] transition-all duration-200"
+                title="Add project"
+              >
+                <FolderIcon size={16} />
+              </button>
+              <button
+                onClick={() => onNewSession(currentDirectory)}
+                aria-label="New session"
+                className="h-8 w-8 mr-1 flex items-center justify-center rounded-lg text-text-400 hover:text-text-100 hover:bg-bg-200 active:scale-[0.98] transition-all duration-200"
+                title="New chat"
+              >
+                <ComposeIcon size={16} />
+              </button>
+              <button
+                onClick={onToggleSidebar}
+                aria-label={isExpanded ? 'Collapse sidebar' : 'Expand sidebar'}
+                className="h-8 w-8 flex items-center justify-center rounded-lg text-text-400 hover:text-text-100 hover:bg-bg-200 active:scale-[0.98] transition-all duration-200"
+              >
+                <SidebarIcon size={18} />
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="h-14 shrink-0" onMouseDown={handleHeaderMouseDown} />
+        )
+      ) : (
+        <div className="h-14 shrink-0 flex items-center">
+          {/* Logo 区域 - 展开时显示 */}
+          <div 
+            className="overflow-hidden transition-all duration-300 ease-out"
+            style={{ 
+              width: showLabels ? 'auto' : 0,
+              paddingLeft: showLabels ? 16 : 0,
+              opacity: showLabels ? 1 : 0,
+            }}
           >
-            <SidebarIcon size={18} />
-          </button>
+            <a href="/" className="flex items-center whitespace-nowrap">
+              <span className="text-base font-semibold text-text-100 tracking-tight">OpenCode</span>
+            </a>
+          </div>
+          
+          {/* Toggle Button - 桌面端和移动端都显示 */}
+          <div 
+            className="flex-1 flex items-center transition-all duration-300 ease-out"
+            style={{ justifyContent: showLabels ? 'flex-end' : 'center', paddingRight: showLabels ? 8 : 0 }}
+          >
+            {showLabels && (
+              <button
+                onClick={onAddProject}
+                aria-label="Add project"
+                className="h-8 w-8 mr-1 flex items-center justify-center rounded-lg text-text-400 hover:text-text-100 hover:bg-bg-200 active:scale-[0.98] transition-all duration-200"
+                title="Add project"
+              >
+                <FolderIcon size={16} />
+              </button>
+            )}
+            {showLabels && (
+              <button
+                onClick={() => onNewSession(currentDirectory)}
+                aria-label="New session"
+                className="h-8 w-8 mr-1 flex items-center justify-center rounded-lg text-text-400 hover:text-text-100 hover:bg-bg-200 active:scale-[0.98] transition-all duration-200"
+                title="New chat"
+              >
+                <ComposeIcon size={16} />
+              </button>
+            )}
+            <button
+              onClick={onToggleSidebar}
+              aria-label={isExpanded ? 'Collapse sidebar' : 'Expand sidebar'}
+              className="h-8 w-8 flex items-center justify-center rounded-lg text-text-400 hover:text-text-100 hover:bg-bg-200 active:scale-[0.98] transition-all duration-200"
+            >
+              <SidebarIcon size={18} />
+            </button>
+          </div>
         </div>
-      </div>
+      )}
 
       {showLabels && modeTabs && (
         <div className="mx-2 mb-1 shrink-0">

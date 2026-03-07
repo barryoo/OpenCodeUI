@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useMemo } from 'react'
+import { useState, useRef, useEffect, useMemo, useCallback } from 'react'
 import { PanelRightIcon, PanelBottomIcon, ChevronDownIcon, SidebarIcon } from '../../components/Icons'
 import { IconButton } from '../../components/ui'
 import { ShareDialog } from './ShareDialog'
@@ -8,13 +8,16 @@ import { useLayoutStore, layoutStore } from '../../store/layoutStore'
 import { useSessionContext } from '../../contexts/SessionContext'
 import { updateSession } from '../../api'
 import { uiErrorHandler } from '../../utils'
+import { handleWindowTitlebarMouseDown, isTauriMacOS } from '../../utils/tauri'
 
 interface HeaderProps {
   onOpenSidebar?: () => void
+  showDesktopSidebarToggle?: boolean
 }
 
 export function Header({
   onOpenSidebar,
+  showDesktopSidebarToggle = false,
 }: HeaderProps) {
   const { sessionId } = useMessageStore()
   const { rightPanelOpen, bottomPanelOpen } = useLayoutStore()
@@ -25,6 +28,11 @@ export function Header({
   const [isEditingTitle, setIsEditingTitle] = useState(false)
   const [editTitle, setEditTitle] = useState('')
   const titleInputRef = useRef<HTMLInputElement>(null)
+  const nativeMacTitlebar = isTauriMacOS()
+  const headerContainerClass = nativeMacTitlebar
+    ? 'h-14 items-center md:pl-[5.25rem]'
+    : 'h-14 items-center'
+  const desktopTitleClass = 'absolute left-1/2 top-1/2 hidden -translate-x-1/2 -translate-y-1/2 md:flex z-20'
 
   // Session Data
   const currentSession = useMemo(() => 
@@ -35,13 +43,18 @@ export function Header({
 
   // 同步 document.title - 有 session 标题时显示 "标题 - OpenCode"，否则只显示 "OpenCode"
   useEffect(() => {
+    if (nativeMacTitlebar) {
+      document.title = 'OpenCode'
+      return () => { document.title = 'OpenCode' }
+    }
+
     if (currentSession?.title) {
       document.title = `${currentSession.title} - OpenCode`
     } else {
       document.title = 'OpenCode'
     }
     return () => { document.title = 'OpenCode' }
-  }, [currentSession?.title])
+  }, [currentSession?.title, nativeMacTitlebar])
 
   // Editing Logic
   useEffect(() => {
@@ -76,17 +89,24 @@ export function Header({
     }
   }
 
+  const handleHeaderMouseDown = useCallback((event: React.MouseEvent<HTMLDivElement>) => {
+    void handleWindowTitlebarMouseDown(event.target, event.button, event.detail)
+  }, [])
+
   return (
-    <div className="h-14 flex justify-between items-center px-4 z-20 bg-bg-000/95 border-b border-border-200/55 backdrop-blur-md transition-colors duration-200 relative">
+    <div
+      className={`${headerContainerClass} flex justify-between px-4 z-20 bg-bg-000/95 border-b border-border-200/55 backdrop-blur-md transition-colors duration-200 relative select-none`}
+      onMouseDown={handleHeaderMouseDown}
+    >
       
       {/* Left: Mobile Menu + Title (z-20) */}
-      <div className="flex items-center gap-2 min-w-0 shrink-1 z-20">
+      <div className="flex items-center gap-2 min-w-0 shrink-1 z-20" data-no-window-drag="true">
         {/* Mobile Sidebar Toggle - 只在移动端显示 */}
         {onOpenSidebar && (
           <IconButton
             aria-label="Open sidebar"
             onClick={onOpenSidebar}
-            className="md:hidden hover:bg-bg-200/50 text-text-400 hover:text-text-100 -ml-2"
+            className={`${showDesktopSidebarToggle ? '' : 'md:hidden'} hover:bg-bg-200/50 text-text-400 hover:text-text-100 -ml-2`}
           >
             <SidebarIcon size={18} />
           </IconButton>
@@ -133,7 +153,7 @@ export function Header({
       </div>
 
       {/* Center: Session Title (PC only, 居中) (z-20) */}
-      <div className="absolute left-1/2 -translate-x-1/2 hidden md:flex z-20">
+      <div className={desktopTitleClass} data-no-window-drag="true">
         <div className={`flex items-center group ${isEditingTitle ? 'bg-bg-200/50 ring-1 ring-accent-main-100' : 'bg-transparent hover:bg-bg-200/50 border border-transparent hover:border-border-200/50'} rounded-lg transition-all duration-200 p-0.5 min-w-0 shrink`}>
           
           {isEditingTitle ? (
@@ -175,7 +195,7 @@ export function Header({
       </div>
 
       {/* Right: Open Editor + Panel Toggles (z-20) */}
-      <div className="flex items-center gap-1 pointer-events-auto shrink-0 z-20">
+      <div className="flex items-center gap-1 pointer-events-auto shrink-0 z-20" data-no-window-drag="true">
         <OpenEditorButton />
 
         {/* Panel Toggles Group */}

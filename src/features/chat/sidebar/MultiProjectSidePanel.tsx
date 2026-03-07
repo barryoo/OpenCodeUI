@@ -26,12 +26,14 @@ import {
 } from '../../../components/Icons'
 import { Button, Dialog } from '../../../components/ui'
 import { ConfirmDialog } from '../../../components/ui/ConfirmDialog'
+import { TauriWindowControls } from '../../../components/TauriWindowControls'
 import { useDirectory, useSessionStats } from '../../../hooks'
 import { useMessageStore } from '../../../store'
 import { useBusySessions } from '../../../store/activeSessionStore'
 import { notificationStore, useNotifications } from '../../../store/notificationStore'
 import { formatRelativeTime } from '../../../utils/dateUtils'
 import { isSameDirectory, serverStorage, uiErrorHandler } from '../../../utils'
+import { handleWindowTitlebarMouseDown, isTauri, isTauriMacOS } from '../../../utils/tauri'
 import { serverStore } from '../../../store/serverStore'
 import { SidePanel, SidebarFooter, type SidePanelProps } from './SidePanel'
 
@@ -167,6 +169,9 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
   } = useDirectory()
 
   const showLabels = isExpanded || isMobile
+  const tauriWindowMode = isTauri()
+  const nativeMacTitlebar = isTauriMacOS()
+  const customTauriWindowMode = tauriWindowMode && !nativeMacTitlebar
 
   const { messages } = useMessageStore()
   const stats = useSessionStats(contextLimit)
@@ -1029,6 +1034,14 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
     }))
   }, [])
 
+  const handleHeaderMouseDown = useCallback((event: React.MouseEvent<HTMLDivElement>) => {
+    if (!tauriWindowMode) {
+      return
+    }
+
+    void handleWindowTitlebarMouseDown(event.target, event.button, event.detail)
+  }, [tauriWindowMode])
+
   // 收起到 rail 时复用旧实现，避免重复维护收起态细节
   if (!showLabels) {
     return <SidePanel {...props} />
@@ -1036,39 +1049,102 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      <div className="h-14 shrink-0 flex items-center">
-        <div className="pl-3 overflow-hidden transition-all duration-300 ease-out">
-          <a href="/" className="flex items-center whitespace-nowrap">
-            <span className="text-base font-semibold text-text-100 tracking-tight">OpenCode</span>
-          </a>
+      {customTauriWindowMode ? (
+        <div className="h-14 shrink-0 flex items-center gap-2 px-3 select-none" onMouseDown={handleHeaderMouseDown}>
+          <div className="shrink-0">
+            <TauriWindowControls />
+          </div>
+          <div className="flex-1 min-w-0" />
+          <div className="flex items-center justify-end shrink-0" data-no-window-drag="true">
+            <button
+              onClick={onAddProject}
+              aria-label="Add project"
+              className="h-8 w-8 mr-1 flex items-center justify-center rounded-lg text-text-400 hover:text-text-100 hover:bg-bg-200 active:scale-[0.98] transition-all duration-200"
+              title="Add project"
+            >
+              <FolderIcon size={16} />
+            </button>
+            <button
+              onClick={() => onNewSession(currentDirectory)}
+              aria-label="New session"
+              className="h-8 w-8 mr-1 flex items-center justify-center rounded-lg text-text-400 hover:text-text-100 hover:bg-bg-200 active:scale-[0.98] transition-all duration-200"
+              title="New chat"
+            >
+              <ComposeIcon size={16} />
+            </button>
+            <button
+              onClick={onToggleSidebar}
+              aria-label={isExpanded ? 'Collapse sidebar' : 'Expand sidebar'}
+              className="h-8 w-8 flex items-center justify-center rounded-lg text-text-400 hover:text-text-100 hover:bg-bg-200 active:scale-[0.98] transition-all duration-200"
+            >
+              <SidebarIcon size={18} />
+            </button>
+          </div>
         </div>
+      ) : nativeMacTitlebar ? (
+        <div className="h-14 shrink-0 flex items-center gap-2 pl-[4.75rem] pr-2" onMouseDown={handleHeaderMouseDown}>
+          <div className="flex-1 min-w-0" />
+          <div className="flex items-center justify-end shrink-0" data-no-window-drag="true">
+            <button
+              onClick={onAddProject}
+              aria-label="Add project"
+              className="h-8 w-8 mr-1 flex items-center justify-center rounded-lg text-text-400 hover:text-text-100 hover:bg-bg-200 active:scale-[0.98] transition-all duration-200"
+              title="Add project"
+            >
+              <FolderIcon size={16} />
+            </button>
+            <button
+              onClick={() => onNewSession(currentDirectory)}
+              aria-label="New session"
+              className="h-8 w-8 mr-1 flex items-center justify-center rounded-lg text-text-400 hover:text-text-100 hover:bg-bg-200 active:scale-[0.98] transition-all duration-200"
+              title="New chat"
+            >
+              <ComposeIcon size={16} />
+            </button>
+            <button
+              onClick={onToggleSidebar}
+              aria-label={isExpanded ? 'Collapse sidebar' : 'Expand sidebar'}
+              className="h-8 w-8 flex items-center justify-center rounded-lg text-text-400 hover:text-text-100 hover:bg-bg-200 active:scale-[0.98] transition-all duration-200"
+            >
+              <SidebarIcon size={18} />
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="h-14 shrink-0 flex items-center">
+          <div className="pl-3 overflow-hidden transition-all duration-300 ease-out">
+            <a href="/" className="flex items-center whitespace-nowrap">
+              <span className="text-base font-semibold text-text-100 tracking-tight">OpenCode</span>
+            </a>
+          </div>
 
-        <div className="flex-1 flex items-center justify-end pr-2 transition-all duration-300 ease-out">
-          <button
-            onClick={onAddProject}
-            aria-label="Add project"
-            className="h-8 w-8 mr-1 flex items-center justify-center rounded-lg text-text-400 hover:text-text-100 hover:bg-bg-200 active:scale-[0.98] transition-all duration-200"
-            title="Add project"
-          >
-            <FolderIcon size={16} />
-          </button>
-          <button
-            onClick={() => onNewSession(currentDirectory)}
-            aria-label="New session"
-            className="h-8 w-8 mr-1 flex items-center justify-center rounded-lg text-text-400 hover:text-text-100 hover:bg-bg-200 active:scale-[0.98] transition-all duration-200"
-            title="New chat"
-          >
-            <ComposeIcon size={16} />
-          </button>
-          <button
-            onClick={onToggleSidebar}
-            aria-label={isExpanded ? 'Collapse sidebar' : 'Expand sidebar'}
-            className="h-8 w-8 flex items-center justify-center rounded-lg text-text-400 hover:text-text-100 hover:bg-bg-200 active:scale-[0.98] transition-all duration-200"
-          >
-            <SidebarIcon size={18} />
-          </button>
+          <div className="flex-1 flex items-center justify-end pr-2 transition-all duration-300 ease-out">
+            <button
+              onClick={onAddProject}
+              aria-label="Add project"
+              className="h-8 w-8 mr-1 flex items-center justify-center rounded-lg text-text-400 hover:text-text-100 hover:bg-bg-200 active:scale-[0.98] transition-all duration-200"
+              title="Add project"
+            >
+              <FolderIcon size={16} />
+            </button>
+            <button
+              onClick={() => onNewSession(currentDirectory)}
+              aria-label="New session"
+              className="h-8 w-8 mr-1 flex items-center justify-center rounded-lg text-text-400 hover:text-text-100 hover:bg-bg-200 active:scale-[0.98] transition-all duration-200"
+              title="New chat"
+            >
+              <ComposeIcon size={16} />
+            </button>
+            <button
+              onClick={onToggleSidebar}
+              aria-label={isExpanded ? 'Collapse sidebar' : 'Expand sidebar'}
+              className="h-8 w-8 flex items-center justify-center rounded-lg text-text-400 hover:text-text-100 hover:bg-bg-200 active:scale-[0.98] transition-all duration-200"
+            >
+              <SidebarIcon size={18} />
+            </button>
+          </div>
         </div>
-      </div>
+      )}
 
       {modeTabs && (
         <div className="mx-2 mb-1 shrink-0">

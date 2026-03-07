@@ -11,6 +11,11 @@ use std::sync::Mutex;
 use std::time::Duration;
 use tauri::{ipc::Channel, Manager, State};
 
+#[cfg(target_os = "macos")]
+use tauri::TitleBarStyle;
+#[cfg(target_os = "macos")]
+use tauri_plugin_decorum::WebviewWindowExt;
+
 // Desktop-only imports for service management
 #[cfg(not(target_os = "android"))]
 use std::process::{Command, Stdio};
@@ -468,17 +473,55 @@ fn create_new_window(app: &tauri::AppHandle, directory: Option<String>) {
         }
     }
 
-    match tauri::WebviewWindowBuilder::new(
+    let builder = tauri::WebviewWindowBuilder::new(
         app,
         &label,
         tauri::WebviewUrl::App("index.html".into()),
     )
     .title("OpenCode")
     .inner_size(800.0, 600.0)
-    .build()
-    {
-        Ok(_) => log::info!("Created new window '{}' for directory: {:?}", label, directory),
+    .visible(false);
+
+    #[cfg(target_os = "macos")]
+    let builder = builder
+        .decorations(true)
+        .hidden_title(true)
+        .title_bar_style(TitleBarStyle::Overlay);
+
+    #[cfg(not(target_os = "macos"))]
+    let builder = builder.decorations(false);
+
+    match builder.build() {
+        Ok(window) => {
+            apply_window_chrome(&window);
+            if let Err(e) = window.show() {
+                log::warn!("Failed to show window '{}': {}", label, e);
+            }
+            log::info!("Created new window '{}' for directory: {:?}", label, directory)
+        }
         Err(e) => log::error!("Failed to create new window: {}", e),
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn apply_window_chrome(window: &tauri::WebviewWindow) {
+    if let Err(e) = window.create_overlay_titlebar() {
+        log::warn!("Failed to create overlay titlebar: {}", e);
+    }
+
+    if let Err(e) = window.set_traffic_lights_inset(16.0, 18.0) {
+        log::warn!("Failed to inset native traffic lights: {}", e);
+    }
+
+    if let Err(e) = window.make_transparent() {
+        log::warn!("Failed to make macOS titlebar transparent: {}", e);
+    }
+}
+
+#[cfg(not(target_os = "macos"))]
+fn apply_window_chrome(window: &tauri::WebviewWindow) {
+    if let Err(e) = window.set_decorations(false) {
+        log::warn!("Failed to disable window decorations: {}", e);
     }
 }
 
@@ -503,6 +546,7 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_decorum::init())
         .setup(|app| {
             // 始终启用 log 插件，方便排查问题
             app.handle().plugin(
@@ -515,6 +559,12 @@ pub fn run() {
             #[cfg(debug_assertions)]
             if let Some(window) = app.get_webview_window("main") {
                 window.open_devtools();
+            }
+
+            #[cfg(not(target_os = "android"))]
+            if let Some(window) = app.get_webview_window("main") {
+                apply_window_chrome(&window);
+                window.show()?;
             }
 
             // Desktop: 解析 CLI 参数，存入 pending state

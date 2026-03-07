@@ -16,7 +16,7 @@ import { layoutStore } from './store/layoutStore'
 import { STORAGE_KEY_WIDE_MODE } from './constants'
 import { restoreModelSelection } from './utils/sessionHelpers'
 import { findModelByKey } from './utils/modelUtils'
-import { isTauri } from './utils/tauri'
+import { isTauri, isTauriMacOS } from './utils/tauri'
 import type { Attachment } from './api'
 import { createPtySession } from './api/pty'
 import type { TerminalTab } from './store/layoutStore'
@@ -555,8 +555,11 @@ function App() {
     attachments: revertedContent.attachments as Attachment[],
   } : undefined
 
+  const nativeMacTitlebar = isTauriMacOS()
+  const topInset = nativeMacTitlebar ? '0px' : 'var(--safe-area-inset-top)'
+
   return (
-    <div className="relative h-[var(--app-height)] flex bg-bg-200 overflow-hidden" style={{ paddingTop: 'var(--safe-area-inset-top)' }}>
+    <div className="relative h-[var(--app-height)] flex bg-bg-200 overflow-hidden" style={{ paddingTop: topInset }}>
       {/* Sidebar */}
       <Sidebar
         isOpen={sidebarExpanded}
@@ -586,6 +589,7 @@ function App() {
               <div className="pointer-events-auto">
                 <Header
                   onOpenSidebar={() => setSidebarExpanded(true)}
+                  showDesktopSidebarToggle={isTauri() && !sidebarExpanded}
                 />
               </div>
             </div>
