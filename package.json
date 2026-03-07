@@ -9,6 +9,7 @@
     "dev:public": "tailscale funnel --bg --yes 5173 && vite",
     "funnel:off": "tailscale funnel reset",
     "build": "tsc -b && vite build",
+    "build:macos": "tauri build --bundles app",
     "lint": "eslint .",
     "preview": "vite preview",
     "tauri": "tauri"

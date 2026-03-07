@@ -434,16 +434,15 @@ export function OpenEditorButton() {
     setIsOpening(true)
     try {
       if (tauri) {
-        const { openPath } = await import('@tauri-apps/plugin-opener')
-        if (option.openWith) {
-          await openPath(currentDirectory, option.openWith)
-        } else {
-          await openPath(currentDirectory)
-        }
+        const { invoke } = await import('@tauri-apps/api/core')
+        await invoke('open_path', {
+          path: currentDirectory,
+          appName: option.openWith ?? null,
+        })
       } else {
-        const url = getEditorSchemeUrl(option.id, currentDirectory)
-        if (!url) throw new Error(`Unsupported editor in browser mode: ${option.id}`)
-        openSchemeUrl(url)
+        const editorUrl = getEditorSchemeUrl(option.id, currentDirectory)
+        if (!editorUrl) throw new Error(`Unsupported editor in browser mode: ${option.id}`)
+        openSchemeUrl(editorUrl)
       }
     } catch (error) {
       uiErrorHandler('open project in editor', error)

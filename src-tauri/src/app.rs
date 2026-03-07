@@ -250,6 +250,22 @@ fn extract_directory_from_args(args: &[String]) -> Option<String> {
     None
 }
 
+#[cfg(not(target_os = "android"))]
+#[tauri::command]
+fn open_path(path: String, app_name: Option<String>) -> Result<(), String> {
+    #[cfg(target_os = "windows")]
+    {
+        return tauri_plugin_opener::open_path(path, app_name.as_deref())
+            .map_err(|e| format!("Failed to open path: {}", e));
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        tauri_plugin_opener::open_path(path, app_name.as_deref())
+            .map_err(|e| format!("Failed to open path: {}", e))
+    }
+}
+
 /// 获取启动时传入的目录路径（一次性读取后清空）
 #[cfg(not(target_os = "android"))]
 #[tauri::command]
@@ -544,6 +560,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             sse_connect,
             sse_disconnect,
+            open_path,
             get_cli_directory,
             service::check_opencode_service,
             service::start_opencode_service,

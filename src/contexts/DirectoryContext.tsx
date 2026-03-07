@@ -3,7 +3,7 @@
 // ============================================
 
 import { createContext, useContext, useState, useCallback, useEffect, useMemo, useRef, type ReactNode } from 'react'
-import { getPath, type ApiPath, getPendingPermissions, getPendingQuestions, getProjects } from '../api'
+import { getPath, type ApiPath, getPendingPermissions, getPendingQuestions, getProjects, listDirectory } from '../api'
 import { useRouter } from '../hooks/useRouter'
 import { handleError, normalizeToForwardSlash, getDirectoryName, isSameDirectory, serverStorage } from '../utils'
 import { layoutStore, useLayoutStore } from '../store/layoutStore'
@@ -322,7 +322,13 @@ export function DirectoryProvider({ children }: { children: ReactNode }) {
       getCurrentWindow().onDragDropEvent((event) => {
         if (event.payload.type !== 'drop') return
         for (const path of event.payload.paths) {
-          addDirectoryRef.current(path)
+          void listDirectory(path)
+            .then(() => {
+              addDirectoryRef.current(path)
+            })
+            .catch(() => {
+              // 仅导入目录；文件或不可访问路径直接忽略
+            })
         }
       }).then(fn => { unlistenDragDrop = fn })
     })

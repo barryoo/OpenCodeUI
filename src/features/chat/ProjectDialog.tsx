@@ -178,19 +178,31 @@ export function ProjectDialog({ isOpen, onClose, onSelect, initialPath = '' }: P
     if (parent && parent !== current + PATH_SEP) {
       const folderName = current.split(PATH_SEP).pop()
       if (folderName) pendingSelectionRef.current = folderName
+      setError(null)
       setInputValue(parent)
     }
   }, [inputValue])
 
   const handleItemClick = useCallback((item: FileItem) => {
+    setError(null)
     setInputValue(item.path + PATH_SEP)
     inputRef.current?.focus()
   }, [])
 
-  const handleSelectFolder = useCallback((folderPath: string) => {
-    onSelect(folderPath)
-    onClose()
+  const confirmSelection = useCallback(async (folderPath: string) => {
+    try {
+      setError(null)
+      await listDirectory(folderPath)
+      onSelect(folderPath)
+      onClose()
+    } catch {
+      setError('Unable to import this path. Please choose a folder.')
+    }
   }, [onSelect, onClose])
+
+  const handleSelectFolder = useCallback((folderPath: string) => {
+    void confirmSelection(folderPath)
+  }, [confirmSelection])
 
   const handleConfirmCurrent = useCallback(() => {
     // 去掉尾斜杠，但保留根路径（/ 或 C:/）
@@ -200,9 +212,8 @@ export function ProjectDialog({ isOpen, onClose, onSelect, initialPath = '' }: P
     }
     // 只阻止空路径和 "."
     if (!path || path === '.') return
-    onSelect(path)
-    onClose()
-  }, [inputValue, onSelect, onClose])
+    void confirmSelection(path)
+  }, [confirmSelection, inputValue])
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     switch (e.key) {
@@ -237,8 +248,7 @@ export function ProjectDialog({ isOpen, onClose, onSelect, initialPath = '' }: P
         if (filteredItems.length > 0) {
           const selectedPath = filteredItems[selectedIndex].path
           if (selectedPath) {
-            onSelect(selectedPath)
-            onClose()
+            void confirmSelection(selectedPath)
           }
         } else {
           // 去掉尾斜杠，但保留根路径（/ 或 C:/）
@@ -247,8 +257,7 @@ export function ProjectDialog({ isOpen, onClose, onSelect, initialPath = '' }: P
             path = path.slice(0, -1)
           }
           if (path && path !== '.') {
-            onSelect(path)
-            onClose()
+            void confirmSelection(path)
           }
         }
         break
@@ -257,7 +266,7 @@ export function ProjectDialog({ isOpen, onClose, onSelect, initialPath = '' }: P
         onClose()
         break
     }
-  }, [filteredItems, selectedIndex, inputValue, handleGoBack, onSelect, onClose])
+  }, [confirmSelection, filteredItems, selectedIndex, inputValue, handleGoBack, onClose])
 
   // ==========================================
   // Render
@@ -281,6 +290,7 @@ export function ProjectDialog({ isOpen, onClose, onSelect, initialPath = '' }: P
             type="text"
             value={inputValue}
             onChange={e => {
+              setError(null)
               setInputValue(e.target.value)
               setSelectedIndex(0)
             }}

@@ -260,8 +260,14 @@ Download the installer from [Releases](https://github.com/lehhair/OpenCodeUI/rel
 
 ```bash
 npm install
-npm run tauri build
+npm run build:macos
 ```
+
+The macOS build artifacts are generated in:
+
+- `.app`: `src-tauri/target/release/bundle/macos/`
+
+For local use, you can simply drag the `.app` into `Applications`.
 
 ## Project Structure
 

@@ -260,8 +260,14 @@ Vite 启动在 `http://localhost:5173`，`/api` 自动代理到 `http://127.0.0.
 
 ```bash
 npm install
-npm run tauri build
+npm run build:macos
 ```
+
+本机构建后的 macOS 产物默认在：
+
+- `.app`: `src-tauri/target/release/bundle/macos/`
+
+如只在本机使用，直接把 `.app` 拖到 `Applications` 即可。
 
 ## 项目结构
 

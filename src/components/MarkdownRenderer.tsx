@@ -261,19 +261,19 @@ async function openFileInPreferredEditor(filePath: string, currentDirectory: str
   const targetPath = resolvePathForOpen(filePath, currentDirectory)
 
   if (isTauri()) {
-    const { openPath } = await import('@tauri-apps/plugin-opener')
+    const { invoke } = await import('@tauri-apps/api/core')
     const openWith = getEditorOpenWith(preferredEditorId)
 
     if (openWith) {
       try {
-        await openPath(targetPath, openWith)
+        await invoke('open_path', { path: targetPath, appName: openWith })
         return
       } catch {
         // fallback to system default app
       }
     }
 
-    await openPath(targetPath)
+    await invoke('open_path', { path: targetPath, appName: null })
     return
   }
 
@@ -283,6 +283,7 @@ async function openFileInPreferredEditor(filePath: string, currentDirectory: str
   }
 
   openSchemeUrl(editorUrl)
+
 }
 
 async function openHttpLinkInBrowser(href: string): Promise<void> {
