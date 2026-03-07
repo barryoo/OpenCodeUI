@@ -1160,7 +1160,6 @@ export interface MessageStoreSnapshot {
 }
 
 let cachedSnapshot: MessageStoreSnapshot | null = null
-let snapshotVersion = 0
 
 function createSnapshot(): MessageStoreSnapshot {
   return {
@@ -1191,7 +1190,6 @@ function getSnapshot(): MessageStoreSnapshot {
 // 订阅 store 变化，清除缓存
 messageStore.subscribe(() => {
   cachedSnapshot = null
-  snapshotVersion++
 })
 
 // ============================================

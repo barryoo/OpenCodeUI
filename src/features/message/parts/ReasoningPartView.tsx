@@ -23,8 +23,6 @@ export const ReasoningPartView = memo(function ReasoningPartView({ part, isStrea
   const { reasoningDisplayMode } = useTheme()
   const rawText = part.text || ''
   const normalizedText = useMemo(() => normalizeThinkingText(rawText), [rawText])
-  if (!normalizedText.trim()) return null
-  
   const isPartStreaming = isStreaming && !part.time?.end
   const hasContent = !!normalizedText.trim()
   
@@ -101,6 +99,8 @@ export const ReasoningPartView = memo(function ReasoningPartView({ part, isStrea
       ro?.disconnect()
     }
   }, [reasoningDisplayMode, summaryText, measureSummaryOverflow])
+
+  if (!hasContent) return null
 
   if (reasoningDisplayMode === 'italic') {
     const shouldUseToggle = isPartStreaming || hasLineBreak || summaryOverflow

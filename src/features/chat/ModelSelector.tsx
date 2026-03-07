@@ -74,7 +74,7 @@ export const ModelSelector = memo(forwardRef<ModelSelectorHandle, ModelSelectorP
     const recent = searchQuery ? [] : getRecentModels(models, 5)
     const pinned = searchQuery ? [] : getPinnedModels(models)
     
-    let flat: Array<{ type: 'header' | 'item', data: any, key: string }> = []
+    const flat: Array<{ type: 'header' | 'item', data: any, key: string }> = []
     const addedKeys = new Set<string>()
     
     // Pinned 分组优先
@@ -246,7 +246,7 @@ export const ModelSelector = memo(forwardRef<ModelSelectorHandle, ModelSelectorP
           return next
         })
         break
-      case 'Enter':
+      case 'Enter': {
         e.preventDefault()
         const globalIndex = itemIndices[highlightedIndex]
         const item = flatList[globalIndex]
@@ -254,6 +254,7 @@ export const ModelSelector = memo(forwardRef<ModelSelectorHandle, ModelSelectorP
           handleSelect(item.data)
         }
         break
+      }
       case 'Escape':
         e.preventDefault()
         closeMenu()
@@ -468,7 +469,7 @@ export const InputToolbarModelSelector = memo(forwardRef<ModelSelectorHandle, In
     const recent = searchQuery ? [] : getRecentModels(models, 5)
     const pinned = searchQuery ? [] : getPinnedModels(models)
     
-    let flat: Array<{ type: 'header' | 'item', data: any, key: string }> = []
+    const flat: Array<{ type: 'header' | 'item', data: any, key: string }> = []
     const addedKeys = new Set<string>()
     
     // Pinned 分组优先
@@ -652,12 +653,13 @@ export const InputToolbarModelSelector = memo(forwardRef<ModelSelectorHandle, In
           return next
         })
         break
-      case 'Enter':
+      case 'Enter': {
         e.preventDefault()
         const globalIndex = itemIndices[highlightedIndex]
         const item = flatList[globalIndex]
         if (item && item.type === 'item') handleSelect(item.data)
         break
+      }
       case 'Escape':
         e.preventDefault()
         closeMenu()

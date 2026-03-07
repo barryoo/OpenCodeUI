@@ -117,7 +117,9 @@ class NotificationStore {
 
   setToastEnabled(enabled: boolean) {
     this.toastEnabled = enabled
-    try { localStorage.setItem(TOAST_ENABLED_KEY, String(enabled)) } catch {}
+    try { localStorage.setItem(TOAST_ENABLED_KEY, String(enabled)) } catch {
+      // Ignore localStorage write failures.
+    }
     // 关闭时清掉当前所有 toast
     if (!enabled) this.dismissAllToasts()
   }

@@ -50,7 +50,6 @@ export function useTheme() {
   }, [])
 
   const setThemeWithAnimation = useCallback((newMode: ThemeMode, event?: React.MouseEvent) => {
-    // @ts-ignore - View Transitions API
     if (!document.startViewTransition || !event) {
       skipNextTransitionRef.current = true
       themeStore.setColorMode(newMode)
@@ -67,7 +66,6 @@ export function useTheme() {
     const root = document.documentElement
     root.setAttribute('data-theme-transition', 'off')
 
-    // @ts-ignore
     const transition = document.startViewTransition(() => {
       skipNextTransitionRef.current = true
       flushSync(() => {
@@ -103,7 +101,6 @@ export function useTheme() {
   }, [])
   
   const setPresetWithAnimation = useCallback((presetId: string, event?: React.MouseEvent) => {
-    // @ts-ignore
     if (!document.startViewTransition || !event) {
       themeStore.setPreset(presetId)
       return
@@ -119,7 +116,6 @@ export function useTheme() {
     const root = document.documentElement
     root.setAttribute('data-theme-transition', 'off')
 
-    // @ts-ignore
     const transition = document.startViewTransition(() => {
       flushSync(() => {
         themeStore.setPreset(presetId)

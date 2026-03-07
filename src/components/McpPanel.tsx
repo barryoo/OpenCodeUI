@@ -127,7 +127,7 @@ export const McpPanel = memo(function McpPanel({ isResizing: _isResizing }: McpP
       // 等待用户完成认证
       await new Promise(r => setTimeout(r, 3000))
       await loadStatus()
-    } catch (err) {
+    } catch (_err) {
       // 如果失败，尝试 startMcpAuth 获取 URL
       try {
         const result = await startMcpAuth(name, currentDirectory)

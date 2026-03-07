@@ -167,7 +167,7 @@ export function useSmoothStream(
       const elapsed = time - lastTimeRef.current
       
       // 获取当前 index
-      let currentIndex = actualIndexRef.current
+      const currentIndex = actualIndexRef.current
       
       // 已经显示完了，继续等待新内容
       if (currentIndex >= fullTextLength) {

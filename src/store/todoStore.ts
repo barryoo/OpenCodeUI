@@ -151,10 +151,10 @@ function useStoreSubscription() {
  * 订阅 session 的 todos
  */
 export function useTodos(sessionId: string | null): TodoItem[] {
-  useStoreSubscription()
+  const version = useStoreSubscription()
   return useMemo(
     () => sessionId ? todoStore.getTodos(sessionId) : EMPTY_TODOS,
-    [sessionId, todoStore.getVersion()]
+    [sessionId, version]
   )
 }
 
@@ -162,10 +162,10 @@ export function useTodos(sessionId: string | null): TodoItem[] {
  * 获取 todos 统计信息
  */
 export function useTodoStats(sessionId: string | null): TodoStats {
-  useStoreSubscription()
+  const version = useStoreSubscription()
   return useMemo(
     () => sessionId ? todoStore.getStats(sessionId) : EMPTY_STATS,
-    [sessionId, todoStore.getVersion()]
+    [sessionId, version]
   )
 }
 
@@ -173,9 +173,9 @@ export function useTodoStats(sessionId: string | null): TodoStats {
  * 获取当前进行中的任务
  */
 export function useCurrentTask(sessionId: string | null): TodoItem | null {
-  useStoreSubscription()
+  const version = useStoreSubscription()
   return useMemo(
     () => sessionId ? todoStore.getCurrentTask(sessionId) : null,
-    [sessionId, todoStore.getVersion()]
+    [sessionId, version]
   )
 }
