@@ -67,31 +67,11 @@ export function CommandPalette({ isOpen, onClose, commands }: CommandPaletteProp
   const [selectedIndex, setSelectedIndex] = useState(0)
   const inputRef = useRef<HTMLInputElement>(null)
   const listRef = useRef<HTMLDivElement>(null)
-  const [shouldRender, setShouldRender] = useState(false)
-  const [isVisible, setIsVisible] = useState(false)
-
-  // Animation mount/unmount
   useEffect(() => {
-    if (isOpen) {
-      setShouldRender(true)
-      setQuery('')
-      setSelectedIndex(0)
-    } else {
-      setIsVisible(false)
-      const timer = setTimeout(() => setShouldRender(false), 150)
-      return () => clearTimeout(timer)
-    }
+    if (!isOpen) return
+    const timer = setTimeout(() => inputRef.current?.focus(), 10)
+    return () => clearTimeout(timer)
   }, [isOpen])
-
-  useEffect(() => {
-    if (shouldRender && isOpen) {
-      const timer = setTimeout(() => {
-        setIsVisible(true)
-        inputRef.current?.focus()
-      }, 10)
-      return () => clearTimeout(timer)
-    }
-  }, [shouldRender, isOpen])
 
   // Filter commands
   const filteredCommands = useMemo(() => {
@@ -112,11 +92,6 @@ export function CommandPalette({ isOpen, onClose, commands }: CommandPaletteProp
       return aStart - bStart
     })
   }, [commands, query])
-
-  // Reset selection when filter changes
-  useEffect(() => {
-    setSelectedIndex(0)
-  }, [query])
 
   // Execute command
   const executeCommand = useCallback((cmd: CommandItem) => {
@@ -168,13 +143,13 @@ export function CommandPalette({ isOpen, onClose, commands }: CommandPaletteProp
     el?.scrollIntoView({ block: 'nearest' })
   }, [selectedIndex])
 
-  if (!shouldRender) return null
+  if (!isOpen) return null
 
   return createPortal(
       <div 
         className="fixed inset-0 z-[200] flex items-start justify-center pt-[15vh]"
         style={{
-          backgroundColor: isVisible ? 'hsl(var(--always-black) / 0.5)' : 'hsl(var(--always-black) / 0)',
+          backgroundColor: 'hsl(var(--always-black) / 0.5)',
           transition: 'background-color 150ms ease-out',
         }}
       onPointerDown={(e: React.PointerEvent) => {
@@ -195,9 +170,9 @@ export function CommandPalette({ isOpen, onClose, commands }: CommandPaletteProp
         className="w-full max-w-[560px] bg-bg-000 border border-border-200 rounded-xl shadow-2xl overflow-hidden flex flex-col"
         style={{
           maxHeight: '60vh',
-          opacity: isVisible ? 1 : 0,
-          transform: isVisible ? 'scale(1) translateY(0)' : 'scale(0.98) translateY(-8px)',
-          transition: 'all 150ms ease-out',
+           opacity: 1,
+           transform: 'scale(1) translateY(0)',
+           transition: 'all 150ms ease-out',
         }}
         onClick={(e) => e.stopPropagation()}
       >
@@ -208,7 +183,10 @@ export function CommandPalette({ isOpen, onClose, commands }: CommandPaletteProp
             ref={inputRef}
             type="text"
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            onChange={(e) => {
+              setQuery(e.target.value)
+              setSelectedIndex(0)
+            }}
             placeholder="Type a command..."
             className="flex-1 py-3.5 text-sm bg-transparent text-text-100 placeholder:text-text-400 
                        outline-none border-none"
@@ -217,7 +195,10 @@ export function CommandPalette({ isOpen, onClose, commands }: CommandPaletteProp
           />
           {query && (
             <button 
-              onClick={() => setQuery('')}
+              onClick={() => {
+                setQuery('')
+                setSelectedIndex(0)
+              }}
               className="text-text-400 hover:text-text-200 text-xs"
             >
               Clear

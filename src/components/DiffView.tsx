@@ -1,4 +1,4 @@
-import { memo, useState, useEffect, useMemo } from 'react'
+import { memo, useState, useMemo } from 'react'
 import { diffLines } from 'diff'
 import { ChevronDownIcon, MaximizeIcon } from './Icons'
 import { clsx } from 'clsx'
@@ -29,6 +29,11 @@ interface DiffLine {
   content: string // HTML content string
   oldLineNo?: number
   newLineNo?: number
+}
+
+interface HighlightToken {
+  content: string
+  color?: string
 }
 
 // Simple HTML escaper
@@ -88,16 +93,9 @@ function useHighlightedDiff(before: string, after: string, language: string) {
   const { output: oldTokens } = useSyntaxHighlight(before, { lang: language, mode: 'tokens' })
   const { output: newTokens } = useSyntaxHighlight(after, { lang: language, mode: 'tokens' })
   
-  const [result, setResult] = useState<{ 
-    lines: DiffLine[], 
-    stats: { additions: number, deletions: number } 
-  } | null>(null)
-
-  useEffect(() => {
-    // If tokens are not ready or reset, reset result
+  return useMemo(() => {
     if (!oldTokens || !newTokens) {
-      setResult(null)
-      return
+      return null
     }
 
     try {
@@ -105,7 +103,7 @@ function useHighlightedDiff(before: string, after: string, language: string) {
         const changes = diffLines(before, after, { newlineIsToken: false })
         
         // 2. Convert tokens to HTML strings per line
-        const tokensToHtmlLines = (tokenLines: any[][]) => {
+        const tokensToHtmlLines = (tokenLines: HighlightToken[][]) => {
           return tokenLines.map(lineTokens => {
              if (lineTokens.length === 0) return ' ' // Empty line
              return lineTokens.map(t => 
@@ -114,8 +112,8 @@ function useHighlightedDiff(before: string, after: string, language: string) {
           })
         }
 
-        const oldLinesHtml = tokensToHtmlLines(oldTokens)
-        const newLinesHtml = tokensToHtmlLines(newTokens)
+        const oldLinesHtml = tokensToHtmlLines(oldTokens as HighlightToken[][])
+        const newLinesHtml = tokensToHtmlLines(newTokens as HighlightToken[][])
 
         // 3. Map diff changes to highlighted lines
         const finalLines: DiffLine[] = []
@@ -162,17 +160,16 @@ function useHighlightedDiff(before: string, after: string, language: string) {
           }
         }
 
-        setResult({
+        return {
           lines: finalLines,
           stats: { additions, deletions }
-        })
+        }
 
     } catch (err) {
         syntaxErrorHandler('diff highlighting', err)
+        return null
     }
   }, [before, after, oldTokens, newTokens])
-
-  return result
 }
 
 export const DiffView = memo(function DiffView({

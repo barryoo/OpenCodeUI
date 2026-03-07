@@ -36,8 +36,6 @@ export const DiffModal = memo(function DiffModal({
   language,
   diffStats: providedStats,
 }: DiffModalProps) {
-  const [shouldRender, setShouldRender] = useState(false)
-  const [isVisible, setIsVisible] = useState(false)
   const [viewMode, setViewMode] = useState<ViewMode>('split')
 
   useEffect(() => {
@@ -46,23 +44,6 @@ export const DiffModal = memo(function DiffModal({
     window.addEventListener('resize', checkWidth)
     return () => window.removeEventListener('resize', checkWidth)
   }, [])
-
-  useEffect(() => {
-    if (isOpen) {
-      setShouldRender(true)
-    } else {
-      setIsVisible(false)
-      const timer = setTimeout(() => setShouldRender(false), 200)
-      return () => clearTimeout(timer)
-    }
-  }, [isOpen])
-
-  useEffect(() => {
-    if (shouldRender && isOpen) {
-      const timer = setTimeout(() => setIsVisible(true), 10)
-      return () => clearTimeout(timer)
-    }
-  }, [shouldRender, isOpen])
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -98,14 +79,14 @@ export const DiffModal = memo(function DiffModal({
     return { additions, deletions }
   }, [before, after, providedStats])
 
-  if (!shouldRender) return null
+  if (!isOpen) return null
 
   return createPortal(
     <div
       className="fixed inset-0 z-[100] flex items-center justify-center transition-all duration-200 ease-out"
       style={{
-        backgroundColor: isVisible ? 'hsl(var(--always-black) / 0.4)' : 'hsl(var(--always-black) / 0)',
-        backdropFilter: isVisible ? 'blur(2px)' : 'blur(0px)',
+        backgroundColor: 'hsl(var(--always-black) / 0.4)',
+        backdropFilter: 'blur(2px)',
       }}
       role="dialog"
       aria-modal="true"
@@ -114,8 +95,8 @@ export const DiffModal = memo(function DiffModal({
       <div
         className="w-full h-full flex flex-col bg-bg-000 transition-all duration-200 ease-out"
         style={{
-          opacity: isVisible ? 1 : 0,
-          transform: isVisible ? 'scale(1)' : 'scale(0.98)',
+          opacity: 1,
+          transform: 'scale(1)',
         }}
       >
       {/* Toolbar */}
