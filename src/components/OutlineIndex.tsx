@@ -9,8 +9,8 @@
 // ============================================
 
 import { memo, useMemo, useRef, useEffect, useCallback, useState } from 'react'
-import type { Message } from '../types/message'
-import { isUserMessage } from '../types/message'
+import type { FilePart, Message } from '../types/message'
+import { getMessageText, isUserMessage } from '../types/message'
 
 // ============================================
 // Types
@@ -41,6 +41,7 @@ const TICK_W_MAX = 22
 const TICK_H = 2.5
 const MARGIN_MIN = 4
 const MARGIN_MAX = 14
+const OUTLINE_TITLE_MAX = 72
 
 // ============================================
 // Data extraction (同 ChatArea 的过滤逻辑)
@@ -72,14 +73,59 @@ function messageHasContent(msg: Message): boolean {
   })
 }
 
+function compactTitle(value?: string): string | null {
+  if (!value) return null
+  const compact = value.replace(/\s+/g, ' ').trim()
+  if (!compact) return null
+  return compact.length > OUTLINE_TITLE_MAX
+    ? `${compact.slice(0, OUTLINE_TITLE_MAX - 1).trimEnd()}...`
+    : compact
+}
+
+function getFileFallbackTitle(part: FilePart): string | null {
+  if (part.filename) return compactTitle(part.filename)
+  if (!part.source) return null
+  if ('path' in part.source) return compactTitle(part.source.path)
+  if ('uri' in part.source) return compactTitle(part.source.uri)
+  return null
+}
+
+function getOutlineTitle(msg: Message): string | null {
+  if (!isUserMessage(msg.info)) return null
+
+  const summaryTitle = compactTitle(msg.info.summary?.title)
+  if (summaryTitle) return summaryTitle
+
+  const textTitle = compactTitle(getMessageText(msg))
+  if (textTitle) return textTitle
+
+  for (const part of msg.parts) {
+    if (part.type === 'subtask') {
+      const label = compactTitle(part.description) ?? compactTitle(part.prompt) ?? compactTitle(part.agent)
+      if (label) return label
+    }
+    if (part.type === 'file') {
+      const label = getFileFallbackTitle(part)
+      if (label) return label
+    }
+    if (part.type === 'agent') {
+      const label = compactTitle(part.name)
+      if (label) return label
+    }
+  }
+
+  return null
+}
+
 function extractOutlineEntries(messages: Message[]): OutlineEntry[] {
   const entries: OutlineEntry[] = []
   const visible = messages.filter(messageHasContent)
   for (let i = 0; i < visible.length; i++) {
     const msg = visible[i]
-    if (isUserMessage(msg.info) && msg.info.summary?.title) {
+    const title = getOutlineTitle(msg)
+    if (title) {
       entries.push({
-        title: msg.info.summary.title,
+        title,
         messageId: msg.info.id,
       })
     }
