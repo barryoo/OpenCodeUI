@@ -2,12 +2,16 @@ name: Build & Push Gateway Docker Image
 
 on:
   push:
-    branches: [main]
+    branches: [master]
     paths:
       - 'docker/Dockerfile.gateway'
       - 'docker/Caddyfile.gateway'
       - 'docker/router/**'
   workflow_dispatch:
+
+concurrency:
+  group: docker-gateway-${{ github.ref }}
+  cancel-in-progress: true
 
 env:
   REGISTRY: ghcr.io

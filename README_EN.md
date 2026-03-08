@@ -2,70 +2,158 @@
 
 [中文](./README.md) | English
 
-A third-party Web frontend for [OpenCode](https://github.com/anomalyco/opencode).
+[![CI](https://github.com/barryoo/OpenCodeUI/actions/workflows/ci.yml/badge.svg)](https://github.com/barryoo/OpenCodeUI/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/barryoo/OpenCodeUI)](https://github.com/barryoo/OpenCodeUI/releases)
+[![License](https://img.shields.io/github/license/barryoo/OpenCodeUI)](./LICENSE)
 
-**This project is entirely built with AI-assisted programming (Vibe Coding)** — from the first line of code to the final release, all features were developed through conversations with AI.
+A third-party Web / Desktop UI for [OpenCode](https://github.com/anomalyco/opencode), focused on multi-project workflows, mobile usability, native desktop features, and container-based deployment.
 
-> **Disclaimer**: This project is for learning and communication purposes only. We are not responsible for any issues arising from the use of this project. The project is in its early stages and may contain bugs and instabilities.
+> This repository is a secondary development branch based on [lehhair/OpenCodeUI](https://github.com/lehhair/OpenCodeUI). On top of the original project's OpenCode workflow and deployment capabilities, the current fork focuses on improving desktop experience, session management, message rendering, and mobile UX.
 
-## Preview
+> Disclaimer: this project is provided for learning and experimentation. It is still evolving and may contain bugs or behavioral changes.
 
-<img width="2298" height="1495" alt="image" src="https://github.com/user-attachments/assets/dc68837b-0560-4701-b6ab-ecb13fdc1f4f" />
-<img width="2296" height="1500" alt="image" src="https://github.com/user-attachments/assets/7a8d9754-69c4-49c5-99ee-6452d94f5420" />
+## Highlights
 
-## Features
+- Built for multi-project, multi-session, multi-window workflows
+- Available as a browser app, Tauri desktop app, and Docker deployment
+- Preserves the OpenCode tool-driven workflow while improving tool feedback, diff readability, attachments, and file interactions
+- Includes many mobile-oriented refinements around safe areas, input behavior, notifications, and toolbar ergonomics
 
-- **Full Chat Interface** — Message streaming, Markdown rendering, code highlighting (Shiki)
-- **Built-in Terminal** — Web terminal based on xterm.js with WebGL rendering
-- **File Browsing & Diff** — Browse workspace files, multi-file diff comparison
-- **Theme System** — 3 built-in themes (Eucalyptus / Claude / Breeze), light/dark mode toggle and custom CSS
-- **PWA Support** — Installable as a desktop/mobile app
-- **Mobile Friendly** — Safe area handling, touch optimization, responsive layout
-- **Browser Notifications** — Push notifications when AI replies are complete
-- **@ Mentions & / Slash Commands** — Quickly reference files and execute commands in conversations
-- **Custom Shortcuts** — Configurable key bindings
-- **Docker Deployment** — Containerized frontend and backend separation, ready to use out of the box
-- **Desktop App** — Native client based on Tauri (macOS / Linux / Windows)
-- **Dynamic Port Routing** — Auto-discovery of dev services inside containers, generates preview links
+## Core Features
 
-## Tech Stack
+| Area | Capabilities |
+|------|--------------|
+| Chat experience | Streaming replies, Markdown rendering, Shiki syntax highlighting, reasoning/tool state visualization |
+| Workspace collaboration | File browser, file preview, multi-file diff, @ mentions, slash commands |
+| Session management | Multi-project switching, recent sessions, pinning, notification state, fast new-session entry |
+| Terminal and tools | Built-in xterm.js terminal, tool-call visualization, context and attachment detail views |
+| Personalization | Theme presets, custom CSS, keyboard shortcuts, fine-grained settings |
+| Runtime targets | Web, PWA, Tauri desktop app, standalone frontend Docker, full Docker gateway stack |
 
-| Category | Technology |
-|----------|-----------|
-| Framework | React 19 + TypeScript |
-| Build | Vite 7 |
-| Styling | Tailwind CSS v4 |
-| Code Highlighting | Shiki |
-| Terminal | xterm.js (WebGL) |
-| Markdown | react-markdown + remark-gfm |
-| Desktop | Tauri 2 |
-| Deployment | Docker (Caddy + Python Router) |
+## Enhancements Over the Upstream Project
+
+The list below is based on this repository's commit history and current implementation, with the goal of describing the user-facing improvements more explicitly.
+
+### Notifications and Permission Flow
+
+| Improvement | Description |
+|-------------|-------------|
+| In-app foreground notifications | Permission requests, questions, completions, and errors are surfaced through top-right toast notifications inside the app |
+| Background system notifications | Browser and Tauri system notifications can alert the user even when the app is not in the foreground |
+| Direct permission actions in toast | Permission toasts can be handled immediately with `Allow`, `Always allow`, or `Later` without switching back first |
+| Unread markers in the session list | Sessions with new notifications show a visible unread dot in the sidebar |
+| Notification-session linkage | Opening the related session or clicking the toast marks the notification as read automatically |
+| Active session state tracking | Session status is derived from SSE, permission requests, and question requests so busy sessions remain visible and understandable |
+
+### Project and Session Management
+
+| Improvement | Description |
+|-------------|-------------|
+| Multi-project sidebar mode | Projects and sessions are organized in a single sidebar for multi-workspace usage |
+| Running status in the session list | Session items show animated running indicators so users can quickly see which session is still active |
+| Visible waiting states | Sessions waiting for permission approval or question input are shown as waiting for user action rather than appearing stuck |
+| Project-scoped session creation | New sessions can be created directly inside a specific project |
+| Recent and pinned sessions | Frequently used sessions can be pinned, and recently active sessions are grouped for quicker access |
+| Drag-and-drop project ordering | Projects can be reordered by drag and drop to match personal workflow priority |
+| Drag external folders to create projects | In the Tauri desktop app, external folders can be dropped into the app to create projects quickly |
+| Clearer empty-state project context | The empty chat state shows the current project name to reduce mistakes in multi-project workflows |
+
+### Chat Messages and Tool Feedback
+
+| Improvement | Description |
+|-------------|-------------|
+| Collapsible long user messages | Long prompts can be expanded or collapsed so the chat area stays readable |
+| Separate system-context folding | Synthetic system context attached to user messages can be expanded independently from the main prompt |
+| Grouped consecutive tool calls | Consecutive tool calls are grouped into step-based blocks to reduce message fragmentation |
+| Early tool intent visibility | Tool name, path, search term, or operation intent can appear before the tool fully completes |
+| Pending permission tool highlighting | Tools waiting for approval are auto-expanded and highlighted so users can inspect details before allowing them |
+| Turn-level file change summary | Each assistant turn can summarize touched files and line changes, with expandable per-file diff views |
+| Better file path and link behavior | Message paths and links behave more naturally for opening and navigation |
+| Richer attachment inspection | Attachments support detail viewing, copying, and saving, with more native save behavior on desktop |
+| Errors shown directly in chat | Session errors are rendered inside the conversation instead of failing silently |
+| Cleaner footer metadata | Time, token usage, message duration, and total turn duration are presented in a more unified and less noisy way |
+
+### Mobile and Desktop Experience
+
+| Improvement | Description |
+|-------------|-------------|
+| Reworked mobile input behavior | The input area has been refined across collapse, expand, scroll-to-bottom, and streaming scenarios |
+| Safe-area and keyboard handling | Mobile safe areas, keyboard insets, and bottom-bar overlap issues are handled more carefully |
+| Better mobile selectors | Model, agent, @ mention, and slash command menus are positioned and sized more appropriately on mobile |
+| Improved mobile sidebar interactions | The sidebar is tuned for touch interactions, including gesture handling, long press actions, and cleaner action visibility |
+| Better Tauri desktop polish | On top of the upstream Tauri support, this fork further improves macOS titlebar behavior, window interaction, and folder drop handling |
+| Fast open-in-editor flow | The chat header can open the current project directly in a local editor, making IDE round-trips much smoother |
+
+## Screenshots
+
+### Desktop
+
+![Desktop UI 1](./docs/images/opencodeui-desktop-1.png)
+![Desktop UI 2](./docs/images/opencodeui-desktop-2.png)
+
+### Mobile
+
+![Mobile UI 1](./docs/images/opencodeui-mobile-1.jpg)
+![Mobile UI 2](./docs/images/opencodeui-mobile-2.jpg)
 
 ## Quick Start
 
-No deployment needed — after starting the OpenCode backend locally, access the hosted frontend directly:
+### Choose a Setup
+
+| Scenario | Recommended path |
+|----------|------------------|
+| Fast preview | Run the frontend locally with `opencode serve` |
+| You already run an OpenCode backend | `docker-compose.standalone.yml` |
+| You want frontend, backend, and preview gateway together | `docker-compose.yml` |
+| You prefer a native client | Download a release or build the Tauri app |
+
+### Local Development
 
 ```bash
-opencode serve --cors "https://lehhair.github.io"
+git clone https://github.com/barryoo/OpenCodeUI.git
+cd OpenCodeUI
+npm ci
+
+# Start the OpenCode backend first
+opencode serve
+
+# Then run the frontend
+npm run dev
 ```
 
-Then open https://lehhair.github.io/OpenCodeUI/
+The default dev URL is `http://localhost:5173`.
 
-## Docker Deployment (Frontend Only)
+> The development proxy lives in `vite.config.ts`. If your OpenCode backend does not run at the default address used in this repository, update the `/api` proxy target to match your environment.
 
-For scenarios where `opencode serve` is already running, you only need a frontend UI container to connect to the existing backend.
+### Desktop App
+
+Download installers from [Releases](https://github.com/barryoo/OpenCodeUI/releases), or build locally:
 
 ```bash
-git clone https://github.com/lehhair/OpenCodeUI.git
-cd OpenCodeUI
+npm ci
+npm run build:macos
+```
 
-# Start (connects to host's opencode serve :4096 by default)
+Typical desktop artifacts:
+
+- macOS `.app`: `src-tauri/target/release/bundle/macos/`
+- Other platform installers: see the GitHub Release assets
+
+## Docker Deployment
+
+### Standalone Frontend Mode
+
+Use this when you already have a reachable `opencode serve` backend and only need the UI:
+
+```bash
+git clone https://github.com/barryoo/OpenCodeUI.git
+cd OpenCodeUI
 docker compose -f docker-compose.standalone.yml up -d
 ```
 
-Visit `http://localhost:3000`.
+Default URL: `http://localhost:3000`.
 
-**Connect to a remote backend:**
+To connect to a remote backend:
 
 ```bash
 BACKEND_URL=your-server.com:4096 PORT=8080 docker compose -f docker-compose.standalone.yml up -d
@@ -73,106 +161,58 @@ BACKEND_URL=your-server.com:4096 PORT=8080 docker compose -f docker-compose.stan
 
 | Environment Variable | Default | Description |
 |---------------------|---------|-------------|
-| `BACKEND_URL` | `host.docker.internal:4096` | opencode serve address (without protocol prefix) |
-| `PORT` | `3000` | Frontend listening port |
+| `BACKEND_URL` | `host.docker.internal:4096` | OpenCode backend address without protocol |
+| `PORT` | `3000` | Public frontend port |
 
-## Docker Deployment
+### Full Stack Mode
 
-### Architecture & Ports
-
-The deployment consists of three services, unified through the Gateway:
+The full deployment includes three services:
 
 | Service | Port | Description |
 |---------|------|-------------|
-| Gateway | 6658 (`GATEWAY_PORT`) | Unified entry point, reverse proxy for all requests |
-| Gateway | 6659 (`PREVIEW_PORT`) | Dev service preview |
-| Frontend | 3000 (internal) | Static frontend |
-| Backend | 4096 (internal) | OpenCode API |
-| Router | 7070 (internal) | Dynamic port routing (built into Gateway) |
+| Gateway | `6658` | Unified entry for frontend and OpenCode API |
+| Gateway | `6659` | Preview port for mapped dev services |
+| Frontend | `3000` | Static frontend service |
+| Backend | `4096` | OpenCode API |
+| Router | `7070` | Dynamic route scanning and preview management |
 
-### Gateway Routing Rules
-
-Requests on port `6658` are forwarded according to these rules:
-
-| Path | Target | Description |
-|------|--------|-------------|
-| `/api/*` | Backend :4096 | OpenCode API, supports SSE |
-| `/routes` | Router :7070 | Dynamic route management panel |
-| `/preview/*` | Router :7070 | Preview port switching API |
-| Other | Frontend :3000 | Frontend static assets |
-
-Port `6659` is used to access dev services inside the container. The Router automatically scans ports `3000-9999` and generates preview links via the `/p/{token}/` path.
-
-### Deployment Steps
+Start everything with:
 
 ```bash
-git clone https://github.com/lehhair/OpenCodeUI.git
+git clone https://github.com/barryoo/OpenCodeUI.git
 cd OpenCodeUI
-
-# Copy and edit environment variables, fill in at least one LLM API Key
 cp .env.example .env
-
-# Start
 docker compose up -d
 ```
 
-Visit `http://localhost:6658`.
+Default URL: `http://localhost:6658`.
 
-### Environment Persistence (Simplified)
-
-The backend now retains only one core persistent volume: `opencode-home` (mounted at `/root`).
-
-The backend entry script automatically verifies and supplements `opencode` / `mise` on startup to prevent toolchain loss after container rebuilds.
-
-- OpenCode configuration and session cache
-- npm / cargo / pip and other user-space caches
-- Node / Python multi-version runtimes installed via `mise`
-
-All of the above will be preserved after container rebuilds — no need to split into multiple small volumes.
-
-When upgrading from older versions, the original `opencode-data/opencode-config/opencode-cache/opencode-npm/opencode-cargo/opencode-local/opencode-opt` volumes become orphaned and can be manually cleaned up after confirming data has been migrated.
-
-First time entering the backend container, you can install and persist runtime versions directly:
-
-```bash
-docker compose exec backend mise use -g node@22 python@3.12
-docker compose exec backend node -v
-docker compose exec backend python -V
-```
-
-The `gateway` still retains a separate volume `opencode-router-data` for storing dynamic routing state.
-
-### Environment Variables
-
-Edit the `.env` file with the key configuration:
+Key environment variables:
 
 ```env
-# LLM API Key (fill in at least one)
 ANTHROPIC_API_KEY=
 OPENAI_API_KEY=
-
-# Ports
 GATEWAY_PORT=6658
 PREVIEW_PORT=6659
-
-# Working directory (mounted to /workspace in the container)
 WORKSPACE=./workspace
-
-# Must be set for public deployment
 OPENCODE_SERVER_USERNAME=opencode
 OPENCODE_SERVER_PASSWORD=your-strong-password
-
-# Router service
 ROUTER_SCAN_INTERVAL=5
 ROUTER_PORT_RANGE=3000-9999
 ROUTER_EXCLUDE_PORTS=4096
 ```
 
+Persistence notes:
+
+- `opencode-home` keeps OpenCode config, session cache, mise runtimes, and user-space caches
+- `opencode-router-data` keeps gateway routing state
+- Container rebuilds preserve the most important runtime and cache data
+
 ### Reverse Proxy
 
-Docker listens on `127.0.0.1` by default; public deployment requires a reverse proxy in front.
+For public deployment, place a reverse proxy in front of ports `6658` and `6659`, and make sure SSE buffering is disabled.
 
-**Nginx:**
+Nginx example:
 
 ```nginx
 server {
@@ -185,16 +225,11 @@ server {
     location / {
         proxy_pass http://127.0.0.1:6658;
         proxy_http_version 1.1;
-
-        # SSE (required)
         proxy_set_header Connection '';
         proxy_buffering off;
         proxy_cache off;
-
-        # WebSocket
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "upgrade";
-
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -202,27 +237,9 @@ server {
         proxy_read_timeout 86400s;
     }
 }
-
-# Preview (optional, recommended to use a separate domain)
-server {
-    listen 443 ssl;
-    server_name preview.example.com;
-
-    ssl_certificate     /path/to/cert.pem;
-    ssl_certificate_key /path/to/key.pem;
-
-    location / {
-        proxy_pass http://127.0.0.1:6659;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection "upgrade";
-        proxy_set_header Host $host;
-        proxy_read_timeout 86400s;
-    }
-}
 ```
 
-**Caddy:**
+Caddy example:
 
 ```caddyfile
 opencode.example.com {
@@ -236,64 +253,44 @@ preview.example.com {
 }
 ```
 
-> **Important**: SSE requires buffering to be disabled. Nginx needs `proxy_buffering off`, Caddy needs `flush_interval -1`.
+## Automation Workflows
 
-## Local Development
+This repository currently includes the following GitHub Actions workflows:
 
-Requires a running [OpenCode](https://github.com/anomalyco/opencode) backend.
+| Workflow | Trigger | Purpose |
+|----------|---------|---------|
+| `CI` | `push` / `pull_request` on `master` | Runs `npm ci`, `npm run lint`, and `npm run build` |
+| `Build & Push * Docker Image` | Relevant file changes on `master` | Publishes frontend, gateway, and backend images to GHCR |
+| `Release` | `v*` tags | Builds desktop and Android packages and publishes a GitHub Release |
 
-```bash
-opencode serve
+This lets the repository act as:
 
-# In another terminal
-git clone https://github.com/lehhair/OpenCodeUI.git
-cd OpenCodeUI
-npm install
-npm run dev
-```
-
-Vite starts at `http://localhost:5173`, `/api` is automatically proxied to `http://127.0.0.1:4096`.
-
-## Desktop App
-
-Download the installer from [Releases](https://github.com/lehhair/OpenCodeUI/releases), or build locally:
-
-```bash
-npm install
-npm run build:macos
-```
-
-The macOS build artifacts are generated in:
-
-- `.app`: `src-tauri/target/release/bundle/macos/`
-
-For local use, you can simply drag the `.app` into `Applications`.
+- the source repo for the web UI
+- the image source for Docker deployments
+- the release source for Tauri desktop and Android builds
 
 ## Project Structure
 
-```
+```text
 src/
-├── api/                 # API request wrappers
-├── components/          # Common components (Terminal, DiffView, etc.)
-├── features/            # Business modules
-│   ├── chat/            #   Chat interface
-│   ├── message/         #   Message rendering
-│   ├── sessions/        #   Session management
-│   ├── settings/        #   Settings panel
-│   ├── mention/         #   @ mentions
-│   └── slash-command/   #   Slash commands
-├── hooks/               # Custom Hooks
+├── api/                 # API wrappers
+├── components/          # Shared UI pieces (Terminal, Diff, Dialog, etc.)
+├── features/            # Feature modules (chat / sessions / settings / mention / slash-command)
+├── hooks/               # Custom hooks
 ├── store/               # State management
-├── themes/              # Theme presets
-└── utils/               # Utility functions
+├── themes/              # Themes and custom styling
+└── utils/               # Utilities
 
-src-tauri/               # Tauri desktop app (Rust)
-docker/                  # Docker config (Gateway / Frontend / Backend)
+src-tauri/               # Tauri desktop app project
+docker/                  # Docker / gateway / router config
+.github/workflows/       # CI, Docker, and Release automation
 ```
 
-## Design Notes
+## Upstream and Credits
 
-Some UI styles are inspired by the [Claude](https://claude.ai) interface design.
+- Original UI project: [`lehhair/OpenCodeUI`](https://github.com/lehhair/OpenCodeUI)
+- Backend project: [`anomalyco/opencode`](https://github.com/anomalyco/opencode)
+- This fork continues the original direction while emphasizing desktop support, mobile UX, session workflows, and deployment ergonomics
 
 ## License
 
@@ -301,14 +298,14 @@ Some UI styles are inspired by the [Claude](https://claude.ai) interface design.
 
 ## Star History
 
-<a href="https://www.star-history.com/#lehhair/OpenCodeUI&Date">
- <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=lehhair/OpenCodeUI&type=Date&theme=dark" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=lehhair/OpenCodeUI&type=Date" />
-   <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=lehhair/OpenCodeUI&type=Date" />
- </picture>
+<a href="https://www.star-history.com/#barryoo/OpenCodeUI&Date">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=barryoo/OpenCodeUI&type=Date&theme=dark" />
+    <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=barryoo/OpenCodeUI&type=Date" />
+    <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=barryoo/OpenCodeUI&type=Date" />
+  </picture>
 </a>
 
 ---
 
-*This project is driven by Vibe Coding. If you're also interested in AI-assisted programming, feel free to connect.*
+Contributions are welcome for additional screenshots, comparison notes, deployment FAQs, and real-world usage examples.
