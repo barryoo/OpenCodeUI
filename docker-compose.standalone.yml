@@ -12,7 +12,7 @@
 
 services:
   frontend:
-    image: ghcr.io/lehhair/opencodeui-frontend:latest
+    image: ghcr.io/barryoo/opencodeui-frontend:latest
     container_name: opencodeui
     restart: unless-stopped
     ports:
