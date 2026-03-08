@@ -17,8 +17,17 @@ const STORAGE_KEY_PREFERRED_EDITOR = 'opencode:preferred-editor'
 const DEFAULT_EDITOR_ID = 'vscode'
 const COMMON_FILE_NAMES = new Set(['readme', 'license', 'dockerfile', 'makefile'])
 const TRAILING_HTTP_PUNCTUATION = new Set([',', '.', ';', ')', '!', '?', '，', '。', '；', '！', '？', '）', '】', '》'])
+const BROWSER_EDITOR_FOLLOWUP_DELAY_MS = 450
 
 type DesktopOs = 'macos' | 'windows' | 'linux' | 'unknown'
+type FileReferenceKind = 'file' | 'directory'
+
+interface FileReference {
+  filePath: string
+  line?: number
+  column?: number
+  kind: FileReferenceKind
+}
 
 const EDITOR_OPEN_WITH_BY_OS: Record<DesktopOs, Partial<Record<string, string>>> = {
   macos: {
@@ -110,33 +119,77 @@ function toEditorQueryPath(path: string): string {
   return encodeURIComponent(withLeadingSlash)
 }
 
-function getEditorSchemeUrl(editorId: string, path: string): string | null {
+function getEditorSchemeUrl(editorId: string, path: string, location?: Pick<FileReference, 'line' | 'column'>): string | null {
   const schemePath = toEditorSchemePath(path)
   const queryPath = toEditorQueryPath(path)
+  const lineSuffix = buildSchemeLineSuffix(editorId, location)
+  const querySuffix = buildQueryLineSuffix(editorId, location)
 
   switch (editorId) {
     case 'vscode':
-      return `vscode://file${schemePath}`
+      return `vscode://file${schemePath}${lineSuffix}`
     case 'zed':
-      return `zed://file${schemePath}`
+      return `zed://file${schemePath}${lineSuffix}`
     case 'cursor':
-      return `cursor://file${schemePath}`
+      return `cursor://file${schemePath}${lineSuffix}`
     case 'intellij-idea':
-      return `idea://open?file=${queryPath}`
+      return `idea://open?file=${queryPath}${querySuffix}`
     case 'windsurf':
-      return `windsurf://file${schemePath}`
+      return `windsurf://file${schemePath}${lineSuffix}`
     case 'vscode-insiders':
-      return `vscode-insiders://file${schemePath}`
+      return `vscode-insiders://file${schemePath}${lineSuffix}`
     case 'vscodium':
-      return `vscodium://file${schemePath}`
+      return `vscodium://file${schemePath}${lineSuffix}`
     case 'webstorm':
-      return `webstorm://open?file=${queryPath}`
+      return `webstorm://open?file=${queryPath}${querySuffix}`
     case 'pycharm':
-      return `pycharm://open?file=${queryPath}`
+      return `pycharm://open?file=${queryPath}${querySuffix}`
     case 'sublime-text':
-      return `subl://open?url=file://${queryPath}`
+      return `subl://open?url=file://${queryPath}${querySuffix ? `&${querySuffix.slice(1)}` : ''}`
     default:
       return null
+  }
+}
+
+function buildSchemeLineSuffix(
+  editorId: string,
+  location?: Pick<FileReference, 'line' | 'column'>,
+): string {
+  const line = toPositiveInteger(location?.line)
+  if (!line) return ''
+
+  switch (editorId) {
+    case 'vscode':
+    case 'zed':
+    case 'cursor':
+    case 'windsurf':
+    case 'vscode-insiders':
+    case 'vscodium': {
+      const column = toPositiveInteger(location?.column)
+      return column ? `:${line}:${column}` : `:${line}`
+    }
+    default:
+      return ''
+  }
+}
+
+function buildQueryLineSuffix(
+  editorId: string,
+  location?: Pick<FileReference, 'line' | 'column'>,
+): string {
+  const line = toPositiveInteger(location?.line)
+  if (!line) return ''
+
+  switch (editorId) {
+    case 'intellij-idea':
+    case 'webstorm':
+    case 'pycharm':
+    case 'sublime-text': {
+      const column = toPositiveInteger(location?.column)
+      return column ? `&line=${line}&column=${column}` : `&line=${line}`
+    }
+    default:
+      return ''
   }
 }
 
@@ -163,20 +216,84 @@ function sanitizeFileReference(text: string): string {
     value = value.slice(1, -1).trim()
   }
 
-  value = value.replace(/#L\d+(?:C\d+)?$/i, '')
   value = value.replace(/[),.;]+$/, '')
 
-  const isWindowsDrivePath = /^[a-zA-Z]:[\\/]/.test(value)
-  const strippedLocation = value.replace(/:\d+(?::\d+)?$/, '')
-  if (isWindowsDrivePath) {
-    if (strippedLocation.indexOf(':') === 1) {
-      value = strippedLocation
-    }
-  } else {
-    value = strippedLocation
+  return value
+}
+
+function toPositiveInteger(value: unknown): number | undefined {
+  if (typeof value !== 'number' || !Number.isInteger(value) || value <= 0) return undefined
+  return value
+}
+
+function inferFileReferenceKind(filePath: string, hasLocation: boolean): FileReferenceKind {
+  if (hasLocation) return 'file'
+  if (/[\\/]$/.test(filePath)) return 'directory'
+
+  const normalized = normalizePath(filePath).replace(/[\\/]+$/, '')
+  const basename = normalized.split('/').filter(Boolean).pop() || normalized
+  if (COMMON_FILE_NAMES.has(basename.toLowerCase())) return 'file'
+
+  return /^(?:\.[\w.-]+|[\w.-]+)\.[A-Za-z][A-Za-z0-9_-]{0,14}$/.test(basename) ? 'file' : 'directory'
+}
+
+function getParentDirectory(path: string): string | undefined {
+  const normalized = normalizePath(path).replace(/\/+$/, '')
+  if (!normalized) return undefined
+  if (normalized === '/') return '/'
+  if (/^[a-zA-Z]:\/$/.test(normalized)) return normalized
+
+  const lastSlash = normalized.lastIndexOf('/')
+  if (lastSlash < 0) return undefined
+  if (lastSlash === 0) return '/'
+  if (/^[a-zA-Z]:\/[^/]+$/.test(normalized)) return normalized.slice(0, 3)
+
+  return normalized.slice(0, lastSlash)
+}
+
+function resolveWorkspacePath(
+  targetPath: string,
+  currentDirectory: string | undefined,
+  kind: FileReferenceKind,
+): string | undefined {
+  if (kind === 'directory') return targetPath
+  return currentDirectory || getParentDirectory(targetPath)
+}
+
+function canUseWorkspaceFirstOpen(editorId: string): boolean {
+  return editorId === 'vscode' || editorId === 'zed'
+}
+
+function openBrowserEditorUrl(editorId: string, targetPath: string, fileReference: FileReference, currentDirectory: string | undefined): void {
+  const location = {
+    line: toPositiveInteger(fileReference.line),
+    column: toPositiveInteger(fileReference.column),
+  }
+  const targetUrl = getEditorSchemeUrl(editorId, targetPath, location)
+  if (!targetUrl) {
+    throw new Error(`Unsupported editor: ${editorId}`)
   }
 
-  return value
+  const workspacePath = resolveWorkspacePath(targetPath, currentDirectory, fileReference.kind)
+  const shouldOpenWorkspaceFirst =
+    fileReference.kind === 'file'
+    && canUseWorkspaceFirstOpen(editorId)
+    && workspacePath
+    && workspacePath !== targetPath
+
+  if (!shouldOpenWorkspaceFirst) {
+    openSchemeUrl(targetUrl)
+    return
+  }
+
+  const workspaceUrl = getEditorSchemeUrl(editorId, workspacePath)
+  if (!workspaceUrl) {
+    openSchemeUrl(targetUrl)
+    return
+  }
+
+  openSchemeUrl(workspaceUrl)
+  window.setTimeout(() => openSchemeUrl(targetUrl), BROWSER_EDITOR_FOLLOWUP_DELAY_MS)
 }
 
 function stripTrailingHttpPunctuation(value: string): { value: string; trailing: string } {
@@ -218,10 +335,41 @@ function isLikelyFilePath(value: string): boolean {
   return /^(?:\.[\w.-]+|[\w.-]+)\.[A-Za-z][A-Za-z0-9_-]{0,14}$/.test(value)
 }
 
-function extractFilePathFromInlineCode(text: string): string | null {
-  const candidate = sanitizeFileReference(text)
-  if (!isLikelyFilePath(candidate)) return null
-  return candidate
+function extractFileReferenceFromInlineCode(text: string): FileReference | null {
+  const sanitized = sanitizeFileReference(text)
+  if (!sanitized) return null
+
+  const hashMatch = sanitized.match(/^(.*)#L(\d+)(?:C(\d+))?$/i)
+  if (hashMatch) {
+    const filePath = hashMatch[1]
+    if (!isLikelyFilePath(filePath)) return null
+
+    return {
+      filePath,
+      line: toPositiveInteger(Number(hashMatch[2])),
+      column: toPositiveInteger(hashMatch[3] ? Number(hashMatch[3]) : undefined),
+      kind: inferFileReferenceKind(filePath, true),
+    }
+  }
+
+  const colonMatch = sanitized.match(/^(.*):(\d+)(?::(\d+))?$/)
+  if (colonMatch) {
+    const filePath = colonMatch[1]
+    if (!isLikelyFilePath(filePath)) return null
+
+    return {
+      filePath,
+      line: toPositiveInteger(Number(colonMatch[2])),
+      column: toPositiveInteger(colonMatch[3] ? Number(colonMatch[3]) : undefined),
+      kind: inferFileReferenceKind(filePath, true),
+    }
+  }
+
+  if (!isLikelyFilePath(sanitized)) return null
+  return {
+    filePath: sanitized,
+    kind: inferFileReferenceKind(sanitized, false),
+  }
 }
 
 function extractHttpUrlFromInlineCode(text: string): string | null {
@@ -256,34 +404,63 @@ function isHttpUrl(href: string | undefined): href is string {
   return typeof href === 'string' && /^https?:\/\//i.test(href)
 }
 
-async function openFileInPreferredEditor(filePath: string, currentDirectory: string | undefined): Promise<void> {
+async function openFileInPreferredEditor(fileReference: FileReference, currentDirectory: string | undefined): Promise<void> {
   const preferredEditorId = readPreferredEditorId()
-  const targetPath = resolvePathForOpen(filePath, currentDirectory)
+  const targetPath = resolvePathForOpen(fileReference.filePath, currentDirectory)
+  const location = {
+    line: toPositiveInteger(fileReference.line),
+    column: toPositiveInteger(fileReference.column),
+  }
+  const workspacePath = resolveWorkspacePath(targetPath, currentDirectory, fileReference.kind)
 
   if (isTauri()) {
-    const { invoke } = await import('@tauri-apps/api/core')
-    const openWith = getEditorOpenWith(preferredEditorId)
-
-    if (openWith) {
+    if (canUseWorkspaceFirstOpen(preferredEditorId) && workspacePath) {
       try {
-        await invoke('open_path', { path: targetPath, appName: openWith })
+        const { invoke } = await import('@tauri-apps/api/core')
+        await invoke('open_in_editor', {
+          args: {
+            editorId: preferredEditorId,
+            workspacePath,
+            targetPath,
+            line: location.line ?? null,
+            column: location.column ?? null,
+            targetIsDirectory: fileReference.kind === 'directory',
+          },
+        })
         return
       } catch {
-        // fallback to system default app
+        // fallback to URL scheme or direct path open below
       }
     }
 
-    await invoke('open_path', { path: targetPath, appName: null })
+    const editorUrl = getEditorSchemeUrl(preferredEditorId, targetPath, location)
+    if (editorUrl) {
+      try {
+        const { openUrl } = await import('@tauri-apps/plugin-opener')
+        await openUrl(editorUrl)
+        return
+      } catch {
+        // fallback to direct path open below
+      }
+    }
+
+    const { invoke } = await import('@tauri-apps/api/core')
+    const openWith = getEditorOpenWith(preferredEditorId)
+    await invoke('open_path', { path: targetPath, appName: openWith ?? null })
     return
   }
 
-  const editorUrl = getEditorSchemeUrl(preferredEditorId, targetPath) || getEditorSchemeUrl(DEFAULT_EDITOR_ID, targetPath)
-  if (!editorUrl) {
-    throw new Error(`Unsupported editor: ${preferredEditorId}`)
+  if (getEditorSchemeUrl(preferredEditorId, targetPath, location)) {
+    openBrowserEditorUrl(preferredEditorId, targetPath, fileReference, currentDirectory)
+    return
   }
 
-  openSchemeUrl(editorUrl)
+  if (preferredEditorId !== DEFAULT_EDITOR_ID && getEditorSchemeUrl(DEFAULT_EDITOR_ID, targetPath, location)) {
+    openBrowserEditorUrl(DEFAULT_EDITOR_ID, targetPath, fileReference, currentDirectory)
+    return
+  }
 
+  throw new Error(`Unsupported editor: ${preferredEditorId}`)
 }
 
 async function openHttpLinkInBrowser(href: string): Promise<void> {
@@ -339,8 +516,8 @@ export const MarkdownRenderer = memo(function MarkdownRenderer({
 }: MarkdownRendererProps) {
   const currentDirectory = useCurrentDirectory()
 
-  const handleOpenFilePath = useCallback((filePath: string) => {
-    void openFileInPreferredEditor(filePath, currentDirectory).catch(error => {
+  const handleOpenFilePath = useCallback((fileReference: FileReference) => {
+    void openFileInPreferredEditor(fileReference, currentDirectory).catch(error => {
       uiErrorHandler('open file path from message', error)
     })
   }, [currentDirectory])
@@ -354,10 +531,10 @@ export const MarkdownRenderer = memo(function MarkdownRenderer({
   const components = useMemo(() => ({
     code({ children, className: codeClassName }: { children?: React.ReactNode; className?: string }) {
       const codeText = extractText(children)
-      const filePath = !codeClassName ? extractFilePathFromInlineCode(codeText) : null
+      const fileReference = !codeClassName ? extractFileReferenceFromInlineCode(codeText) : null
       const inlineHttpUrl = extractHttpUrlFromInlineCode(codeText)
 
-      if (filePath) {
+      if (fileReference) {
         return (
           <button
             type="button"
@@ -365,10 +542,10 @@ export const MarkdownRenderer = memo(function MarkdownRenderer({
               if (!event.metaKey) return
               event.preventDefault()
               event.stopPropagation()
-              handleOpenFilePath(filePath)
+              handleOpenFilePath(fileReference)
             }}
             className="inline-flex max-w-full align-baseline bg-transparent p-0 border-0 text-left"
-            title={`Cmd+Click to open ${filePath}`}
+            title={`Cmd+Click to open ${codeText}`}
           >
             <code className={`${INLINE_CODE_CLASS} cursor-pointer hover:underline underline-offset-2`}>
               {children}

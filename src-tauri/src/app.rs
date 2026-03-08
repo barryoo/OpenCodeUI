@@ -18,6 +18,8 @@ use tauri_plugin_decorum::WebviewWindowExt;
 
 // Desktop-only imports for service management
 #[cfg(not(target_os = "android"))]
+use std::io::ErrorKind;
+#[cfg(not(target_os = "android"))]
 use std::process::{Command, Stdio};
 #[cfg(not(target_os = "android"))]
 use std::sync::atomic::AtomicBool;
@@ -268,6 +270,127 @@ fn open_path(path: String, app_name: Option<String>) -> Result<(), String> {
     {
         tauri_plugin_opener::open_path(path, app_name.as_deref())
             .map_err(|e| format!("Failed to open path: {}", e))
+    }
+}
+
+#[cfg(not(target_os = "android"))]
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct OpenInEditorArgs {
+    editor_id: String,
+    workspace_path: Option<String>,
+    target_path: String,
+    line: Option<u32>,
+    column: Option<u32>,
+    target_is_directory: bool,
+}
+
+#[cfg(not(target_os = "android"))]
+fn format_editor_target_path(target_path: &str, line: Option<u32>, column: Option<u32>) -> String {
+    match (line, column) {
+        (Some(line), Some(column)) => format!("{}:{}:{}", target_path, line, column),
+        (Some(line), None) => format!("{}:{}", target_path, line),
+        _ => target_path.to_string(),
+    }
+}
+
+#[cfg(not(target_os = "android"))]
+fn editor_binary_candidates(editor_id: &str) -> Vec<String> {
+    let mut candidates = match editor_id {
+        "vscode" => vec!["code".to_string()],
+        "zed" => vec!["zed".to_string()],
+        _ => Vec::new(),
+    };
+
+    #[cfg(target_os = "macos")]
+    match editor_id {
+        "vscode" => candidates.push(
+            "/Applications/Visual Studio Code.app/Contents/Resources/app/bin/code".to_string(),
+        ),
+        "zed" => candidates.push("/Applications/Zed.app/Contents/MacOS/cli".to_string()),
+        _ => {}
+    }
+
+    candidates
+}
+
+#[cfg(not(target_os = "android"))]
+fn spawn_editor_process(editor_id: &str, args: &[String]) -> Result<(), String> {
+    let candidates = editor_binary_candidates(editor_id);
+    if candidates.is_empty() {
+        return Err(format!("Unsupported editor: {}", editor_id));
+    }
+
+    let mut errors = Vec::new();
+
+    for binary in candidates {
+        let mut command = Command::new(&binary);
+        command
+            .args(args)
+            .stdin(Stdio::null())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null());
+
+        match command.spawn() {
+            Ok(_) => return Ok(()),
+            Err(error) if error.kind() == ErrorKind::NotFound => {
+                errors.push(format!("{} not found", binary));
+            }
+            Err(error) => {
+                errors.push(format!("{}: {}", binary, error));
+            }
+        }
+    }
+
+    Err(format!(
+        "Failed to launch {}: {}",
+        editor_id,
+        errors.join("; ")
+    ))
+}
+
+#[cfg(not(target_os = "android"))]
+#[tauri::command]
+fn open_in_editor(args: OpenInEditorArgs) -> Result<(), String> {
+    match args.editor_id.as_str() {
+        "vscode" => {
+            let mut command_args = vec!["--new-window".to_string()];
+
+            if args.target_is_directory {
+                command_args.push(args.workspace_path.unwrap_or(args.target_path));
+            } else {
+                if let Some(workspace_path) = args.workspace_path.filter(|path| !path.is_empty()) {
+                    command_args.push(workspace_path);
+                }
+                command_args.push("--goto".to_string());
+                command_args.push(format_editor_target_path(
+                    &args.target_path,
+                    args.line,
+                    args.column,
+                ));
+            }
+
+            spawn_editor_process("vscode", &command_args)
+        }
+        "zed" => {
+            let mut command_args = vec!["--new".to_string()];
+
+            if args.target_is_directory {
+                command_args.push(args.workspace_path.unwrap_or(args.target_path));
+            } else {
+                if let Some(workspace_path) = args.workspace_path.filter(|path| !path.is_empty()) {
+                    command_args.push(workspace_path);
+                }
+                command_args.push(format_editor_target_path(
+                    &args.target_path,
+                    args.line,
+                    args.column,
+                ));
+            }
+
+            spawn_editor_process("zed", &command_args)
+        }
+        _ => Err(format!("Unsupported editor: {}", args.editor_id)),
     }
 }
 
@@ -611,6 +734,7 @@ pub fn run() {
             sse_connect,
             sse_disconnect,
             open_path,
+            open_in_editor,
             get_cli_directory,
             service::check_opencode_service,
             service::start_opencode_service,
