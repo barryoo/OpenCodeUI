@@ -92,21 +92,21 @@ type NeutralThemeColors = Omit<ThemeColors, 'accent'>
 
 const neutralLight: NeutralThemeColors = {
   background: {
-    bg050: '158 18% 99%',
-    bg000: '160 14% 97%',
-    bg100: '165 10% 94%',
-    bg200: '170 8% 90%',
-    bg300: '174 8% 84%',
-    bg400: '178 8% 77%',
+    bg050: '0 0% 100%',
+    bg000: '0 0% 100%',
+    bg100: '0 0% 97%',
+    bg200: '0 0% 95%',
+    bg300: '0 0% 90%',
+    bg400: '0 0% 84%',
   },
   text: {
     text000: '0 0% 100%',
-    text100: '174 22% 14%',
-    text200: '176 16% 24%',
-    text300: '178 12% 36%',
-    text400: '180 10% 48%',
-    text500: '182 9% 60%',
-    text600: '184 8% 72%',
+    text100: '220 10% 12%',
+    text200: '220 8% 22%',
+    text300: '220 6% 34%',
+    text400: '220 5% 46%',
+    text500: '220 5% 58%',
+    text600: '220 6% 72%',
   },
   semantic: {
     success100: '146 65% 38%',
@@ -125,9 +125,9 @@ const neutralLight: NeutralThemeColors = {
     infoBg: '208 78% 92%',
   },
   border: {
-    border100: '170 12% 82%',
-    border200: '172 10% 76%',
-    border300: '174 9% 68%',
+    border100: '220 8% 88%',
+    border200: '220 7% 82%',
+    border300: '220 6% 72%',
   },
   special: {
     alwaysBlack: '0 0% 0%',

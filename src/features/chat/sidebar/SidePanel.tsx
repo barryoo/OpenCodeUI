@@ -292,7 +292,7 @@ export function SidePanel({
 
   // 统一的结构，通过 CSS 控制显示/隐藏
   return (
-    <div className="flex flex-col h-full overflow-hidden">
+    <div className="flex flex-col h-full overflow-hidden" style={{ backgroundColor: '#F8F8F8' }}>
       {/* ===== Header ===== */}
       {customTauriWindowMode ? (
         showLabels ? (
@@ -305,7 +305,7 @@ export function SidePanel({
               <button
                 onClick={onAddProject}
                 aria-label="Add project"
-                className="h-8 w-8 mr-1 flex items-center justify-center rounded-lg text-text-400 hover:text-text-100 hover:bg-bg-200 active:scale-[0.98] transition-all duration-200"
+                className="h-8 w-8 mr-1 flex items-center justify-center rounded-lg text-text-400 hover:text-text-100 hover:bg-[#E7E7E7] active:scale-[0.98] transition-all duration-200"
                 title="Add project"
               >
                 <FolderIcon size={16} />
@@ -313,7 +313,7 @@ export function SidePanel({
               <button
                 onClick={() => onNewSession(currentDirectory)}
                 aria-label="New session"
-                className="h-8 w-8 mr-1 flex items-center justify-center rounded-lg text-text-400 hover:text-text-100 hover:bg-bg-200 active:scale-[0.98] transition-all duration-200"
+                className="h-8 w-8 mr-1 flex items-center justify-center rounded-lg text-text-400 hover:text-text-100 hover:bg-[#E7E7E7] active:scale-[0.98] transition-all duration-200"
                 title="New chat"
               >
                 <ComposeIcon size={16} />
@@ -321,7 +321,7 @@ export function SidePanel({
               <button
                 onClick={onToggleSidebar}
                 aria-label={isExpanded ? 'Collapse sidebar' : 'Expand sidebar'}
-                className="h-8 w-8 flex items-center justify-center rounded-lg text-text-400 hover:text-text-100 hover:bg-bg-200 active:scale-[0.98] transition-all duration-200"
+                className="h-8 w-8 flex items-center justify-center rounded-lg text-text-400 hover:text-text-100 hover:bg-[#E7E7E7] active:scale-[0.98] transition-all duration-200"
               >
                 <SidebarIcon size={18} />
               </button>
@@ -340,7 +340,7 @@ export function SidePanel({
               <button
                 onClick={onAddProject}
                 aria-label="Add project"
-                className="h-8 w-8 mr-1 flex items-center justify-center rounded-lg text-text-400 hover:text-text-100 hover:bg-bg-200 active:scale-[0.98] transition-all duration-200"
+                className="h-8 w-8 mr-1 flex items-center justify-center rounded-lg text-text-400 hover:text-text-100 hover:bg-[#E7E7E7] active:scale-[0.98] transition-all duration-200"
                 title="Add project"
               >
                 <FolderIcon size={16} />
@@ -348,7 +348,7 @@ export function SidePanel({
               <button
                 onClick={() => onNewSession(currentDirectory)}
                 aria-label="New session"
-                className="h-8 w-8 mr-1 flex items-center justify-center rounded-lg text-text-400 hover:text-text-100 hover:bg-bg-200 active:scale-[0.98] transition-all duration-200"
+                className="h-8 w-8 mr-1 flex items-center justify-center rounded-lg text-text-400 hover:text-text-100 hover:bg-[#E7E7E7] active:scale-[0.98] transition-all duration-200"
                 title="New chat"
               >
                 <ComposeIcon size={16} />
@@ -356,7 +356,7 @@ export function SidePanel({
               <button
                 onClick={onToggleSidebar}
                 aria-label={isExpanded ? 'Collapse sidebar' : 'Expand sidebar'}
-                className="h-8 w-8 flex items-center justify-center rounded-lg text-text-400 hover:text-text-100 hover:bg-bg-200 active:scale-[0.98] transition-all duration-200"
+                className="h-8 w-8 flex items-center justify-center rounded-lg text-text-400 hover:text-text-100 hover:bg-[#E7E7E7] active:scale-[0.98] transition-all duration-200"
               >
                 <SidebarIcon size={18} />
               </button>
@@ -390,7 +390,7 @@ export function SidePanel({
               <button
                 onClick={onAddProject}
                 aria-label="Add project"
-                className="h-8 w-8 mr-1 flex items-center justify-center rounded-lg text-text-400 hover:text-text-100 hover:bg-bg-200 active:scale-[0.98] transition-all duration-200"
+                className="h-8 w-8 mr-1 flex items-center justify-center rounded-lg text-text-400 hover:text-text-100 hover:bg-[#E7E7E7] active:scale-[0.98] transition-all duration-200"
                 title="Add project"
               >
                 <FolderIcon size={16} />
@@ -400,7 +400,7 @@ export function SidePanel({
               <button
                 onClick={() => onNewSession(currentDirectory)}
                 aria-label="New session"
-                className="h-8 w-8 mr-1 flex items-center justify-center rounded-lg text-text-400 hover:text-text-100 hover:bg-bg-200 active:scale-[0.98] transition-all duration-200"
+                className="h-8 w-8 mr-1 flex items-center justify-center rounded-lg text-text-400 hover:text-text-100 hover:bg-[#E7E7E7] active:scale-[0.98] transition-all duration-200"
                 title="New chat"
               >
                 <ComposeIcon size={16} />
@@ -409,7 +409,7 @@ export function SidePanel({
             <button
               onClick={onToggleSidebar}
               aria-label={isExpanded ? 'Collapse sidebar' : 'Expand sidebar'}
-              className="h-8 w-8 flex items-center justify-center rounded-lg text-text-400 hover:text-text-100 hover:bg-bg-200 active:scale-[0.98] transition-all duration-200"
+              className="h-8 w-8 flex items-center justify-center rounded-lg text-text-400 hover:text-text-100 hover:bg-[#E7E7E7] active:scale-[0.98] transition-all duration-200"
             >
               <SidebarIcon size={18} />
             </button>
@@ -428,7 +428,7 @@ export function SidePanel({
         {/* New Chat - 图标始终在 padding-left: 6px 位置，收起时刚好居中 */}
         <button
           onClick={() => onNewSession()}
-          className="h-8 flex items-center rounded-lg text-text-300 hover:text-text-100 hover:bg-bg-200 active:scale-[0.98] transition-all duration-300 group overflow-hidden"
+          className="h-8 flex items-center rounded-lg text-text-300 hover:text-text-100 hover:bg-[#E7E7E7] active:scale-[0.98] transition-all duration-300 group overflow-hidden"
           style={{ 
             width: showLabels ? '100%' : 32,
             paddingLeft: 6,
@@ -458,7 +458,7 @@ export function SidePanel({
           <button
             onClick={() => setProjectsExpanded(!projectsExpanded)}
             className={`h-8 flex items-center rounded-lg active:scale-[0.98] transition-all duration-300 overflow-hidden ${
-              projectsExpanded ? 'bg-bg-200 text-text-100' : 'text-text-300 hover:text-text-100 hover:bg-bg-200'
+              projectsExpanded ? 'bg-[#E7E7E7] text-text-100' : 'text-text-300 hover:text-text-100 hover:bg-[#E7E7E7]'
             }`}
             style={{ paddingLeft: 6, paddingRight: 6 }}
             title={currentProject?.name || 'Global'}
@@ -506,7 +506,7 @@ export function SidePanel({
                       }
                     }}
                     className={`group w-full flex items-center gap-2 px-2 py-1.5 transition-colors cursor-pointer ${
-                      isActive ? 'bg-bg-200/60 text-text-100' : 'text-text-300 hover:text-text-100 hover:bg-bg-200/50'
+                      isActive ? 'bg-[#E7E7E7] text-text-100' : 'text-text-300 hover:text-text-100 hover:bg-[#E7E7E7]'
                     }`}
                     title={project.worktree}
                   >
@@ -543,7 +543,7 @@ export function SidePanel({
             <div className="border-t border-border-200/50 p-1">
               <button
                 onClick={onAddProject}
-                className="w-full flex items-center gap-2 px-2 py-1.5 rounded text-xs text-text-400 hover:text-text-100 hover:bg-bg-200/50 transition-colors"
+                className="w-full flex items-center gap-2 px-2 py-1.5 rounded text-xs text-text-400 hover:text-text-100 hover:bg-[#E7E7E7] transition-colors"
               >
                 <PlusIcon size={14} />
                 Add project...
@@ -570,7 +570,7 @@ export function SidePanel({
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search chats..."
-              className="w-full bg-bg-200/40 hover:bg-bg-200/60 focus:bg-bg-000 border border-transparent focus:border-border-200 rounded-lg py-1.5 pl-8 pr-8 text-xs text-text-100 placeholder:text-text-400/70 focus:outline-none transition-all"
+              className="w-full bg-[#F8F8F8] hover:bg-[#E7E7E7] focus:bg-[#FFFFFF] border border-transparent focus:border-border-200 rounded-lg py-1.5 pl-8 pr-8 text-xs text-text-100 placeholder:text-text-400/70 focus:outline-none transition-all"
             />
             {search && (
               <button
@@ -675,14 +675,14 @@ export function SidePanel({
                       <div className="flex items-center gap-0.5">
                         {notifications.some((n: NotificationEntry) => !n.read) && (
                           <button
-                            className="text-[10px] text-text-400 hover:text-text-200 px-1.5 py-0.5 rounded-md hover:bg-bg-200 transition-all duration-150 active:scale-95"
+                            className="text-[10px] text-text-400 hover:text-text-200 px-1.5 py-0.5 rounded-md hover:bg-[#E7E7E7] transition-all duration-150 active:scale-95"
                             onClick={() => notificationStore.markAllRead()}
                           >
                             Read all
                           </button>
                         )}
                         <button
-                          className="text-[10px] text-text-400 hover:text-text-200 px-1.5 py-0.5 rounded-md hover:bg-bg-200 transition-all duration-150 active:scale-95"
+                          className="text-[10px] text-text-400 hover:text-text-200 px-1.5 py-0.5 rounded-md hover:bg-[#E7E7E7] transition-all duration-150 active:scale-95"
                           onClick={() => notificationStore.clearAll()}
                         >
                           Clear
@@ -790,8 +790,8 @@ function ActiveSessionItem({ entry, resolvedSession, isSelected, onSelect }: Act
       className={`group relative flex items-center gap-2.5 px-3 py-2 rounded-lg cursor-pointer transition-all duration-200 border border-transparent ${
         isSelected
           ? 'bg-bg-000 shadow-sm ring-1 ring-border-200/50'
-          : 'hover:bg-bg-200/50'
-      } ${!resolvedSession ? 'opacity-50 cursor-default' : ''}`}
+          : 'hover:bg-[#E7E7E7]'
+       } ${!resolvedSession ? 'opacity-50 cursor-default' : ''}`}
     >
       {/* Status dot */}
       <span className="relative shrink-0 flex items-center justify-center w-4 h-4">
@@ -889,7 +889,7 @@ function NotificationItem({ entry, resolvedSession, onSelect }: NotificationItem
   return (
     <div
       onClick={handleClick}
-      className={`group relative flex items-center gap-2.5 px-3 py-2 rounded-lg cursor-pointer transition-all duration-200 border border-transparent hover:bg-bg-200/50 ${entry.read ? 'opacity-50' : ''}`}
+      className={`group relative flex items-center gap-2.5 px-3 py-2 rounded-lg cursor-pointer transition-all duration-200 border border-transparent hover:bg-[#E7E7E7] ${entry.read ? 'opacity-50' : ''}`}
     >
       {/* Status icon — matches toast style */}
       <div className={`shrink-0 flex items-center justify-center w-6 h-6 rounded-md ${config.bgAccent}`}>
@@ -930,7 +930,7 @@ function NotificationItem({ entry, resolvedSession, onSelect }: NotificationItem
           <span className="w-1.5 h-1.5 rounded-full bg-accent-main-100" />
         )}
         <button
-          className="p-0.5 rounded-md text-text-400 opacity-0 group-hover:opacity-100 hover:text-text-200 hover:bg-bg-200 transition-all duration-150 active:scale-90"
+          className="p-0.5 rounded-md text-text-400 opacity-0 group-hover:opacity-100 hover:text-text-200 hover:bg-[#E7E7E7] transition-all duration-150 active:scale-90"
           onClick={handleDismiss}
           aria-label="Dismiss"
         >
@@ -1177,7 +1177,7 @@ export function SidebarFooter({
               className="
                 shrink-0 h-6 px-2
                 rounded-md border border-border-200/60
-                bg-bg-200/70 hover:bg-bg-300
+                bg-[#E7E7E7] hover:bg-bg-300
                 text-[10px] font-medium text-text-200
                 transition-colors
               "
@@ -1201,7 +1201,7 @@ export function SidebarFooter({
       {/* Theme Selector */}
       <div className="p-2 border-b border-border-200/30">
         <div className="text-[10px] font-bold text-text-400 uppercase tracking-wider px-1 mb-1.5">Appearance</div>
-        <div className="flex bg-bg-200/50 p-1 rounded-lg border border-border-200/30 relative isolate">
+        <div className="flex bg-[#E7E7E7] p-1 rounded-lg border border-border-200/30 relative isolate">
           <div
             className="absolute top-1 bottom-1 left-1 w-[calc((100%-8px)/3)] bg-bg-000 rounded-md shadow-sm ring-1 ring-border-200/50 transition-transform duration-300 ease-out -z-10"
             style={{
@@ -1229,7 +1229,7 @@ export function SidebarFooter({
         {onToggleWideMode && (
           <button
             onClick={() => { onToggleWideMode(); closeMenu(); }}
-            className="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-text-300 hover:text-text-100 hover:bg-bg-200/50 transition-colors text-left"
+            className="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-text-300 hover:text-text-100 hover:bg-[#E7E7E7] transition-colors text-left"
           >
             {isWideMode ? <MinimizeIcon size={14} /> : <MaximizeIcon size={14} />}
             <span>{isWideMode ? 'Standard Width' : 'Wide Mode'}</span>
@@ -1238,7 +1238,7 @@ export function SidebarFooter({
 
         <button
           onClick={() => { closeMenu(); setShareDialogOpen(true); }}
-          className="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-text-300 hover:text-text-100 hover:bg-bg-200/50 transition-colors text-left"
+          className="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-text-300 hover:text-text-100 hover:bg-[#E7E7E7] transition-colors text-left"
         >
           <ShareIcon size={14} />
           <span>Share Chat</span>
@@ -1246,7 +1246,7 @@ export function SidebarFooter({
 
         <button
           onClick={() => { closeMenu(); onOpenSettings?.(); }}
-          className="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-text-300 hover:text-text-100 hover:bg-bg-200/50 transition-colors text-left"
+          className="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-text-300 hover:text-text-100 hover:bg-[#E7E7E7] transition-colors text-left"
         >
           <CogIcon size={14} />
           <span>Settings</span>
@@ -1272,13 +1272,13 @@ export function SidebarFooter({
           className={`
             h-8 flex items-center rounded-lg transition-all duration-300 group overflow-hidden
             ${isOpen 
-              ? 'bg-bg-200 text-text-100' 
-              : 'text-text-300 hover:text-text-100 hover:bg-bg-200'
+              ? 'bg-[#E7E7E7] text-text-100' 
+              : 'text-text-300 hover:text-text-100 hover:bg-[#E7E7E7]'
             }
           `}
           style={{ 
             width: showLabels ? '100%' : 32,
-            paddingLeft: showLabels ? 6 : 4, // 收起时为了对齐中心线(16px)，24px圆环需要4px padding (4+12=16)
+            paddingLeft: showLabels ? 6 : 4,
             paddingRight: showLabels ? 8 : 4,
           }}
           title={`Context: ${formatTokens(hasMessages ? stats.contextUsed : 0)} tokens • ${Math.round(stats.contextPercent)}% • ${formatCost(stats.totalCost)}`}

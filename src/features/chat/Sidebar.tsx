@@ -216,12 +216,13 @@ export const Sidebar = memo(function Sidebar({
           onTouchEnd={handleSidebarTouchEnd}
           className={`
             fixed left-0 z-40 
-            flex flex-col bg-bg-000 shadow-xl
+            flex flex-col shadow-xl
             ${isSwiping.current ? '' : 'transition-transform duration-300 ease-out'}
             ${isOpen ? 'translate-x-0' : '-translate-x-full'}
           `}
           style={{ 
             width: `${DEFAULT_WIDTH}px`,
+            backgroundColor: '#F8F8F8',
             transform: isOpen 
               ? `translateX(${Math.min(0, swipeX)}px)` 
               : `translateX(-100%)`,
@@ -264,12 +265,12 @@ export const Sidebar = memo(function Sidebar({
     <>
       <div 
         ref={sidebarRef}
-        style={{ width: isOpen ? `${width}px` : `${RAIL_WIDTH}px` }}
         className={`
-          relative flex flex-col h-full bg-bg-000 overflow-hidden shrink-0
+          relative flex flex-col h-full overflow-hidden shrink-0
           border-r border-border-200/50
           ${isResizing ? 'transition-none' : 'transition-[width] duration-300 ease-out'}
         `}
+        style={{ width: isOpen ? `${width}px` : `${RAIL_WIDTH}px`, backgroundColor: '#F8F8F8' }}
       >
         <ActiveSidePanel
           onNewSession={onNewSession}
