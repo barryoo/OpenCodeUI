@@ -29,6 +29,75 @@ function toRelativePath(absPath: string, cwd: string | undefined): string {
   return absPath
 }
 
+function isProbablyPath(value: string): boolean {
+  if (!value) return false
+  if (value.startsWith('file://')) return true
+  if (value.startsWith('/') || value.startsWith('./') || value.startsWith('../')) return true
+  if (/^[a-zA-Z]:[\\/]/.test(value)) return true
+  if (value.includes(' ')) return false
+  return value.includes('/') || value.includes('\\')
+}
+
+function formatPathLikeTitle(title: string, cwd: string | undefined): string {
+  const trimmed = title.trim()
+  if (!trimmed) return title
+  if (!isProbablyPath(trimmed)) return title
+
+  const normalized = trimmed.replace(/^file:\/\//i, '').replace(/\\/g, '/')
+  return toRelativePath(normalized, cwd)
+}
+
+function normalizePathForCompare(value: string): string {
+  return value
+    .replace(/^file:\/\//i, '')
+    .replace(/\\/g, '/')
+    .replace(/\/+?/g, '/')
+    .trim()
+}
+
+function titleIncludesPath(title: string, absPath?: string, relPath?: string): boolean {
+  if (!title) return false
+  const normalizedTitle = normalizePathForCompare(title)
+  if (!normalizedTitle) return false
+  const normalizedAbs = absPath ? normalizePathForCompare(absPath) : ''
+  const normalizedRel = relPath ? normalizePathForCompare(relPath) : ''
+  return (
+    (!!normalizedAbs && normalizedTitle.includes(normalizedAbs)) ||
+    (!!normalizedRel && normalizedTitle.includes(normalizedRel))
+  )
+}
+
+function replaceTitlePathWithRelative(title: string, absPath?: string, relPath?: string): string {
+  if (!title || !absPath || !relPath || absPath === relPath) return title
+  let result = title
+  const candidates = new Set<string>()
+  candidates.add(absPath)
+  const normalizedAbs = absPath.replace(/\\/g, '/')
+  if (normalizedAbs !== absPath) candidates.add(normalizedAbs)
+  if (absPath.startsWith('/')) {
+    candidates.add(`file://${absPath}`)
+    candidates.add(`file:///${absPath.slice(1)}`)
+  }
+  for (const candidate of candidates) {
+    if (candidate && result.includes(candidate)) {
+      result = result.split(candidate).join(relPath)
+    }
+  }
+  return result
+}
+
+function normalizeHeaderText(value?: string): string {
+  if (!value) return ''
+  return value.replace(/\s+/g, ' ').trim().toLowerCase()
+}
+
+function isDuplicateHeaderText(primary?: string, secondary?: string): boolean {
+  const left = normalizeHeaderText(primary)
+  const right = normalizeHeaderText(secondary)
+  if (!left || !right) return false
+  return left === right || left.includes(right) || right.includes(left)
+}
+
 // ============================================
 // ToolPartView - 单个工具调用
 // ============================================
@@ -67,9 +136,19 @@ export const ToolPartView = memo(function ToolPartView({ part, isFirst = false, 
 
   const { state, tool: toolName } = part
   const title = state.title || ''
+  const data = useMemo(() => extractToolData(part), [part])
+  const path = data.filePath || (data.files?.length === 1 ? data.files[0].filePath : undefined)
+  const relativePath = path ? toRelativePath(path, cwd) : undefined
   const isPatchTool = isPatchToolName(toolName)
   const displayToolName = isPatchTool ? 'Patch' : formatToolName(toolName)
-  const displayTitle = isPatchTool ? '' : title
+  const rawTitle = isPatchTool ? '' : title
+  const displayTitle = useMemo(() => {
+    if (!rawTitle) return ''
+    if (path && relativePath) {
+      return replaceTitlePathWithRelative(rawTitle, path, relativePath)
+    }
+    return formatPathLikeTitle(rawTitle, cwd)
+  }, [rawTitle, path, relativePath, cwd])
   
   const duration = state.time?.start && state.time?.end 
     ? state.time.end - state.time.start 
@@ -78,14 +157,20 @@ export const ToolPartView = memo(function ToolPartView({ part, isFirst = false, 
   const isActive = state.status === 'running' || state.status === 'pending'
   const isError = state.status === 'error'
 
+  const titleHasPath = useMemo(() => {
+    if (!displayTitle) return false
+    if (isProbablyPath(displayTitle)) return true
+    return titleIncludesPath(displayTitle, path, relativePath)
+  }, [displayTitle, path, relativePath])
   const headerMeta = useMemo(() => {
-    const data = extractToolData(part)
     const parts: string[] = []
-    const path = data.filePath || (data.files?.length === 1 ? data.files[0].filePath : undefined)
-    if (path) parts.push(toRelativePath(path, cwd))
-    if (data.subtitle) parts.push(data.subtitle)
+    if (relativePath && !titleHasPath) parts.push(relativePath)
+    const subtitle = data.subtitle
+    if (subtitle && !isDuplicateHeaderText(displayTitle, subtitle)) {
+      parts.push(subtitle)
+    }
     return parts.join('  ')
-  }, [part, cwd])
+  }, [relativePath, titleHasPath, data.subtitle, displayTitle])
 
   const toolIcon = (
     <div className={`
