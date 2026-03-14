@@ -705,7 +705,7 @@ export const ChatArea = memo(forwardRef<ChatAreaHandle, ChatAreaProps>(({
   const showSessionLoading = !!sessionId && loadState === 'loading' && visibleMessages.length === 0
 
   return (
-    <div className="h-full overflow-hidden contain-strict relative bg-[#FFFFFF]">
+    <div className="h-full overflow-hidden contain-strict relative bg-bg-000">
       {/* Session 加载中的全屏居中 spinner */}
       {showSessionLoading && (
         <div className="absolute inset-0 z-10 flex items-center justify-center">
@@ -733,7 +733,7 @@ export const ChatArea = memo(forwardRef<ChatAreaHandle, ChatAreaProps>(({
       )}
       <div 
         ref={setScrollParent} 
-        className="h-full overflow-y-auto custom-scrollbar animate-fade-in contain-content bg-[#FFFFFF]"
+        className="h-full overflow-y-auto custom-scrollbar animate-fade-in contain-content bg-bg-000"
       >
         {scrollParent && (
           <Virtuoso

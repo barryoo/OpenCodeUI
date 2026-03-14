@@ -222,7 +222,7 @@ export const Sidebar = memo(function Sidebar({
           `}
           style={{ 
             width: `${DEFAULT_WIDTH}px`,
-            backgroundColor: '#F8F8F8',
+            backgroundColor: 'var(--sidebar-bg)',
             transform: isOpen 
               ? `translateX(${Math.min(0, swipeX)}px)` 
               : `translateX(-100%)`,
@@ -270,7 +270,7 @@ export const Sidebar = memo(function Sidebar({
           border-r border-border-200/50
           ${isResizing ? 'transition-none' : 'transition-[width] duration-300 ease-out'}
         `}
-        style={{ width: isOpen ? `${width}px` : `${RAIL_WIDTH}px`, backgroundColor: '#F8F8F8' }}
+        style={{ width: isOpen ? `${width}px` : `${RAIL_WIDTH}px`, backgroundColor: 'var(--sidebar-bg)' }}
       >
         <ActiveSidePanel
           onNewSession={onNewSession}

@@ -16,6 +16,23 @@
   --safe-area-inset-left: env(safe-area-inset-left, 0px);
   --safe-area-inset-right: env(safe-area-inset-right, 0px);
   --keyboard-inset-bottom: 0px;
+
+  /* UI surfaces that must differ by mode (light vs dark) */
+  --sidebar-bg: #F8F8F8;
+  --sidebar-hover-bg: #E7E7E7;
+}
+
+:root[data-mode='dark'] {
+  --sidebar-bg: hsl(var(--bg-100));
+  --sidebar-hover-bg: hsl(var(--bg-050));
+}
+
+/* System dark mode (colorMode=system) */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-mode='light']) {
+    --sidebar-bg: hsl(var(--bg-100));
+    --sidebar-hover-bg: hsl(var(--bg-050));
+  }
 }
 
 /* 支持 dvh 的浏览器使用动态视口高度 */

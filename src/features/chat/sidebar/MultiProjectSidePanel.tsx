@@ -122,7 +122,7 @@ function ActionMenuItem({ label, icon, danger = false, onClick }: ActionMenuItem
       className={`w-full h-7 px-2 rounded-md flex items-center gap-2 text-[11px] transition-colors ${
         danger
           ? 'text-danger-100 hover:bg-danger-100/10'
-          : 'text-text-200 hover:text-text-100 hover:bg-[#E7E7E7]'
+          : 'text-text-200 hover:text-text-100 hover:bg-[var(--sidebar-hover-bg)]'
       }`}
     >
       <span className="text-text-400">{icon}</span>
@@ -1048,7 +1048,7 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
   }
 
   return (
-    <div className="flex flex-col h-full overflow-hidden" style={{ backgroundColor: '#F8F8F8' }}>
+    <div className="flex flex-col h-full overflow-hidden bg-[var(--sidebar-bg)]">
       {customTauriWindowMode ? (
         <div className="h-14 shrink-0 flex items-center gap-2 px-3 select-none" onMouseDown={handleHeaderMouseDown}>
           <div className="shrink-0">
@@ -1059,7 +1059,7 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
             <button
               onClick={onAddProject}
               aria-label="Add project"
-              className="h-8 w-8 mr-1 flex items-center justify-center rounded-lg text-text-400 hover:text-text-100 hover:bg-[#E7E7E7] active:scale-[0.98] transition-all duration-200"
+              className="h-8 w-8 mr-1 flex items-center justify-center rounded-lg text-text-400 hover:text-text-100 hover:bg-[var(--sidebar-hover-bg)] active:scale-[0.98] transition-all duration-200"
               title="Add project"
             >
               <FolderIcon size={16} />
@@ -1067,7 +1067,7 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
             <button
               onClick={() => onNewSession(currentDirectory)}
               aria-label="New session"
-              className="h-8 w-8 mr-1 flex items-center justify-center rounded-lg text-text-400 hover:text-text-100 hover:bg-[#E7E7E7] active:scale-[0.98] transition-all duration-200"
+              className="h-8 w-8 mr-1 flex items-center justify-center rounded-lg text-text-400 hover:text-text-100 hover:bg-[var(--sidebar-hover-bg)] active:scale-[0.98] transition-all duration-200"
               title="New chat"
             >
               <ComposeIcon size={16} />
@@ -1075,7 +1075,7 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
             <button
               onClick={onToggleSidebar}
               aria-label={isExpanded ? 'Collapse sidebar' : 'Expand sidebar'}
-              className="h-8 w-8 flex items-center justify-center rounded-lg text-text-400 hover:text-text-100 hover:bg-[#E7E7E7] active:scale-[0.98] transition-all duration-200"
+              className="h-8 w-8 flex items-center justify-center rounded-lg text-text-400 hover:text-text-100 hover:bg-[var(--sidebar-hover-bg)] active:scale-[0.98] transition-all duration-200"
             >
               <SidebarIcon size={18} />
             </button>
@@ -1088,7 +1088,7 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
             <button
               onClick={onAddProject}
               aria-label="Add project"
-              className="h-8 w-8 mr-1 flex items-center justify-center rounded-lg text-text-400 hover:text-text-100 hover:bg-[#E7E7E7] active:scale-[0.98] transition-all duration-200"
+              className="h-8 w-8 mr-1 flex items-center justify-center rounded-lg text-text-400 hover:text-text-100 hover:bg-[var(--sidebar-hover-bg)] active:scale-[0.98] transition-all duration-200"
               title="Add project"
             >
               <FolderIcon size={16} />
@@ -1096,7 +1096,7 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
             <button
               onClick={() => onNewSession(currentDirectory)}
               aria-label="New session"
-              className="h-8 w-8 mr-1 flex items-center justify-center rounded-lg text-text-400 hover:text-text-100 hover:bg-[#E7E7E7] active:scale-[0.98] transition-all duration-200"
+              className="h-8 w-8 mr-1 flex items-center justify-center rounded-lg text-text-400 hover:text-text-100 hover:bg-[var(--sidebar-hover-bg)] active:scale-[0.98] transition-all duration-200"
               title="New chat"
             >
               <ComposeIcon size={16} />
@@ -1104,7 +1104,7 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
             <button
               onClick={onToggleSidebar}
               aria-label={isExpanded ? 'Collapse sidebar' : 'Expand sidebar'}
-              className="h-8 w-8 flex items-center justify-center rounded-lg text-text-400 hover:text-text-100 hover:bg-[#E7E7E7] active:scale-[0.98] transition-all duration-200"
+              className="h-8 w-8 flex items-center justify-center rounded-lg text-text-400 hover:text-text-100 hover:bg-[var(--sidebar-hover-bg)] active:scale-[0.98] transition-all duration-200"
             >
               <SidebarIcon size={18} />
             </button>
@@ -1122,7 +1122,7 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
             <button
               onClick={onAddProject}
               aria-label="Add project"
-              className="h-8 w-8 mr-1 flex items-center justify-center rounded-lg text-text-400 hover:text-text-100 hover:bg-[#E7E7E7] active:scale-[0.98] transition-all duration-200"
+              className="h-8 w-8 mr-1 flex items-center justify-center rounded-lg text-text-400 hover:text-text-100 hover:bg-[var(--sidebar-hover-bg)] active:scale-[0.98] transition-all duration-200"
               title="Add project"
             >
               <FolderIcon size={16} />
@@ -1130,7 +1130,7 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
             <button
               onClick={() => onNewSession(currentDirectory)}
               aria-label="New session"
-              className="h-8 w-8 mr-1 flex items-center justify-center rounded-lg text-text-400 hover:text-text-100 hover:bg-[#E7E7E7] active:scale-[0.98] transition-all duration-200"
+              className="h-8 w-8 mr-1 flex items-center justify-center rounded-lg text-text-400 hover:text-text-100 hover:bg-[var(--sidebar-hover-bg)] active:scale-[0.98] transition-all duration-200"
               title="New chat"
             >
               <ComposeIcon size={16} />
@@ -1138,7 +1138,7 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
             <button
               onClick={onToggleSidebar}
               aria-label={isExpanded ? 'Collapse sidebar' : 'Expand sidebar'}
-              className="h-8 w-8 flex items-center justify-center rounded-lg text-text-400 hover:text-text-100 hover:bg-[#E7E7E7] active:scale-[0.98] transition-all duration-200"
+              className="h-8 w-8 flex items-center justify-center rounded-lg text-text-400 hover:text-text-100 hover:bg-[var(--sidebar-hover-bg)] active:scale-[0.98] transition-all duration-200"
             >
               <SidebarIcon size={18} />
             </button>
@@ -1195,8 +1195,8 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
                       onContextMenu={(e) => e.preventDefault()}
                       className={`w-full h-7 px-1.5 pr-12 rounded-md flex items-center gap-1.5 text-left transition-colors ${
                         isSelected
-                          ? 'bg-[#E7E7E7] text-text-100'
-                          : 'text-text-200 hover:text-text-100 hover:bg-[#E7E7E7]'
+                          ? 'bg-[var(--sidebar-hover-bg)] text-text-100'
+                          : 'text-text-200 hover:text-text-100 hover:bg-[var(--sidebar-hover-bg)]'
                       }`}
                       title={entry.title}
                     >
@@ -1248,7 +1248,7 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
                             event.stopPropagation()
                             handleToggleSessionMenu(pinnedProjectPath, entry.sessionId, 'pinned', event.currentTarget.getBoundingClientRect())
                           }}
-                          className={`absolute inset-0 rounded-md flex items-center justify-center text-text-400 hover:text-text-100 hover:bg-[#E7E7E7] transition-all duration-150 ${
+                          className={`absolute inset-0 rounded-md flex items-center justify-center text-text-400 hover:text-text-100 hover:bg-[var(--sidebar-hover-bg)] transition-all duration-150 ${
                             isSessionMenuOpen
                               ? 'opacity-100 pointer-events-auto'
                               : 'opacity-0 pointer-events-none group-hover/pinned:opacity-100 group-hover/pinned:pointer-events-auto'
@@ -1348,8 +1348,8 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
                       onContextMenu={(e) => e.preventDefault()}
                       className={`w-full h-7 px-1.5 pr-12 rounded-md flex items-center gap-1.5 text-left transition-colors ${
                         isSelected
-                          ? 'bg-[#E7E7E7] text-text-100'
-                          : 'text-text-200 hover:text-text-100 hover:bg-[#E7E7E7]'
+                          ? 'bg-[var(--sidebar-hover-bg)] text-text-100'
+                          : 'text-text-200 hover:text-text-100 hover:bg-[var(--sidebar-hover-bg)]'
                       }`}
                       title={session.title || 'Untitled Chat'}
                     >
@@ -1403,7 +1403,7 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
                             event.stopPropagation()
                             handleToggleSessionMenu(recentProjectPath, session.id, 'recent', event.currentTarget.getBoundingClientRect())
                           }}
-                          className={`absolute inset-0 rounded-md flex items-center justify-center text-text-400 hover:text-text-100 hover:bg-[#E7E7E7] transition-all duration-150 ${
+                          className={`absolute inset-0 rounded-md flex items-center justify-center text-text-400 hover:text-text-100 hover:bg-[var(--sidebar-hover-bg)] transition-all duration-150 ${
                             isSessionMenuOpen
                               ? 'opacity-100 pointer-events-auto'
                               : 'opacity-0 pointer-events-none group-hover/recent:opacity-100 group-hover/recent:pointer-events-auto'
@@ -1465,7 +1465,7 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
                 type="button"
                 onClick={handleLoadMoreRecent}
                 disabled={recentLoading}
-                className="ml-5 h-7 px-1.5 rounded-md text-[11px] text-text-500 hover:text-text-100 hover:bg-[#E7E7E7] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="ml-5 h-7 px-1.5 rounded-md text-[11px] text-text-500 hover:text-text-100 hover:bg-[var(--sidebar-hover-bg)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {recentLoading ? '加载中...' : '加载更多'}
               </button>
@@ -1512,8 +1512,8 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
                   <div
                     className={`group/project relative h-8 flex items-center rounded-md transition-colors ${
                       isCurrentProject
-                        ? 'bg-[#E7E7E7] text-text-100'
-                        : 'text-text-400 hover:text-text-100 hover:bg-[#E7E7E7]'
+                        ? 'bg-[var(--sidebar-hover-bg)] text-text-100'
+                        : 'text-text-400 hover:text-text-100 hover:bg-[var(--sidebar-hover-bg)]'
                     } ${isDropTarget ? 'ring-1 ring-accent-main-100/60' : ''} ${
                       draggingProjectPath === project.path ? 'opacity-70' : ''
                     }`}
@@ -1563,7 +1563,7 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
                           event.stopPropagation()
                           handleToggleProjectMenu(project.path, event.currentTarget.getBoundingClientRect())
                         }}
-                        className="h-5 w-5 rounded-md flex items-center justify-center text-text-400 hover:text-text-100 hover:bg-[#E7E7E7] transition-colors"
+                        className="h-5 w-5 rounded-md flex items-center justify-center text-text-400 hover:text-text-100 hover:bg-[var(--sidebar-hover-bg)] transition-colors"
                         title="项目菜单"
                       >
                         <MoreHorizontalIcon size={12} />
@@ -1575,7 +1575,7 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
                           event.stopPropagation()
                           handleCreateSessionInProject(project.path)
                         }}
-                        className="h-5 w-5 rounded-md flex items-center justify-center text-text-400 hover:text-text-100 hover:bg-[#E7E7E7] transition-colors"
+                        className="h-5 w-5 rounded-md flex items-center justify-center text-text-400 hover:text-text-100 hover:bg-[var(--sidebar-hover-bg)] transition-colors"
                         title="在此项目中创建会话"
                       >
                         <ComposeIcon size={12} />
@@ -1638,8 +1638,8 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
                                   onContextMenu={(e) => e.preventDefault()}
                                   className={`w-full h-7 px-1.5 pr-12 rounded-md flex items-center gap-1.5 text-left transition-colors ${
                                     isSelected
-                                      ? 'bg-[#E7E7E7] text-text-100'
-                                      : 'text-text-200 hover:text-text-100 hover:bg-[#E7E7E7]'
+                                      ? 'bg-[var(--sidebar-hover-bg)] text-text-100'
+                                      : 'text-text-200 hover:text-text-100 hover:bg-[var(--sidebar-hover-bg)]'
                                   }`}
                                   title={session.title || 'Untitled Chat'}
                                 >
@@ -1694,7 +1694,7 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
                                         event.stopPropagation()
                                         handleToggleSessionMenu(project.path, session.id, 'project', event.currentTarget.getBoundingClientRect())
                                       }}
-                                      className={`absolute inset-0 rounded-md flex items-center justify-center text-text-400 hover:text-text-100 hover:bg-[#E7E7E7] transition-all duration-150 ${
+                                      className={`absolute inset-0 rounded-md flex items-center justify-center text-text-400 hover:text-text-100 hover:bg-[var(--sidebar-hover-bg)] transition-all duration-150 ${
                                         isSessionMenuOpen
                                           ? 'opacity-100 pointer-events-auto'
                                           : 'opacity-0 pointer-events-none group-hover/session:opacity-100 group-hover/session:pointer-events-auto'
@@ -1755,7 +1755,7 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
                           <button
                             type="button"
                             onClick={() => handleLoadMore(project.path)}
-                            className="ml-5 h-7 px-1.5 rounded-md text-[11px] text-text-500 hover:text-text-100 hover:bg-[#E7E7E7] transition-colors"
+                            className="ml-5 h-7 px-1.5 rounded-md text-[11px] text-text-500 hover:text-text-100 hover:bg-[var(--sidebar-hover-bg)] transition-colors"
                           >
                             加载更多
                           </button>
