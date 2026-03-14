@@ -51,6 +51,13 @@ html, body, #root {
   background: hsl(var(--bg-200));
 }
 
+body.project-dragging,
+body.project-dragging * {
+  -webkit-user-select: none;
+  user-select: none;
+  cursor: grabbing;
+}
+
 /* PWA 全屏模式 / Tauri 原生 app 适配 - 只在 #root 上应用 safe area */
 @media (display-mode: standalone) {
   #root {
