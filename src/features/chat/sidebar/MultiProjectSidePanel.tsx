@@ -41,6 +41,18 @@ const DEFAULT_VISIBLE_COUNT = 3
 const DEFAULT_RECENT_VISIBLE_COUNT = 10
 const RECENT_WINDOW_MS = 24 * 60 * 60 * 1000
 const PINNED_SESSIONS_STORAGE_KEY = 'opencode-pinned-sessions'
+const PROJECT_DRAG_TYPE = 'application/x-opencode-project-path'
+
+function getProjectDragPath(dataTransfer: DataTransfer | null): string {
+  if (!dataTransfer) return ''
+  return dataTransfer.getData(PROJECT_DRAG_TYPE) || dataTransfer.getData('text/plain') || ''
+}
+
+function isInternalProjectDrag(dataTransfer: DataTransfer | null): boolean {
+  if (!dataTransfer) return false
+  const types = Array.from(dataTransfer.types || [])
+  return types.includes(PROJECT_DRAG_TYPE)
+}
 
 interface ProjectNode {
   path: string
@@ -226,6 +238,15 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
   const [tappedProjectPath, setTappedProjectPath] = useState<string | null>(null)
   const [draggingProjectPath, setDraggingProjectPath] = useState<string | null>(null)
   const [dropTargetProjectPath, setDropTargetProjectPath] = useState<string | null>(null)
+  const draggingProjectPathRef = useRef<string | null>(null)
+  const pointerDragSourceRef = useRef<string | null>(null)
+  const pointerDragStartRef = useRef<{ x: number; y: number } | null>(null)
+  const pointerDragTargetRef = useRef<string | null>(null)
+  const pointerDragActiveRef = useRef(false)
+  const pointerDragSuppressClickRef = useRef(false)
+  const [pointerDragActive, setPointerDragActive] = useState(false)
+  const [pointerDragPosition, setPointerDragPosition] = useState<{ x: number; y: number } | null>(null)
+  const [pointerDragLabel, setPointerDragLabel] = useState('')
   const [projectDeleteConfirm, setProjectDeleteConfirm] = useState<string | null>(null)
   const [sessionDeleteConfirm, setSessionDeleteConfirm] = useState<{ projectPath: string; session: ApiSession } | null>(null)
   const [sessionRenameState, setSessionRenameState] = useState<SessionRenameState | null>(null)
@@ -671,6 +692,10 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
   }, [loadedLimitByProject, visibleCountByProject, loadProjectSessions])
 
   const handleProjectRowClick = useCallback((projectPath: string) => {
+    if (pointerDragSuppressClickRef.current) {
+      pointerDragSuppressClickRef.current = false
+      return
+    }
     setOpenMenu(null)
     setTappedProjectPath(projectPath)
     setExpandedProjects((prev) => ({
@@ -874,38 +899,190 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
   }, [])
 
   const handleProjectDragStart = useCallback((projectPath: string, event: DragEvent<HTMLDivElement>) => {
-    if (isMobile) return
+    if (isMobile || tauriWindowMode) return
 
+    draggingProjectPathRef.current = projectPath
     setDraggingProjectPath(projectPath)
     event.dataTransfer.effectAllowed = 'move'
+    event.dataTransfer.setData(PROJECT_DRAG_TYPE, projectPath)
     event.dataTransfer.setData('text/plain', projectPath)
-  }, [isMobile])
+  }, [isMobile, tauriWindowMode])
 
   const handleProjectDragOver = useCallback((projectPath: string, event: DragEvent<HTMLDivElement>) => {
-    if (isMobile || !draggingProjectPath || draggingProjectPath === projectPath) return
+    if (isMobile || tauriWindowMode) return
+
+    const dataTransfer = event.dataTransfer
+    const activeDragPath = draggingProjectPathRef.current || draggingProjectPath
+    const isInternalDrag = Boolean(activeDragPath) || isInternalProjectDrag(dataTransfer)
+    if (!isInternalDrag) return
+
+    const sourcePath = getProjectDragPath(dataTransfer) || activeDragPath
+    if (!sourcePath || isSameDirectory(sourcePath, projectPath)) return
 
     event.preventDefault()
     event.dataTransfer.dropEffect = 'move'
     setDropTargetProjectPath(projectPath)
-  }, [draggingProjectPath, isMobile])
+  }, [draggingProjectPath, isMobile, tauriWindowMode])
 
   const handleProjectDragLeave = useCallback((projectPath: string) => {
     setDropTargetProjectPath((prev) => (prev === projectPath ? null : prev))
   }, [])
 
-  const handleProjectDrop = useCallback((projectPath: string, event: DragEvent<HTMLDivElement>) => {
-    if (isMobile || !draggingProjectPath || draggingProjectPath === projectPath) return
+  const handleProjectListDragOverCapture = useCallback((event: DragEvent<HTMLDivElement>) => {
+    if (isMobile || !draggingProjectPathRef.current) return
+
+    const target = event.target as Element | null
+    const row = target?.closest?.('[data-project-path]') as HTMLElement | null
+    const targetPath = row?.dataset?.projectPath || ''
+    if (!targetPath || isSameDirectory(targetPath, draggingProjectPathRef.current)) {
+      return
+    }
 
     event.preventDefault()
-    reorderDirectory(draggingProjectPath, projectPath)
+    event.dataTransfer.dropEffect = 'move'
+    setDropTargetProjectPath(targetPath)
+  }, [isMobile])
+
+  const handleProjectListDropCapture = useCallback((event: DragEvent<HTMLDivElement>) => {
+    if (isMobile || !draggingProjectPathRef.current) return
+
+    const target = event.target as Element | null
+    const row = target?.closest?.('[data-project-path]') as HTMLElement | null
+    const targetPath = row?.dataset?.projectPath || ''
+    if (!targetPath || isSameDirectory(targetPath, draggingProjectPathRef.current)) {
+      return
+    }
+
+    event.preventDefault()
+    reorderDirectory(draggingProjectPathRef.current, targetPath)
     setDropTargetProjectPath(null)
     setDraggingProjectPath(null)
-  }, [draggingProjectPath, isMobile, reorderDirectory])
+    draggingProjectPathRef.current = null
+  }, [isMobile, reorderDirectory])
+
+  const handleProjectDrop = useCallback((projectPath: string, event: DragEvent<HTMLDivElement>) => {
+    if (isMobile || tauriWindowMode) return
+
+    const dataTransfer = event.dataTransfer
+    const activeDragPath = draggingProjectPathRef.current || draggingProjectPath
+    const isInternalDrag = Boolean(activeDragPath) || isInternalProjectDrag(dataTransfer)
+    if (!isInternalDrag) return
+    const sourcePath = getProjectDragPath(dataTransfer) || activeDragPath
+    if (!sourcePath || isSameDirectory(sourcePath, projectPath)) return
+
+    event.preventDefault()
+    reorderDirectory(sourcePath, projectPath)
+    setDropTargetProjectPath(null)
+    setDraggingProjectPath(null)
+    draggingProjectPathRef.current = null
+  }, [draggingProjectPath, isMobile, reorderDirectory, tauriWindowMode])
 
   const handleProjectDragEnd = useCallback(() => {
     setDraggingProjectPath(null)
     setDropTargetProjectPath(null)
+    draggingProjectPathRef.current = null
   }, [])
+
+  const resetPointerDrag = useCallback(() => {
+    pointerDragSourceRef.current = null
+    pointerDragStartRef.current = null
+    pointerDragTargetRef.current = null
+    pointerDragActiveRef.current = false
+    draggingProjectPathRef.current = null
+    setDraggingProjectPath(null)
+    setDropTargetProjectPath(null)
+    setPointerDragActive(false)
+    setPointerDragPosition(null)
+    setPointerDragLabel('')
+  }, [])
+
+  const handleProjectPointerMove = useCallback((event: PointerEvent) => {
+    if (!pointerDragSourceRef.current || !pointerDragStartRef.current) return
+
+    const dx = event.clientX - pointerDragStartRef.current.x
+    const dy = event.clientY - pointerDragStartRef.current.y
+    const distance = Math.hypot(dx, dy)
+
+    if (!pointerDragActiveRef.current) {
+      if (distance < 6) return
+      pointerDragActiveRef.current = true
+      pointerDragSuppressClickRef.current = true
+      draggingProjectPathRef.current = pointerDragSourceRef.current
+      setDraggingProjectPath(pointerDragSourceRef.current)
+      window.getSelection?.()?.removeAllRanges()
+      setPointerDragActive(true)
+      setPointerDragPosition({ x: event.clientX, y: event.clientY })
+    }
+
+    event.preventDefault()
+    if (pointerDragActiveRef.current) {
+      setPointerDragPosition({ x: event.clientX, y: event.clientY })
+    }
+
+    const target = document.elementFromPoint(event.clientX, event.clientY) as Element | null
+    const row = target?.closest?.('[data-project-path]') as HTMLElement | null
+    const targetPath = row?.dataset?.projectPath || ''
+
+    if (!targetPath || isSameDirectory(targetPath, pointerDragSourceRef.current)) {
+      pointerDragTargetRef.current = null
+      setDropTargetProjectPath(null)
+      return
+    }
+
+    pointerDragTargetRef.current = targetPath
+    setDropTargetProjectPath(targetPath)
+  }, [])
+
+  const handleProjectPointerUp = useCallback(() => {
+    window.removeEventListener('pointermove', handleProjectPointerMove)
+    window.removeEventListener('pointerup', handleProjectPointerUp)
+
+    if (pointerDragActiveRef.current && pointerDragSourceRef.current && pointerDragTargetRef.current) {
+      if (!isSameDirectory(pointerDragSourceRef.current, pointerDragTargetRef.current)) {
+        reorderDirectory(pointerDragSourceRef.current, pointerDragTargetRef.current)
+      }
+    }
+
+    resetPointerDrag()
+  }, [handleProjectPointerMove, reorderDirectory, resetPointerDrag])
+
+  const handleProjectPointerDown = useCallback((projectPath: string, projectName: string, event: React.PointerEvent<HTMLDivElement>) => {
+    if (!tauriWindowMode || isMobile || event.button !== 0) return
+
+    const target = event.target as Element | null
+    if (target?.closest('button, a, input, textarea, select, [data-no-project-drag="true"]')) {
+      return
+    }
+
+    pointerDragSuppressClickRef.current = false
+    pointerDragSourceRef.current = projectPath
+    pointerDragStartRef.current = { x: event.clientX, y: event.clientY }
+    pointerDragTargetRef.current = null
+    pointerDragActiveRef.current = false
+    setPointerDragLabel(projectName || projectPath)
+
+    window.addEventListener('pointermove', handleProjectPointerMove, { passive: false })
+    window.addEventListener('pointerup', handleProjectPointerUp)
+  }, [handleProjectPointerMove, handleProjectPointerUp, isMobile, tauriWindowMode])
+
+  useEffect(() => {
+    return () => {
+      window.removeEventListener('pointermove', handleProjectPointerMove)
+      window.removeEventListener('pointerup', handleProjectPointerUp)
+    }
+  }, [handleProjectPointerMove, handleProjectPointerUp])
+
+  useEffect(() => {
+    if (pointerDragActive) {
+      document.body.classList.add('project-dragging')
+    } else {
+      document.body.classList.remove('project-dragging')
+    }
+
+    return () => {
+      document.body.classList.remove('project-dragging')
+    }
+  }, [pointerDragActive])
 
   // 移动端长按：取消定时器
   const cancelLongPress = useCallback(() => {
@@ -1482,7 +1659,11 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
             正在初始化项目...
           </div>
         ) : (
-          <div className="space-y-0">
+          <div
+            className="space-y-0"
+            onDragOverCapture={handleProjectListDragOverCapture}
+            onDropCapture={handleProjectListDropCapture}
+          >
             {projects.map((project) => {
               const isCurrentProject = currentDirectory
                 ? isSameDirectory(currentDirectory, project.path)
@@ -1501,7 +1682,9 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
               return (
                 <div
                   key={project.path}
-                  draggable={!isMobile}
+                  data-project-path={project.path}
+                  draggable={!isMobile && !tauriWindowMode}
+                  onPointerDown={(event) => handleProjectPointerDown(project.path, project.name, event)}
                   onDragStart={(event) => handleProjectDragStart(project.path, event)}
                   onDragOver={(event) => handleProjectDragOver(project.path, event)}
                   onDragLeave={() => handleProjectDragLeave(project.path)}
@@ -1516,7 +1699,7 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
                         : 'text-text-400 hover:text-text-100 hover:bg-[#E7E7E7]'
                     } ${isDropTarget ? 'ring-1 ring-accent-main-100/60' : ''} ${
                       draggingProjectPath === project.path ? 'opacity-70' : ''
-                    }`}
+                    } ${tauriWindowMode ? 'cursor-grab' : ''}`}
                     role="button"
                     tabIndex={0}
                     aria-expanded={isExpandedProject}
@@ -1769,6 +1952,21 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
           </div>
         )}
       </div>
+
+      {pointerDragActive && pointerDragPosition && createPortal(
+        <div
+          className="fixed z-[9999] pointer-events-none"
+          style={{ left: pointerDragPosition.x + 12, top: pointerDragPosition.y + 12 }}
+        >
+          <div className="flex items-center gap-2 rounded-md border border-border-200/70 bg-bg-000/95 px-2.5 py-1.5 text-[11px] text-text-100 shadow-lg">
+            <FolderIcon size={12} className="shrink-0 text-text-400" />
+            <span className="max-w-[240px] truncate">
+              {pointerDragLabel}
+            </span>
+          </div>
+        </div>,
+        document.body,
+      )}
 
       <SidebarFooter
         showLabels={showLabels}
