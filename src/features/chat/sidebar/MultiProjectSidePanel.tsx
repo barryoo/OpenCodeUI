@@ -45,6 +45,7 @@ const PINNED_SESSIONS_STORAGE_KEY = 'opencode-pinned-sessions'
 interface ProjectNode {
   path: string
   name: string
+  expanded?: boolean
 }
 
 interface PinnedSessionEntry {
@@ -166,6 +167,7 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
     removeDirectory,
     reorderDirectory,
     setCurrentDirectory,
+    setDirectoryExpanded,
   } = useDirectory()
 
   const showLabels = isExpanded || isMobile
@@ -208,8 +210,17 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
     return savedDirectories.map((item) => ({
         path: item.path,
         name: item.name,
+        expanded: item.expanded,
       }))
   }, [savedDirectories])
+
+  const updateProjectExpanded = useCallback((projectPath: string, expanded: boolean) => {
+    setExpandedProjects((prev) => {
+      if (prev[projectPath] === expanded) return prev
+      return { ...prev, [projectPath]: expanded }
+    })
+    setDirectoryExpanded(projectPath, expanded)
+  }, [setDirectoryExpanded])
 
   const [recentSessions, setRecentSessions] = useState<ApiSession[]>([])
   const [recentLimit, setRecentLimit] = useState(DEFAULT_RECENT_VISIBLE_COUNT)
@@ -412,27 +423,48 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
   }, [])
 
   useEffect(() => {
-    setExpandedProjects((prev) => {
-      const next: Record<string, boolean> = {}
+    const nextExpanded: Record<string, boolean> = {}
+    const expandedToPersist: string[] = []
 
-      for (let i = 0; i < projects.length; i += 1) {
-        const project = projects[i]
-        const existing = prev[project.path]
+    for (let i = 0; i < projects.length; i += 1) {
+      const project = projects[i]
+      const existing = expandedProjects[project.path]
 
-        if (existing !== undefined) {
-          next[project.path] = existing
-          continue
-        }
-
-        if (currentDirectory) {
-          next[project.path] = isSameDirectory(currentDirectory, project.path)
-        } else {
-          next[project.path] = i === 0
-        }
+      if (existing !== undefined) {
+        nextExpanded[project.path] = existing
+        continue
       }
 
-      return next
-    })
+      if (project.expanded !== undefined) {
+        nextExpanded[project.path] = project.expanded
+        continue
+      }
+
+      if (currentDirectory) {
+        nextExpanded[project.path] = isSameDirectory(currentDirectory, project.path)
+      } else {
+        nextExpanded[project.path] = i === 0
+      }
+
+      if (nextExpanded[project.path]) {
+        expandedToPersist.push(project.path)
+      }
+    }
+
+    if (projects.length > 0) {
+      const nextKeys = Object.keys(nextExpanded)
+      const currentKeys = Object.keys(expandedProjects)
+      const isSame = nextKeys.length === currentKeys.length
+        && nextKeys.every((key) => expandedProjects[key] === nextExpanded[key])
+
+      if (!isSame) {
+        setExpandedProjects(nextExpanded)
+      }
+    }
+
+    if (expandedToPersist.length > 0) {
+      expandedToPersist.forEach((path) => setDirectoryExpanded(path, true))
+    }
 
     setVisibleCountByProject((prev) => {
       const next: Record<string, number> = {}
@@ -441,7 +473,7 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
       }
       return next
     })
-  }, [projects, currentDirectory])
+  }, [projects, currentDirectory, expandedProjects, setDirectoryExpanded])
 
   useEffect(() => {
     if (!currentDirectory) return
@@ -449,11 +481,10 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
     const matched = projects.find((project) => isSameDirectory(project.path, currentDirectory))
     if (!matched) return
 
-    setExpandedProjects((prev) => {
-      if (prev[matched.path]) return prev
-      return { ...prev, [matched.path]: true }
-    })
-  }, [currentDirectory, projects])
+    if (!expandedProjects[matched.path]) {
+      updateProjectExpanded(matched.path, true)
+    }
+  }, [currentDirectory, projects, expandedProjects, updateProjectExpanded])
 
   const loadProjectSessions = useCallback(async (projectPath: string, limit: number) => {
     setLoadingByProject((prev) => ({ ...prev, [projectPath]: true }))
@@ -673,24 +704,19 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
   const handleProjectRowClick = useCallback((projectPath: string) => {
     setOpenMenu(null)
     setTappedProjectPath(projectPath)
-    setExpandedProjects((prev) => ({
-      ...prev,
-      [projectPath]: !prev[projectPath],
-    }))
-  }, [])
+    const nextExpanded = !(expandedProjects[projectPath] ?? false)
+    updateProjectExpanded(projectPath, nextExpanded)
+  }, [expandedProjects, updateProjectExpanded])
 
   const handleCreateSessionInProject = useCallback((projectPath: string) => {
     setOpenMenu(null)
-    setExpandedProjects((prev) => ({
-      ...prev,
-      [projectPath]: true,
-    }))
+    updateProjectExpanded(projectPath, true)
 
     onNewSession(projectPath)
     if (window.innerWidth < 768 && onCloseMobile) {
       onCloseMobile()
     }
-  }, [onCloseMobile, onNewSession])
+  }, [onCloseMobile, onNewSession, updateProjectExpanded])
 
   const handleToggleProjectMenu = useCallback((projectPath: string, anchorRect: DOMRect) => {
     setOpenMenu((prev) => {
@@ -965,10 +991,7 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
     const targetProjectPath = entry.projectPath || entry.directory
     if (targetProjectPath) {
       setCurrentDirectory(targetProjectPath)
-      setExpandedProjects((prev) => ({
-        ...prev,
-        [targetProjectPath]: true,
-      }))
+      updateProjectExpanded(targetProjectPath, true)
     }
 
     let targetSession = loadedSessionById.get(entry.sessionId)
@@ -989,7 +1012,7 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
     if (window.innerWidth < 768 && onCloseMobile) {
       onCloseMobile()
     }
-  }, [loadedSessionById, markSessionNotificationsRead, onCloseMobile, onSelectSession, setCurrentDirectory])
+  }, [loadedSessionById, markSessionNotificationsRead, onCloseMobile, onSelectSession, setCurrentDirectory, updateProjectExpanded])
 
   const handleSelect = useCallback((session: ApiSession) => {
     setOpenMenu(null)
@@ -1007,10 +1030,7 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
     if (sessionDirectory) {
       const matchedProjectPath = projects.find((project) => isSameDirectory(project.path, sessionDirectory))?.path ?? sessionDirectory
       setCurrentDirectory(matchedProjectPath)
-      setExpandedProjects((prev) => ({
-        ...prev,
-        [matchedProjectPath]: true,
-      }))
+      updateProjectExpanded(matchedProjectPath, true)
     }
 
     markSessionNotificationsRead(session.id)
@@ -1019,7 +1039,7 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
     if (window.innerWidth < 768 && onCloseMobile) {
       onCloseMobile()
     }
-  }, [markSessionNotificationsRead, onCloseMobile, onSelectSession, projects, setCurrentDirectory])
+  }, [markSessionNotificationsRead, onCloseMobile, onSelectSession, projects, setCurrentDirectory, updateProjectExpanded])
 
   const handleLoadMoreRecent = useCallback(() => {
     if (recentLoading || !recentHasMore) return

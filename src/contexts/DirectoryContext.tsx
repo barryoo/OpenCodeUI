@@ -3,11 +3,10 @@
 // ============================================
 
 import { createContext, useContext, useState, useCallback, useEffect, useMemo, useRef, type ReactNode } from 'react'
-import { getPath, type ApiPath, getPendingPermissions, getPendingQuestions, getProjects, listDirectory } from '../api'
+import { getPath, type ApiPath, getProjects, listDirectory } from '../api'
 import { useRouter } from '../hooks/useRouter'
 import { handleError, normalizeToForwardSlash, getDirectoryName, isSameDirectory, serverStorage } from '../utils'
 import { layoutStore, useLayoutStore } from '../store/layoutStore'
-import { activeSessionStore } from '../store/activeSessionStore'
 import { serverStore } from '../store/serverStore'
 import { isTauri } from '../utils/tauri'
 
@@ -15,6 +14,8 @@ export interface SavedDirectory {
   path: string
   name: string
   addedAt: number
+  /** 项目是否展开（用于侧边栏状态恢复） */
+  expanded?: boolean
 }
 
 export interface DirectoryContextValue {
@@ -24,6 +25,8 @@ export interface DirectoryContextValue {
   setCurrentDirectory: (directory: string | undefined) => void
   /** 保存的目录列表 */
   savedDirectories: SavedDirectory[]
+  /** 设置目录展开状态 */
+  setDirectoryExpanded: (path: string, expanded: boolean) => void
   /** 添加目录 */
   addDirectory: (path: string) => void
   /** 移除目录 */
@@ -141,6 +144,7 @@ export function DirectoryProvider({ children }: { children: ReactNode }) {
               path: fromServer.path,
               name: fromServer.name || existing.name || fromServer.path,
               addedAt: existing.addedAt ?? fromServer.addedAt,
+              expanded: existing.expanded,
             })
             apiByKey.delete(key)
           } else {
@@ -195,19 +199,6 @@ export function DirectoryProvider({ children }: { children: ReactNode }) {
     getPath().then(setPathInfo).catch(handleError('get path info', 'api'))
   }, [])
 
-  // 页面加载时，如果 URL 已有目录，拉取该目录下的 pending requests 补充 active 列表
-  useEffect(() => {
-    if (!urlDirectory) return
-    Promise.all([
-      getPendingPermissions(undefined, urlDirectory).catch(() => []),
-      getPendingQuestions(undefined, urlDirectory).catch(() => []),
-    ]).then(([permissions, questions]) => {
-      if (permissions.length > 0 || questions.length > 0) {
-        activeSessionStore.initializePendingRequests(permissions, questions)
-      }
-    })
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []) // 只在挂载时跑一次
 
   // 保存 savedDirectories 到 per-server storage
   useEffect(() => {
@@ -219,21 +210,12 @@ export function DirectoryProvider({ children }: { children: ReactNode }) {
     serverStorage.setJSON(STORAGE_KEY_RECENT, recentProjects)
   }, [recentProjects])
 
-  // 设置当前目录（更新 URL + 记录最近使用 + 拉取 pending requests）
+  // 设置当前目录（更新 URL + 记录最近使用）
   const setCurrentDirectory = useCallback((directory: string | undefined) => {
     setUrlDirectory(directory)
     if (directory) {
       setRecentProjects(prev => ({ ...prev, [directory]: Date.now() }))
     }
-    // 切换目录后拉取该目录下的 pending permission/question，补充到 active 列表
-    Promise.all([
-      getPendingPermissions(undefined, directory).catch(() => []),
-      getPendingQuestions(undefined, directory).catch(() => []),
-    ]).then(([permissions, questions]) => {
-      if (permissions.length > 0 || questions.length > 0) {
-        activeSessionStore.initializePendingRequests(permissions, questions)
-      }
-    })
   }, [setUrlDirectory])
 
   // 添加目录
@@ -253,6 +235,7 @@ export function DirectoryProvider({ children }: { children: ReactNode }) {
       path: normalized,
       name: getDirectoryName(normalized) || normalized,
       addedAt: Date.now(),
+      expanded: true,
     }
     
     setSavedDirectories(prev => [...prev, newDir])
@@ -289,6 +272,23 @@ export function DirectoryProvider({ children }: { children: ReactNode }) {
       const [moved] = next.splice(sourceIndex, 1)
       next.splice(targetIndex, 0, moved)
       return next
+    })
+  }, [])
+
+  // 设置目录展开状态
+  const setDirectoryExpanded = useCallback((path: string, expanded: boolean) => {
+    const normalized = normalizeDirectoryPath(path)
+    if (!normalized) return
+
+    setSavedDirectories((prev) => {
+      let changed = false
+      const next = prev.map((dir) => {
+        if (!isSameDirectory(dir.path, normalized)) return dir
+        if (dir.expanded === expanded) return dir
+        changed = true
+        return { ...dir, expanded }
+      })
+      return changed ? next : prev
     })
   }, [])
 
@@ -349,6 +349,7 @@ export function DirectoryProvider({ children }: { children: ReactNode }) {
     currentDirectory: urlDirectory,
     setCurrentDirectory,
     savedDirectories,
+    setDirectoryExpanded,
     addDirectory,
     removeDirectory,
     reorderDirectory,
@@ -360,6 +361,7 @@ export function DirectoryProvider({ children }: { children: ReactNode }) {
     urlDirectory,
     setCurrentDirectory,
     savedDirectories,
+    setDirectoryExpanded,
     addDirectory,
     removeDirectory,
     reorderDirectory,

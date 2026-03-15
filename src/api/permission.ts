@@ -24,9 +24,10 @@ export async function getPendingPermissions(
   sessionId?: string,
   directory?: string
 ): Promise<ApiPermissionRequest[]> {
+  const formattedDir = formatPathForApi(directory)
   const permissions = await get<ApiPermissionRequest[]>('/permission', { 
-    directory: formatPathForApi(directory) 
-  })
+    directory: formattedDir 
+  }, { directory: formattedDir })
   return sessionId 
     ? permissions.filter((p: ApiPermissionRequest) => p.sessionID === sessionId) 
     : permissions
@@ -41,9 +42,10 @@ export async function replyPermission(
   message?: string,
   directory?: string
 ): Promise<boolean> {
+  const formattedDir = formatPathForApi(directory)
   return post<boolean>(`/permission/${requestId}/reply`, { 
-    directory: formatPathForApi(directory) 
-  }, { reply, message })
+    directory: formattedDir 
+  }, { reply, message }, { directory: formattedDir })
 }
 
 // ============================================
@@ -58,9 +60,10 @@ export async function getPendingQuestions(
   sessionId?: string,
   directory?: string
 ): Promise<ApiQuestionRequest[]> {
+  const formattedDir = formatPathForApi(directory)
   const questions = await get<ApiQuestionRequest[]>('/question', { 
-    directory: formatPathForApi(directory) 
-  })
+    directory: formattedDir 
+  }, { directory: formattedDir })
   return sessionId 
     ? questions.filter((q: ApiQuestionRequest) => q.sessionID === sessionId) 
     : questions
@@ -74,9 +77,10 @@ export async function replyQuestion(
   answers: QuestionAnswer[],
   directory?: string
 ): Promise<boolean> {
+  const formattedDir = formatPathForApi(directory)
   return post<boolean>(`/question/${requestId}/reply`, { 
-    directory: formatPathForApi(directory) 
-  }, { answers })
+    directory: formattedDir 
+  }, { answers }, { directory: formattedDir })
 }
 
 /**
@@ -86,7 +90,8 @@ export async function rejectQuestion(
   requestId: string,
   directory?: string
 ): Promise<boolean> {
+  const formattedDir = formatPathForApi(directory)
   return post<boolean>(`/question/${requestId}/reject`, { 
-    directory: formatPathForApi(directory) 
-  })
+    directory: formattedDir 
+  }, undefined, { directory: formattedDir })
 }
