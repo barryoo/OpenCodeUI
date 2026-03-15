@@ -59,6 +59,21 @@ export async function getSessions(params: SessionListParams = {}): Promise<ApiSe
 }
 
 /**
+ * GET /experimental/session - 获取全局 session 列表
+ * 默认按最近更新时间排序（后端保证）
+ */
+export async function getGlobalSessions(params: SessionListParams = {}): Promise<ApiSession[]> {
+  const { directory, roots, start, search, limit } = params
+  return get<ApiSession[]>('/experimental/session', {
+    directory: formatPathForApi(directory),
+    roots,
+    start,
+    search,
+    limit,
+  })
+}
+
+/**
  * GET /session/{sessionID} - 获取单个 session
  */
 export async function getSession(sessionId: string, directory?: string): Promise<ApiSession> {

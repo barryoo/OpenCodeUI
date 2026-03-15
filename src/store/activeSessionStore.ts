@@ -127,6 +127,12 @@ class ActiveSessionStore {
     this.notify()
   }
 
+  mergeStatusMap(statusMap: SessionStatusMap) {
+    if (!statusMap || Object.keys(statusMap).length === 0) return
+    this.state = { statusMap: { ...this.state.statusMap, ...statusMap } }
+    this.notify()
+  }
+
   // ============================================
   // 初始化：从 /permission + /question API 补充
   // ============================================

@@ -3,6 +3,8 @@ import { createPortal } from 'react-dom'
 import {
   deleteSession as deleteSessionApi,
   getSession,
+  getSessionStatus,
+  getGlobalSessions,
   getSessions,
   subscribeToConnectionState,
   subscribeToEvents,
@@ -29,10 +31,11 @@ import { ConfirmDialog } from '../../../components/ui/ConfirmDialog'
 import { TauriWindowControls } from '../../../components/TauriWindowControls'
 import { useDirectory, useSessionStats } from '../../../hooks'
 import { useMessageStore } from '../../../store'
-import { useBusySessions } from '../../../store/activeSessionStore'
+import { activeSessionStore, useBusySessions } from '../../../store/activeSessionStore'
 import { notificationStore, useNotifications } from '../../../store/notificationStore'
 import { formatRelativeTime } from '../../../utils/dateUtils'
 import { isSameDirectory, serverStorage, uiErrorHandler } from '../../../utils'
+import type { SessionStatusMap } from '../../../types/api/session'
 import { handleWindowTitlebarMouseDown, isTauri, isTauriMacOS } from '../../../utils/tauri'
 import { serverStore } from '../../../store/serverStore'
 import { SidePanel, SidebarFooter, type SidePanelProps } from './SidePanel'
@@ -316,7 +319,7 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
 
     try {
       const windowStart = Date.now() - RECENT_WINDOW_MS
-      const data = await getSessions({
+      const data = await getGlobalSessions({
         roots: true,
         start: windowStart,
         limit: limit + 1,
@@ -348,6 +351,10 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
     }, delay)
   }, [loadRecentSessions, recentLimit])
 
+  const expandedProjectPaths = useMemo(() => {
+    return projects.filter((project) => expandedProjects[project.path]).map((project) => project.path)
+  }, [projects, expandedProjects])
+
   useEffect(() => {
     return subscribeToConnectionState(setConnectionState)
   }, [])
@@ -378,6 +385,40 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
       }
     }
   }, [])
+
+  useEffect(() => {
+    if (recentSessions.length === 0 && pinnedSessions.length === 0) return
+
+    const directories: string[] = []
+    const addDirectory = (directory?: string) => {
+      if (!directory) return
+      if (directories.some((existing) => isSameDirectory(existing, directory))) return
+      directories.push(directory)
+    }
+
+    recentSessions.forEach((session) => addDirectory(session.directory))
+    pinnedSessions.forEach((entry) => addDirectory(entry.directory))
+
+    const targetDirectories = directories.filter((directory) => {
+      return !expandedProjectPaths.some((expanded) => isSameDirectory(expanded, directory))
+    })
+
+    if (targetDirectories.length === 0) return
+
+    let cancelled = false
+
+    Promise.all(
+      targetDirectories.map((directory) => getSessionStatus(directory).catch(() => ({} as SessionStatusMap)))
+    ).then((maps) => {
+      if (cancelled) return
+      const merged = maps.reduce((acc, map) => ({ ...acc, ...map }), {} as SessionStatusMap)
+      activeSessionStore.mergeStatusMap(merged)
+    })
+
+    return () => {
+      cancelled = true
+    }
+  }, [recentSessions, pinnedSessions, expandedProjectPaths])
 
   useEffect(() => {
     if (!sessionRenameState || !renameInputRef.current) return
