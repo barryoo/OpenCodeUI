@@ -5,13 +5,13 @@ import {
   SunIcon, MoonIcon, SystemIcon, MaximizeIcon, MinimizeIcon, 
   PathAutoIcon, PathUnixIcon, PathWindowsIcon,
   GlobeIcon, PlusIcon, TrashIcon, CheckIcon, WifiIcon, WifiOffIcon, SpinnerIcon, KeyIcon,
-  SettingsIcon, KeyboardIcon, CloseIcon, BellIcon, BoltIcon, CompactIcon, PlugIcon, StopIcon, EyeIcon, ThinkingIcon
+  SettingsIcon, KeyboardIcon, CloseIcon, BellIcon, BoltIcon, CompactIcon, PlugIcon, StopIcon, EyeIcon
 } from '../../components/Icons'
 import { usePathMode, useServerStore, useIsMobile, useNotification, useRouter } from '../../hooks'
 import { layoutStore, useLayoutStore, type SidebarViewMode } from '../../store/layoutStore'
 import { autoApproveStore, messageStore, notificationStore } from '../../store'
 import { serviceStore, useServiceStore } from '../../store/serviceStore'
-import { themeStore, type ReasoningDisplayMode } from '../../store/themeStore'
+import { themeStore } from '../../store/themeStore'
 import { isTauri } from '../../utils/tauri'
 import { KeybindingsSection } from './KeybindingsSection'
 import type { ThemeMode } from '../../hooks'
@@ -531,7 +531,6 @@ function GeneralSettings({ mode }: { mode: 'chat' | 'notifications' | 'service' 
   const { enabled: notificationsEnabled, setEnabled: setNotificationsEnabled, supported: notificationsSupported, permission: notificationPermission, sendNotification } = useNotification()
   const [collapseUserMessages, setCollapseUserMessages] = useState(themeStore.collapseUserMessages)
   const [stepFinishDisplay, setStepFinishDisplay] = useState(themeStore.stepFinishDisplay)
-  const [reasoningDisplayMode, setReasoningDisplayMode] = useState(themeStore.reasoningDisplayMode)
   const [toastEnabled, setToastEnabledState] = useState(notificationStore.toastEnabled)
   const isMobile = useIsMobile()
   const { autoStart: autoStartService, binaryPath, envVars, running: serviceRunning, startedByUs, starting: serviceStarting } = useServiceStore()
@@ -571,10 +570,6 @@ function GeneralSettings({ mode }: { mode: 'chat' | 'notifications' | 'service' 
     sendNotification('OpenCode', 'This is a test notification')
   }
 
-  const handleReasoningDisplayModeChange = (mode: ReasoningDisplayMode) => {
-    setReasoningDisplayMode(mode)
-    themeStore.setReasoningDisplayMode(mode)
-  }
 
   const handleToastToggle = () => {
     const v = !toastEnabled
@@ -686,7 +681,7 @@ function GeneralSettings({ mode }: { mode: 'chat' | 'notifications' | 'service' 
 
           <SettingsCard
             title="Conversation Experience"
-            description="Message density, reasoning style, and step summary fields"
+            description="Message density and step summary fields"
           >
             <div className="space-y-3">
               <div className="grid gap-2 lg:grid-cols-2">
@@ -699,24 +694,6 @@ function GeneralSettings({ mode }: { mode: 'chat' | 'notifications' | 'service' 
                 >
                   <Toggle enabled={collapseUserMessages} onChange={handleCollapseToggle} />
                 </SettingRow>
-
-                <div className="rounded-lg border border-border-200/45 bg-bg-100/35 px-2.5 py-2.5">
-                  <div className="flex items-start gap-3">
-                    <span className="text-text-400 mt-0.5 shrink-0"><ThinkingIcon size={14} /></span>
-                    <div className="min-w-0 flex-1">
-                      <div className="text-[13px] font-medium text-text-100">Thinking Display</div>
-                      <div className="text-[11px] text-text-400 mt-0.5 mb-2">Choose capsule or low-noise italic style</div>
-                      <SegmentedControl
-                        value={reasoningDisplayMode}
-                        options={[
-                          { value: 'capsule', label: 'Capsule' },
-                          { value: 'italic', label: 'Italic' },
-                        ]}
-                        onChange={(v) => handleReasoningDisplayModeChange(v as ReasoningDisplayMode)}
-                      />
-                    </div>
-                  </div>
-                </div>
               </div>
 
               <div className="pt-3 border-t border-border-100/55">

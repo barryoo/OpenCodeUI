@@ -1,6 +1,7 @@
 import { isValidElement, memo, useCallback, useMemo } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
+import type { Pluggable } from 'unified'
 import { CodeBlock } from './CodeBlock'
 import { detectLanguage } from '../utils/languageUtils'
 import { useCurrentDirectory } from '../contexts/DirectoryContext'
@@ -10,6 +11,8 @@ import { isTauri } from '../utils/tauri'
 interface MarkdownRendererProps {
   content: string
   className?: string
+  style?: React.CSSProperties
+  remarkPlugins?: Pluggable[]
 }
 
 const INLINE_CODE_CLASS = 'font-mono text-accent-main-100 text-[0.95em] whitespace-pre-wrap break-words'
@@ -512,7 +515,9 @@ function extractText(node: React.ReactNode): string {
  */
 export const MarkdownRenderer = memo(function MarkdownRenderer({ 
   content, 
-  className = '' 
+  className = '',
+  style,
+  remarkPlugins,
 }: MarkdownRendererProps) {
   const currentDirectory = useCurrentDirectory()
 
@@ -731,10 +736,15 @@ export const MarkdownRenderer = memo(function MarkdownRenderer({
     ),
   }), [handleOpenFilePath, handleOpenHttpLink])
 
+  const resolvedRemarkPlugins = remarkPlugins ? [remarkGfm, ...remarkPlugins] : [remarkGfm]
+
   return (
-    <div className={`markdown-content text-sm text-text-100 leading-relaxed break-words min-w-0 overflow-hidden ${className}`}>
+    <div
+      className={`markdown-content text-sm text-text-100 leading-relaxed break-words min-w-0 overflow-hidden ${className}`}
+      style={style}
+    >
       <ReactMarkdown
-        remarkPlugins={[remarkGfm]}
+        remarkPlugins={resolvedRemarkPlugins}
         components={components}
       >
         {content}
