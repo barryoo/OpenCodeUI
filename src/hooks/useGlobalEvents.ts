@@ -8,17 +8,20 @@
 // 3. 追踪子 session 关系（用于权限请求冒泡）
 // 4. 与具体 session 无关，处理所有 session 的事件
 
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useCallback } from 'react'
 import { messageStore, childSessionStore } from '../store'
 import { activeSessionStore } from '../store/activeSessionStore'
 import { notificationStore } from '../store/notificationStore'
 import { subscribeToEvents, getSessionStatus, getPendingPermissions, getPendingQuestions } from '../api'
+import { useSavedDirectories, useCurrentDirectory } from '../contexts/DirectoryContext'
+import type { SavedDirectory } from '../contexts/DirectoryContext'
 import type { 
   ApiMessage, 
   ApiPart,
   ApiPermissionRequest,
   ApiQuestionRequest,
 } from '../api/types'
+import type { SessionStatus } from '../types/api/session'
 
 interface GlobalEventsCallbacks {
   onPermissionAsked?: (request: ApiPermissionRequest) => void
@@ -74,6 +77,66 @@ export function useGlobalEvents(callbacks?: GlobalEventsCallbacks) {
   // 使用 ref 保存 callbacks，避免重新订阅 SSE
   const callbacksRef = useRef(callbacks)
   callbacksRef.current = callbacks
+  const savedDirectories = useSavedDirectories()
+  const currentDirectory = useCurrentDirectory()
+  const savedDirectoriesRef = useRef(savedDirectories)
+  const currentDirectoryRef = useRef(currentDirectory)
+
+  useEffect(() => {
+    savedDirectoriesRef.current = savedDirectories
+  }, [savedDirectories])
+
+  useEffect(() => {
+    currentDirectoryRef.current = currentDirectory
+  }, [currentDirectory])
+
+  const fetchAndInitialize = useCallback(() => {
+    let expandedDirectories = savedDirectoriesRef.current
+      .filter((dir: SavedDirectory) => dir.expanded)
+      .map((dir: SavedDirectory) => dir.path)
+
+    if (expandedDirectories.length === 0 && currentDirectoryRef.current) {
+      expandedDirectories = [currentDirectoryRef.current]
+    }
+
+    const statusRequests = expandedDirectories.length > 0
+      ? expandedDirectories.map((directory: string) => getSessionStatus(directory).catch(() => ({} as Record<string, SessionStatus>)))
+      : [Promise.resolve({} as Record<string, SessionStatus>)]
+
+    const permissionRequests = expandedDirectories.length > 0
+      ? expandedDirectories.map((directory: string) => getPendingPermissions(undefined, directory).catch(() => []))
+      : [Promise.resolve([] as ApiPermissionRequest[])]
+
+    const questionRequests = expandedDirectories.length > 0
+      ? expandedDirectories.map((directory: string) => getPendingQuestions(undefined, directory).catch(() => []))
+      : [Promise.resolve([] as ApiQuestionRequest[])]
+
+    Promise.all([
+      Promise.all(statusRequests),
+      Promise.all(permissionRequests),
+      Promise.all(questionRequests),
+    ]).then(([
+      statusMaps,
+      permissionsList,
+      questionsList,
+    ]: [Array<Record<string, SessionStatus>>, ApiPermissionRequest[][], ApiQuestionRequest[][]]) => {
+      const mergedStatus = statusMaps.reduce(
+        (acc, map) => ({ ...acc, ...map }),
+        {} as Record<string, SessionStatus>
+      )
+      activeSessionStore.initialize(mergedStatus)
+
+      const permissions = permissionsList.flat()
+      const questions = questionsList.flat()
+      if (permissions.length > 0 || questions.length > 0) {
+        activeSessionStore.initializePendingRequests(permissions, questions)
+      }
+    })
+  }, [])
+
+  useEffect(() => {
+    fetchAndInitialize()
+  }, [savedDirectories, currentDirectory, fetchAndInitialize])
 
   useEffect(() => {
     // 节流滚动
@@ -91,17 +154,8 @@ export function useGlobalEvents(callbacks?: GlobalEventsCallbacks) {
     // 拉取 session 状态 + pending requests（初始化 & 重连共用）
     // ============================================
 
-    const fetchAndInitialize = () => {
-      Promise.all([
-        getSessionStatus().catch(() => ({} as Record<string, import('../types/api/session').SessionStatus>)),
-        getPendingPermissions().catch(() => []),
-        getPendingQuestions().catch(() => []),
-      ]).then(([statusMap, permissions, questions]) => {
-        activeSessionStore.initialize(statusMap)
-        if (permissions.length > 0 || questions.length > 0) {
-          activeSessionStore.initializePendingRequests(permissions, questions)
-        }
-      })
+    const fetchAndInitializeWithLatest = () => {
+      fetchAndInitialize()
     }
 
     const unsubscribe = subscribeToEvents({
@@ -329,13 +383,11 @@ export function useGlobalEvents(callbacks?: GlobalEventsCallbacks) {
           console.log(`[GlobalEvents] SSE reconnected (reason: ${reason}), notifying for data refresh`)
         }
         // 重连后重新拉取全量状态 + pending requests
-        fetchAndInitialize()
+        fetchAndInitializeWithLatest()
         callbacksRef.current?.onReconnected?.(reason)
       },
     })
 
-    fetchAndInitialize()
-
     return unsubscribe
-  }, []) // 空依赖，只订阅一次
+  }, [fetchAndInitialize]) // 保持 SSE 订阅稳定
 }

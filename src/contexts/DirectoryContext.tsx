@@ -15,6 +15,8 @@ export interface SavedDirectory {
   path: string
   name: string
   addedAt: number
+  /** 项目是否展开（用于侧边栏状态恢复） */
+  expanded?: boolean
 }
 
 export interface DirectoryContextValue {
@@ -24,6 +26,8 @@ export interface DirectoryContextValue {
   setCurrentDirectory: (directory: string | undefined) => void
   /** 保存的目录列表 */
   savedDirectories: SavedDirectory[]
+  /** 设置目录展开状态 */
+  setDirectoryExpanded: (path: string, expanded: boolean) => void
   /** 添加目录 */
   addDirectory: (path: string) => void
   /** 移除目录 */
@@ -141,6 +145,7 @@ export function DirectoryProvider({ children }: { children: ReactNode }) {
               path: fromServer.path,
               name: fromServer.name || existing.name || fromServer.path,
               addedAt: existing.addedAt ?? fromServer.addedAt,
+              expanded: existing.expanded,
             })
             apiByKey.delete(key)
           } else {
@@ -253,6 +258,7 @@ export function DirectoryProvider({ children }: { children: ReactNode }) {
       path: normalized,
       name: getDirectoryName(normalized) || normalized,
       addedAt: Date.now(),
+      expanded: true,
     }
     
     setSavedDirectories(prev => [...prev, newDir])
@@ -289,6 +295,23 @@ export function DirectoryProvider({ children }: { children: ReactNode }) {
       const [moved] = next.splice(sourceIndex, 1)
       next.splice(targetIndex, 0, moved)
       return next
+    })
+  }, [])
+
+  // 设置目录展开状态
+  const setDirectoryExpanded = useCallback((path: string, expanded: boolean) => {
+    const normalized = normalizeDirectoryPath(path)
+    if (!normalized) return
+
+    setSavedDirectories((prev) => {
+      let changed = false
+      const next = prev.map((dir) => {
+        if (!isSameDirectory(dir.path, normalized)) return dir
+        if (dir.expanded === expanded) return dir
+        changed = true
+        return { ...dir, expanded }
+      })
+      return changed ? next : prev
     })
   }, [])
 
@@ -349,6 +372,7 @@ export function DirectoryProvider({ children }: { children: ReactNode }) {
     currentDirectory: urlDirectory,
     setCurrentDirectory,
     savedDirectories,
+    setDirectoryExpanded,
     addDirectory,
     removeDirectory,
     reorderDirectory,
@@ -360,6 +384,7 @@ export function DirectoryProvider({ children }: { children: ReactNode }) {
     urlDirectory,
     setCurrentDirectory,
     savedDirectories,
+    setDirectoryExpanded,
     addDirectory,
     removeDirectory,
     reorderDirectory,

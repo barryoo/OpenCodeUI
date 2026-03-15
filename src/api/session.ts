@@ -14,7 +14,8 @@ import type { SessionStatusMap } from '../types/api/session'
  * GET /session/status - 获取所有 session 的当前状态
  */
 export async function getSessionStatus(directory?: string): Promise<SessionStatusMap> {
-  return get<SessionStatusMap>('/session/status', { directory: formatPathForApi(directory) })
+  const formattedDir = formatPathForApi(directory)
+  return get<SessionStatusMap>('/session/status', { directory: formattedDir }, { directory: formattedDir })
 }
 
 /**

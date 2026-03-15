@@ -100,6 +100,7 @@ export interface RequestOptions {
   method?: 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE'
   body?: unknown
   headers?: Record<string, string>
+  directory?: string
 }
 
 /**
@@ -114,11 +115,17 @@ export async function request<T>(
   params: Record<string, QueryValue> = {},
   options: RequestOptions = {}
 ): Promise<T> {
-  const { method = 'GET', body, headers = {} } = options
+  const { method = 'GET', body, headers = {}, directory } = options
   
   const requestHeaders: Record<string, string> = {
     ...getAuthHeader(),
     ...headers,
+  }
+
+  if (directory) {
+    const isNonASCII = Array.from(directory).some((char) => char.charCodeAt(0) > 127)
+    const encodedDirectory = isNonASCII ? encodeURIComponent(directory) : directory
+    requestHeaders['x-opencode-directory'] = encodedDirectory
   }
   
   const init: RequestInit = {
@@ -167,9 +174,10 @@ export async function request<T>(
  */
 export async function get<T>(
   path: string,
-  params: Record<string, QueryValue> = {}
+  params: Record<string, QueryValue> = {},
+  options: Omit<RequestOptions, 'method' | 'body'> = {}
 ): Promise<T> {
-  return request<T>(path, params, { method: 'GET' })
+  return request<T>(path, params, { method: 'GET', ...options })
 }
 
 /**
@@ -178,9 +186,10 @@ export async function get<T>(
 export async function post<T>(
   path: string,
   params: Record<string, QueryValue> = {},
-  body?: unknown
+  body?: unknown,
+  options: Omit<RequestOptions, 'method'> = {}
 ): Promise<T> {
-  return request<T>(path, params, { method: 'POST', body })
+  return request<T>(path, params, { method: 'POST', body, ...options })
 }
 
 /**
@@ -189,9 +198,10 @@ export async function post<T>(
 export async function patch<T>(
   path: string,
   params: Record<string, QueryValue> = {},
-  body?: unknown
+  body?: unknown,
+  options: Omit<RequestOptions, 'method'> = {}
 ): Promise<T> {
-  return request<T>(path, params, { method: 'PATCH', body })
+  return request<T>(path, params, { method: 'PATCH', body, ...options })
 }
 
 /**
@@ -200,9 +210,10 @@ export async function patch<T>(
 export async function put<T>(
   path: string,
   params: Record<string, QueryValue> = {},
-  body?: unknown
+  body?: unknown,
+  options: Omit<RequestOptions, 'method'> = {}
 ): Promise<T> {
-  return request<T>(path, params, { method: 'PUT', body })
+  return request<T>(path, params, { method: 'PUT', body, ...options })
 }
 
 /**
@@ -211,7 +222,8 @@ export async function put<T>(
 export async function del<T>(
   path: string,
   params: Record<string, QueryValue> = {},
-  body?: unknown
+  body?: unknown,
+  options: Omit<RequestOptions, 'method'> = {}
 ): Promise<T> {
-  return request<T>(path, params, { method: 'DELETE', body })
+  return request<T>(path, params, { method: 'DELETE', body, ...options })
 }
