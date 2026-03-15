@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent, type ReactNode, type RefObject } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type DragEvent, type ReactNode, type RefObject } from 'react'
 import { createPortal } from 'react-dom'
 import {
   deleteSession as deleteSessionApi,
@@ -252,15 +252,31 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
   const [tappedProjectPath, setTappedProjectPath] = useState<string | null>(null)
   const [draggingProjectPath, setDraggingProjectPath] = useState<string | null>(null)
   const [dropTargetProjectPath, setDropTargetProjectPath] = useState<string | null>(null)
+  const [dropTargetIndex, setDropTargetIndex] = useState<number | null>(null)
   const draggingProjectPathRef = useRef<string | null>(null)
   const pointerDragSourceRef = useRef<string | null>(null)
   const pointerDragStartRef = useRef<{ x: number; y: number } | null>(null)
-  const pointerDragTargetRef = useRef<string | null>(null)
   const pointerDragActiveRef = useRef(false)
   const pointerDragSuppressClickRef = useRef(false)
   const [pointerDragActive, setPointerDragActive] = useState(false)
-  const [pointerDragPosition, setPointerDragPosition] = useState<{ x: number; y: number } | null>(null)
-  const [pointerDragLabel, setPointerDragLabel] = useState('')
+  const dropTargetIndexRef = useRef<number | null>(null)
+  const pendingDropIndexRef = useRef<number | null>(null)
+  const dropIndexRafRef = useRef<number | null>(null)
+  const projectListRef = useRef<HTMLDivElement | null>(null)
+  const projectItemRefs = useRef(new Map<string, HTMLDivElement>())
+  const dragGhostContainerRef = useRef<HTMLDivElement | null>(null)
+  const dragGhostNodeRef = useRef<HTMLElement | null>(null)
+  const dragGhostPositionRef = useRef<{ x: number; y: number } | null>(null)
+  const dragGhostRafRef = useRef<number | null>(null)
+  const dragItemOffsetRef = useRef<{ x: number; y: number } | null>(null)
+  const dragItemHeightRef = useRef(0)
+  const dragItemWidthRef = useRef(0)
+  const dragOriginalIndexRef = useRef<number | null>(null)
+  const dragDropZonesRef = useRef<Array<{ path: string; mid: number }>>([])
+  const prevProjectRectsRef = useRef<Map<string, DOMRect>>(new Map())
+  const flipAnimationRef = useRef(new WeakMap<Element, Animation>())
+  const pointerMoveHandlerRef = useRef<(event: PointerEvent) => void>(() => {})
+  const pointerUpHandlerRef = useRef<(event?: PointerEvent) => void>(() => {})
   const [projectDeleteConfirm, setProjectDeleteConfirm] = useState<string | null>(null)
   const [sessionDeleteConfirm, setSessionDeleteConfirm] = useState<{ projectPath: string; session: ApiSession } | null>(null)
   const [sessionRenameState, setSessionRenameState] = useState<SessionRenameState | null>(null)
@@ -291,6 +307,23 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
     }
     return map
   }, [projects])
+
+  const projectByPath = useMemo(() => {
+    const map = new Map<string, ProjectNode>()
+    for (const project of projects) {
+      map.set(project.path, project)
+    }
+    return map
+  }, [projects])
+
+  const projectsRef = useRef<ProjectNode[]>(projects)
+  useEffect(() => {
+    projectsRef.current = projects
+  }, [projects])
+
+  useEffect(() => {
+    dropTargetIndexRef.current = dropTargetIndex
+  }, [dropTargetIndex])
 
   const pinnedSessionIds = useMemo(() => {
     return new Set(pinnedSessions.map((item) => item.sessionId))
@@ -1050,70 +1083,202 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
     draggingProjectPathRef.current = null
   }, [])
 
+  const setProjectItemRef = useCallback((projectPath: string, node: HTMLDivElement | null) => {
+    const map = projectItemRefs.current
+    if (node) {
+      map.set(projectPath, node)
+    } else {
+      map.delete(projectPath)
+    }
+  }, [])
+
+  const getBaseProjectPaths = useCallback((sourcePath: string | null) => {
+    const paths = projectsRef.current.map((project) => project.path)
+    if (!sourcePath) return paths
+    return paths.filter((path) => !isSameDirectory(path, sourcePath))
+  }, [])
+
+  const updateDragGhostPosition = useCallback((clientX: number, clientY: number) => {
+    const offset = dragItemOffsetRef.current
+    if (!offset || !dragGhostContainerRef.current) return
+
+    dragGhostPositionRef.current = {
+      x: clientX - offset.x,
+      y: clientY - offset.y,
+    }
+
+    if (dragGhostRafRef.current !== null) return
+    dragGhostRafRef.current = window.requestAnimationFrame(() => {
+      dragGhostRafRef.current = null
+      const position = dragGhostPositionRef.current
+      if (!position || !dragGhostContainerRef.current) return
+      dragGhostContainerRef.current.style.transform = `translate3d(${position.x}px, ${position.y}px, 0)`
+    })
+  }, [])
+
+  const mountDragGhost = useCallback(() => {
+    if (!dragGhostContainerRef.current || !dragGhostNodeRef.current) return
+    dragGhostContainerRef.current.innerHTML = ''
+    dragGhostContainerRef.current.appendChild(dragGhostNodeRef.current)
+  }, [])
+
+  const clearDragGhost = useCallback(() => {
+    if (dragGhostRafRef.current !== null) {
+      window.cancelAnimationFrame(dragGhostRafRef.current)
+      dragGhostRafRef.current = null
+    }
+    if (dragGhostContainerRef.current) {
+      dragGhostContainerRef.current.innerHTML = ''
+    }
+    dragGhostNodeRef.current = null
+    dragGhostPositionRef.current = null
+    dragItemOffsetRef.current = null
+    dragItemHeightRef.current = 0
+    dragItemWidthRef.current = 0
+  }, [])
+
+  const scheduleDropTargetIndex = useCallback((nextIndex: number) => {
+    pendingDropIndexRef.current = nextIndex
+    if (dropIndexRafRef.current !== null) return
+
+    dropIndexRafRef.current = window.requestAnimationFrame(() => {
+      dropIndexRafRef.current = null
+      const pending = pendingDropIndexRef.current
+      if (pending === null) return
+      if (dropTargetIndexRef.current !== pending) {
+        dropTargetIndexRef.current = pending
+        setDropTargetIndex(pending)
+      }
+    })
+  }, [])
+
   const resetPointerDrag = useCallback(() => {
     pointerDragSourceRef.current = null
     pointerDragStartRef.current = null
-    pointerDragTargetRef.current = null
     pointerDragActiveRef.current = false
     draggingProjectPathRef.current = null
+    dragOriginalIndexRef.current = null
+    dragDropZonesRef.current = []
+    pendingDropIndexRef.current = null
+    if (dropIndexRafRef.current !== null) {
+      window.cancelAnimationFrame(dropIndexRafRef.current)
+      dropIndexRafRef.current = null
+    }
+    dropTargetIndexRef.current = null
     setDraggingProjectPath(null)
     setDropTargetProjectPath(null)
+    setDropTargetIndex(null)
     setPointerDragActive(false)
-    setPointerDragPosition(null)
-    setPointerDragLabel('')
-  }, [])
+    clearDragGhost()
+  }, [clearDragGhost])
 
   const handleProjectPointerMove = useCallback((event: PointerEvent) => {
-    if (!pointerDragSourceRef.current || !pointerDragStartRef.current) return
+    const sourcePath = pointerDragSourceRef.current
+    const startPoint = pointerDragStartRef.current
+    if (!sourcePath || !startPoint) return
 
-    const dx = event.clientX - pointerDragStartRef.current.x
-    const dy = event.clientY - pointerDragStartRef.current.y
+    const dx = event.clientX - startPoint.x
+    const dy = event.clientY - startPoint.y
     const distance = Math.hypot(dx, dy)
 
     if (!pointerDragActiveRef.current) {
       if (distance < 6) return
+
+      const sourceNode = projectItemRefs.current.get(sourcePath)
+      if (!sourceNode) return
+
+      const rect = sourceNode.getBoundingClientRect()
+      dragItemHeightRef.current = rect.height
+      dragItemWidthRef.current = rect.width
+      dragItemOffsetRef.current = {
+        x: event.clientX - rect.left,
+        y: event.clientY - rect.top,
+      }
+      dragGhostPositionRef.current = { x: rect.left, y: rect.top }
+
+      const originalIndex = projectsRef.current.findIndex((project) => isSameDirectory(project.path, sourcePath))
+      dragOriginalIndexRef.current = originalIndex
+
+      const basePaths = getBaseProjectPaths(sourcePath)
+      dragDropZonesRef.current = basePaths
+        .map((path) => {
+          const node = projectItemRefs.current.get(path)
+          if (!node) return null
+          const rect = node.getBoundingClientRect()
+          return { path, mid: rect.top + rect.height / 2 }
+        })
+        .filter((entry): entry is { path: string; mid: number } => Boolean(entry))
+
       pointerDragActiveRef.current = true
       pointerDragSuppressClickRef.current = true
-      draggingProjectPathRef.current = pointerDragSourceRef.current
-      setDraggingProjectPath(pointerDragSourceRef.current)
+      draggingProjectPathRef.current = sourcePath
+      setDraggingProjectPath(sourcePath)
+      setDropTargetIndex(originalIndex >= 0 ? originalIndex : 0)
+      setDropTargetProjectPath(null)
       window.getSelection?.()?.removeAllRanges()
+
+      const clone = sourceNode.cloneNode(true) as HTMLElement
+      clone.style.width = `${rect.width}px`
+      clone.style.boxSizing = 'border-box'
+      clone.style.margin = '0'
+      clone.style.pointerEvents = 'none'
+      dragGhostNodeRef.current = clone
+
       setPointerDragActive(true)
-      setPointerDragPosition({ x: event.clientX, y: event.clientY })
     }
+
+    if (!pointerDragActiveRef.current) return
 
     event.preventDefault()
-    if (pointerDragActiveRef.current) {
-      setPointerDragPosition({ x: event.clientX, y: event.clientY })
+    updateDragGhostPosition(event.clientX, event.clientY)
+
+    const zones = dragDropZonesRef.current
+    let nextIndex = zones.length
+    for (let i = 0; i < zones.length; i += 1) {
+      if (event.clientY < zones[i].mid) {
+        nextIndex = i
+        break
+      }
     }
 
-    const target = document.elementFromPoint(event.clientX, event.clientY) as Element | null
-    const row = target?.closest?.('[data-project-path]') as HTMLElement | null
-    const targetPath = row?.dataset?.projectPath || ''
-
-    if (!targetPath || isSameDirectory(targetPath, pointerDragSourceRef.current)) {
-      pointerDragTargetRef.current = null
-      setDropTargetProjectPath(null)
-      return
-    }
-
-    pointerDragTargetRef.current = targetPath
-    setDropTargetProjectPath(targetPath)
-  }, [])
+    scheduleDropTargetIndex(nextIndex)
+  }, [getBaseProjectPaths, updateDragGhostPosition])
 
   const handleProjectPointerUp = useCallback(() => {
-    window.removeEventListener('pointermove', handleProjectPointerMove)
-    window.removeEventListener('pointerup', handleProjectPointerUp)
+    window.removeEventListener('pointermove', onPointerMove)
+    window.removeEventListener('pointerup', onPointerUp)
+    window.removeEventListener('pointercancel', onPointerUp)
 
-    if (pointerDragActiveRef.current && pointerDragSourceRef.current && pointerDragTargetRef.current) {
-      if (!isSameDirectory(pointerDragSourceRef.current, pointerDragTargetRef.current)) {
-        reorderDirectory(pointerDragSourceRef.current, pointerDragTargetRef.current)
+    if (pointerDragActiveRef.current && pointerDragSourceRef.current) {
+      const sourcePath = pointerDragSourceRef.current
+      const basePaths = getBaseProjectPaths(sourcePath)
+      const fallbackIndex = dragOriginalIndexRef.current ?? basePaths.length
+      const pendingIndex = pendingDropIndexRef.current ?? dropTargetIndexRef.current ?? dropTargetIndex
+      const insertIndex = Math.max(0, Math.min(basePaths.length, pendingIndex ?? fallbackIndex))
+      const targetPath = insertIndex >= basePaths.length ? '' : basePaths[insertIndex]
+
+      if (!targetPath || !isSameDirectory(sourcePath, targetPath)) {
+        reorderDirectory(sourcePath, targetPath)
       }
     }
 
     resetPointerDrag()
-  }, [handleProjectPointerMove, reorderDirectory, resetPointerDrag])
+  }, [dropTargetIndex, getBaseProjectPaths, reorderDirectory, resetPointerDrag])
 
-  const handleProjectPointerDown = useCallback((projectPath: string, projectName: string, event: React.PointerEvent<HTMLDivElement>) => {
+  useEffect(() => {
+    pointerMoveHandlerRef.current = handleProjectPointerMove
+    pointerUpHandlerRef.current = handleProjectPointerUp
+  }, [handleProjectPointerMove, handleProjectPointerUp])
+
+  const onPointerMove = useCallback((event: PointerEvent) => {
+    pointerMoveHandlerRef.current(event)
+  }, [])
+
+  const onPointerUp = useCallback((event?: PointerEvent) => {
+    pointerUpHandlerRef.current(event)
+  }, [])
+
+  const handleProjectPointerDown = useCallback((projectPath: string, event: React.PointerEvent<HTMLDivElement>) => {
     if (!tauriWindowMode || isMobile || event.button !== 0) return
 
     const target = event.target as Element | null
@@ -1124,20 +1289,69 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
     pointerDragSuppressClickRef.current = false
     pointerDragSourceRef.current = projectPath
     pointerDragStartRef.current = { x: event.clientX, y: event.clientY }
-    pointerDragTargetRef.current = null
     pointerDragActiveRef.current = false
-    setPointerDragLabel(projectName || projectPath)
 
-    window.addEventListener('pointermove', handleProjectPointerMove, { passive: false })
-    window.addEventListener('pointerup', handleProjectPointerUp)
-  }, [handleProjectPointerMove, handleProjectPointerUp, isMobile, tauriWindowMode])
+    window.addEventListener('pointermove', onPointerMove, { passive: false })
+    window.addEventListener('pointerup', onPointerUp)
+    window.addEventListener('pointercancel', onPointerUp)
+  }, [isMobile, onPointerMove, onPointerUp, tauriWindowMode])
+
+  useLayoutEffect(() => {
+    if (!pointerDragActive) return
+
+    mountDragGhost()
+    const position = dragGhostPositionRef.current
+    if (position && dragGhostContainerRef.current) {
+      dragGhostContainerRef.current.style.transform = `translate3d(${position.x}px, ${position.y}px, 0)`
+    }
+  }, [mountDragGhost, pointerDragActive])
+
+  useLayoutEffect(() => {
+    const nextRects = new Map<string, DOMRect>()
+    projectItemRefs.current.forEach((node, path) => {
+      nextRects.set(path, node.getBoundingClientRect())
+    })
+
+    if (pointerDragActive) {
+      prevProjectRectsRef.current.forEach((prevRect, path) => {
+        const node = projectItemRefs.current.get(path)
+        const nextRect = nextRects.get(path)
+        if (!node || !nextRect) return
+        const dx = prevRect.left - nextRect.left
+        const dy = prevRect.top - nextRect.top
+        if (dx || dy) {
+          const existing = flipAnimationRef.current.get(node)
+          if (existing) {
+            existing.cancel()
+          }
+          node.animate(
+            [
+              { transform: `translate(${dx}px, ${dy}px)` },
+              { transform: 'translate(0, 0)' },
+            ],
+            {
+              duration: 160,
+              easing: 'cubic-bezier(0.2, 0.8, 0.2, 1)',
+            },
+          )
+          const animation = node.getAnimations().at(-1)
+          if (animation) {
+            flipAnimationRef.current.set(node, animation)
+          }
+        }
+      })
+    }
+
+    prevProjectRectsRef.current = nextRects
+  }, [dropTargetIndex, pointerDragActive])
 
   useEffect(() => {
     return () => {
-      window.removeEventListener('pointermove', handleProjectPointerMove)
-      window.removeEventListener('pointerup', handleProjectPointerUp)
+      window.removeEventListener('pointermove', onPointerMove)
+      window.removeEventListener('pointerup', onPointerUp)
+      window.removeEventListener('pointercancel', onPointerUp)
     }
-  }, [handleProjectPointerMove, handleProjectPointerUp])
+  }, [onPointerMove, onPointerUp])
 
   useEffect(() => {
     if (pointerDragActive) {
@@ -1279,6 +1493,46 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
 
     void handleWindowTitlebarMouseDown(event.target, event.button, event.detail)
   }, [tauriWindowMode])
+
+  const activeDragPath = pointerDragActive ? draggingProjectPath : null
+  const baseProjectPaths = useMemo(() => {
+    const paths = projects.map((project) => project.path)
+    if (!activeDragPath) return paths
+    return paths.filter((path) => !isSameDirectory(path, activeDragPath))
+  }, [activeDragPath, projects])
+
+  const resolvedDropIndex = useMemo(() => {
+    if (!activeDragPath) return null
+    const fallbackIndex = dragOriginalIndexRef.current ?? baseProjectPaths.length
+    const candidate = dropTargetIndex ?? fallbackIndex
+    return Math.max(0, Math.min(baseProjectPaths.length, candidate))
+  }, [activeDragPath, baseProjectPaths.length, dropTargetIndex])
+
+  const projectRenderItems = useMemo(() => {
+    if (!activeDragPath) {
+      return baseProjectPaths.map((path) => ({ type: 'project' as const, path }))
+    }
+
+    const items: Array<{ type: 'project' | 'placeholder'; path?: string }> = []
+    const insertIndex = resolvedDropIndex ?? baseProjectPaths.length
+
+    baseProjectPaths.forEach((path, index) => {
+      if (index === insertIndex) {
+        items.push({ type: 'placeholder' })
+      }
+      items.push({ type: 'project', path })
+    })
+
+    if (insertIndex === baseProjectPaths.length) {
+      items.push({ type: 'placeholder' })
+    }
+
+    return items
+  }, [activeDragPath, baseProjectPaths, resolvedDropIndex])
+
+  const placeholderHeight = pointerDragActive
+    ? Math.max(dragItemHeightRef.current, 32)
+    : 0
 
   // 收起到 rail 时复用旧实现，避免重复维护收起态细节
   if (!showLabels) {
@@ -1721,11 +1975,26 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
           </div>
         ) : (
           <div
+            ref={projectListRef}
             className="space-y-0"
             onDragOverCapture={handleProjectListDragOverCapture}
             onDropCapture={handleProjectListDropCapture}
           >
-            {projects.map((project) => {
+            {projectRenderItems.map((item, index) => {
+              if (item.type === 'placeholder') {
+                return (
+                  <div
+                    key={`project-placeholder-${index}`}
+                    aria-hidden="true"
+                    className="rounded-md"
+                    style={{ height: placeholderHeight }}
+                  />
+                )
+              }
+
+              const project = projectByPath.get(item.path ?? '')
+              if (!project) return null
+
               const isCurrentProject = currentDirectory
                 ? isSameDirectory(currentDirectory, project.path)
                 : false
@@ -1745,13 +2014,14 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
                   key={project.path}
                   data-project-path={project.path}
                   draggable={!isMobile && !tauriWindowMode}
-                  onPointerDown={(event) => handleProjectPointerDown(project.path, project.name, event)}
+                  onPointerDown={(event) => handleProjectPointerDown(project.path, event)}
                   onDragStart={(event) => handleProjectDragStart(project.path, event)}
                   onDragOver={(event) => handleProjectDragOver(project.path, event)}
                   onDragLeave={() => handleProjectDragLeave(project.path)}
                   onDrop={(event) => handleProjectDrop(project.path, event)}
                   onDragEnd={handleProjectDragEnd}
                   className="rounded-md"
+                  ref={(node) => setProjectItemRef(project.path, node)}
                 >
                   <div
                     className={`group/project relative h-8 flex items-center rounded-md transition-colors ${
@@ -2014,18 +2284,12 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
         )}
       </div>
 
-      {pointerDragActive && pointerDragPosition && createPortal(
+      {pointerDragActive && createPortal(
         <div
-          className="fixed z-[9999] pointer-events-none"
-          style={{ left: pointerDragPosition.x + 12, top: pointerDragPosition.y + 12 }}
-        >
-          <div className="flex items-center gap-2 rounded-md border border-border-200/70 bg-bg-000/95 px-2.5 py-1.5 text-[11px] text-text-100 shadow-lg">
-            <FolderIcon size={12} className="shrink-0 text-text-400" />
-            <span className="max-w-[240px] truncate">
-              {pointerDragLabel}
-            </span>
-          </div>
-        </div>,
+          ref={dragGhostContainerRef}
+          aria-hidden="true"
+          className="fixed left-0 top-0 z-[9999] pointer-events-none"
+        />,
         document.body,
       )}
 

@@ -32,7 +32,7 @@ export interface DirectoryContextValue {
   /** 移除目录 */
   removeDirectory: (path: string) => void
   /** 调整目录顺序 */
-  reorderDirectory: (sourcePath: string, targetPath: string) => void
+  reorderDirectory: (sourcePath: string, targetPath?: string) => void
   /** 服务端路径信息 */
   pathInfo: ApiPath | null
   /** 侧边栏是否展开（桌面端）- 从 layoutStore 读取 */
@@ -252,24 +252,35 @@ export function DirectoryProvider({ children }: { children: ReactNode }) {
   }, [urlDirectory, setCurrentDirectory])
 
   // 调整目录顺序
-  const reorderDirectory = useCallback((sourcePath: string, targetPath: string) => {
+  const reorderDirectory = useCallback((sourcePath: string, targetPath?: string) => {
     const normalizedSource = normalizeDirectoryPath(sourcePath)
-    const normalizedTarget = normalizeDirectoryPath(targetPath)
+    const normalizedTarget = targetPath ? normalizeDirectoryPath(targetPath) : ''
 
-    if (!normalizedSource || !normalizedTarget || isSameDirectory(normalizedSource, normalizedTarget)) {
+    if (!normalizedSource || (normalizedTarget && isSameDirectory(normalizedSource, normalizedTarget))) {
       return
     }
 
     setSavedDirectories((prev) => {
       const sourceIndex = prev.findIndex((dir) => isSameDirectory(dir.path, normalizedSource))
-      const targetIndex = prev.findIndex((dir) => isSameDirectory(dir.path, normalizedTarget))
 
-      if (sourceIndex < 0 || targetIndex < 0 || sourceIndex === targetIndex) {
+      if (sourceIndex < 0) {
         return prev
       }
 
       const next = [...prev]
       const [moved] = next.splice(sourceIndex, 1)
+
+      if (!normalizedTarget) {
+        next.push(moved)
+        return next
+      }
+
+      const targetIndex = next.findIndex((dir) => isSameDirectory(dir.path, normalizedTarget))
+      if (targetIndex < 0) {
+        next.push(moved)
+        return next
+      }
+
       next.splice(targetIndex, 0, moved)
       return next
     })
