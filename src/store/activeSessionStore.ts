@@ -39,7 +39,6 @@ export interface ActiveSessionEntry {
 
 interface ActiveSessionState {
   statusMap: SessionStatusMap
-  initialized: boolean
 }
 
 type Subscriber = () => void
@@ -51,7 +50,6 @@ type Subscriber = () => void
 class ActiveSessionStore {
   private state: ActiveSessionState = {
     statusMap: {},
-    initialized: false,
   }
   private subscribers = new Set<Subscriber>()
 
@@ -60,9 +58,6 @@ class ActiveSessionStore {
 
   // 未回复的 permission/question 请求 — requestId → PendingRequest
   private pendingRequests = new Map<string, PendingRequest>()
-
-  // 服务端已报告 idle，但因有未回复请求而暂缓移出的 session
-  private deferredIdleSessions = new Set<string>()
 
   // 派生数据缓存
   private cachedBusySessions: ActiveSessionEntry[] = []
@@ -79,36 +74,44 @@ class ActiveSessionStore {
   }
 
   private recomputeDerived() {
-    const entries = Object.entries(this.state.statusMap)
-      .filter(([, status]) => status.type === 'busy' || status.type === 'retry')
-      .map(([sessionId, status]) => {
-        const meta = this.sessionMeta.get(sessionId)
-        // 从自身 pendingRequests 查 pending action
-        const pending = this.findPendingForSession(sessionId)
-        return {
-          sessionId,
-          status,
-          title: meta?.title,
-          directory: meta?.directory,
-          pendingAction: pending ? { type: pending.type, description: pending.description } : undefined,
-        } as ActiveSessionEntry
+    const pendingBySession = new Map<string, PendingRequest>()
+    for (const req of this.pendingRequests.values()) {
+      if (!pendingBySession.has(req.sessionId)) {
+        pendingBySession.set(req.sessionId, req)
+      }
+    }
+
+    const entries: ActiveSessionEntry[] = []
+    const seen = new Set<string>()
+
+    for (const [sessionId, status] of Object.entries(this.state.statusMap)) {
+      if (status.type !== 'busy' && status.type !== 'retry') continue
+      const meta = this.sessionMeta.get(sessionId)
+      const pending = pendingBySession.get(sessionId)
+      entries.push({
+        sessionId,
+        status,
+        title: meta?.title,
+        directory: meta?.directory,
+        pendingAction: pending ? { type: pending.type, description: pending.description } : undefined,
       })
+      seen.add(sessionId)
+    }
+
+    for (const [sessionId, pending] of pendingBySession.entries()) {
+      if (seen.has(sessionId)) continue
+      const meta = this.sessionMeta.get(sessionId)
+      entries.push({
+        sessionId,
+        status: { type: 'busy' },
+        title: meta?.title,
+        directory: meta?.directory,
+        pendingAction: { type: pending.type, description: pending.description },
+      })
+    }
+
     this.cachedBusySessions = entries
     this.cachedBusyCount = entries.length
-  }
-
-  private findPendingForSession(sessionId: string): PendingRequest | undefined {
-    for (const req of this.pendingRequests.values()) {
-      if (req.sessionId === sessionId) return req
-    }
-    return undefined
-  }
-
-  private hasPendingForSession(sessionId: string): boolean {
-    for (const req of this.pendingRequests.values()) {
-      if (req.sessionId === sessionId) return true
-    }
-    return false
   }
 
   getSnapshot = (): ActiveSessionState => this.state
@@ -120,7 +123,7 @@ class ActiveSessionStore {
   // ============================================
 
   initialize(statusMap: SessionStatusMap) {
-    this.state = { statusMap: { ...statusMap }, initialized: true }
+    this.state = { statusMap: { ...statusMap } }
     this.notify()
   }
 
@@ -132,19 +135,13 @@ class ActiveSessionStore {
     permissions: Array<{ id: string; sessionID: string; permission: string; patterns?: string[] }>,
     questions: Array<{ id: string; sessionID: string; questions?: Array<{ header?: string }> }>,
   ) {
-    let changed = false
-    const newMap = { ...this.state.statusMap }
+    this.pendingRequests.clear()
 
     for (const p of permissions) {
       const desc = p.patterns?.length ? `${p.permission}: ${p.patterns[0]}` : p.permission
       this.pendingRequests.set(p.id, {
         requestId: p.id, sessionId: p.sessionID, type: 'permission', description: desc,
       })
-      if (!newMap[p.sessionID] || newMap[p.sessionID].type === 'idle') {
-        newMap[p.sessionID] = { type: 'busy' }
-        this.deferredIdleSessions.add(p.sessionID)
-        changed = true
-      }
     }
 
     for (const q of questions) {
@@ -152,15 +149,6 @@ class ActiveSessionStore {
       this.pendingRequests.set(q.id, {
         requestId: q.id, sessionId: q.sessionID, type: 'question', description: desc,
       })
-      if (!newMap[q.sessionID] || newMap[q.sessionID].type === 'idle') {
-        newMap[q.sessionID] = { type: 'busy' }
-        this.deferredIdleSessions.add(q.sessionID)
-        changed = true
-      }
-    }
-
-    if (changed) {
-      this.state = { ...this.state, statusMap: newMap }
     }
     this.notify()
   }
@@ -171,12 +159,6 @@ class ActiveSessionStore {
 
   addPendingRequest(requestId: string, sessionId: string, type: 'permission' | 'question', description?: string) {
     this.pendingRequests.set(requestId, { requestId, sessionId, type, description })
-    // 确保 session 在 busy 列表
-    if (!this.state.statusMap[sessionId] || this.state.statusMap[sessionId].type === 'idle') {
-      const newMap = { ...this.state.statusMap, [sessionId]: { type: 'busy' as const } }
-      this.deferredIdleSessions.add(sessionId)
-      this.state = { ...this.state, statusMap: newMap }
-    }
     this.notify()
   }
 
@@ -188,14 +170,6 @@ class ActiveSessionStore {
     const req = this.pendingRequests.get(requestId)
     if (!req) return
     this.pendingRequests.delete(requestId)
-
-    // 检查该 session 是否还有其他 pending，没有且 deferred 就移出 busy
-    if (this.deferredIdleSessions.has(req.sessionId) && !this.hasPendingForSession(req.sessionId)) {
-      this.deferredIdleSessions.delete(req.sessionId)
-      const newMap = { ...this.state.statusMap }
-      delete newMap[req.sessionId]
-      this.state = { ...this.state, statusMap: newMap }
-    }
     this.notify()
   }
 
@@ -207,14 +181,8 @@ class ActiveSessionStore {
     const newMap = { ...this.state.statusMap }
 
     if (status.type === 'idle') {
-      if (this.hasPendingForSession(sessionId)) {
-        this.deferredIdleSessions.add(sessionId)
-      } else {
-        this.deferredIdleSessions.delete(sessionId)
-        delete newMap[sessionId]
-      }
+      delete newMap[sessionId]
     } else {
-      this.deferredIdleSessions.delete(sessionId)
       newMap[sessionId] = status
     }
 
