@@ -570,16 +570,22 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
     })
   }, [projects, currentDirectory, expandedProjects, setDirectoryExpanded])
 
+  const lastAutoExpandedProjectRef = useRef<string | null>(null)
   useEffect(() => {
     if (!currentDirectory) return
 
     const matched = projects.find((project) => isSameDirectory(project.path, currentDirectory))
     if (!matched) return
 
-    if (!expandedProjects[matched.path]) {
-      updateProjectExpanded(matched.path, true)
+    // Auto-expand when a project becomes current, but don't immediately re-expand
+    // if the user manually collapses the current project (projects may re-render).
+    if (lastAutoExpandedProjectRef.current && isSameDirectory(lastAutoExpandedProjectRef.current, matched.path)) {
+      return
     }
-  }, [currentDirectory, projects, expandedProjects, updateProjectExpanded])
+
+    lastAutoExpandedProjectRef.current = matched.path
+    updateProjectExpanded(matched.path, true)
+  }, [currentDirectory, projects, updateProjectExpanded])
 
   const loadProjectSessions = useCallback(async (projectPath: string, limit: number) => {
     setLoadingByProject((prev) => ({ ...prev, [projectPath]: true }))
@@ -1995,9 +2001,6 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
               const project = projectByPath.get(item.path ?? '')
               if (!project) return null
 
-              const isCurrentProject = currentDirectory
-                ? isSameDirectory(currentDirectory, project.path)
-                : false
               const isExpandedProject = expandedProjects[project.path] ?? false
               const sessions = sessionsByProject[project.path] ?? []
               const isLoading = loadingByProject[project.path] ?? false
@@ -2024,11 +2027,7 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
                   ref={(node) => setProjectItemRef(project.path, node)}
                 >
                   <div
-                    className={`group/project relative h-8 flex items-center rounded-md transition-colors ${
-                      isCurrentProject
-                        ? 'bg-[var(--sidebar-hover-bg)] text-text-100'
-                        : 'text-text-400 hover:text-text-100 hover:bg-[var(--sidebar-hover-bg)]'
-                    } ${isDropTarget ? 'ring-1 ring-accent-main-100/60' : ''} ${
+                    className={`group/project relative h-8 flex items-center rounded-md transition-colors text-text-400 hover:text-text-100 hover:bg-[var(--sidebar-hover-bg)] ${isDropTarget ? 'ring-1 ring-accent-main-100/60' : ''} ${
                       draggingProjectPath === project.path ? 'opacity-70' : ''
                     } ${tauriWindowMode ? 'cursor-grab' : ''}`}
                     role="button"
