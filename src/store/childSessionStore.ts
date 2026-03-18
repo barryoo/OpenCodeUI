@@ -16,7 +16,7 @@ import type { ApiSession } from '../api/types'
 export interface ChildSessionInfo {
   id: string
   parentID: string
-  title: string
+  title?: string
   agent?: string  // 子 agent 名称
   status: 'running' | 'idle' | 'error'
   createdAt: number
@@ -58,6 +58,8 @@ class ChildSessionStore {
   registerChildSession(session: ApiSession) {
     if (!session.parentID) return // 不是子 session
 
+    const existing = this.sessionInfo.get(session.id)
+
     // 添加到 parent -> children 映射
     let children = this.childrenByParent.get(session.parentID)
     if (!children) {
@@ -70,9 +72,10 @@ class ChildSessionStore {
     this.sessionInfo.set(session.id, {
       id: session.id,
       parentID: session.parentID,
-      title: session.title || 'Subtask',
-      status: 'running',
-      createdAt: session.time.created,
+      title: session.title ?? existing?.title,
+      agent: existing?.agent,
+      status: existing?.status ?? 'running',
+      createdAt: existing?.createdAt ?? session.time.created,
     })
 
     this.notify()
@@ -265,6 +268,17 @@ export function useChildSessions(parentId: string | null): ChildSessionInfo[] {
     (onStoreChange) => childSessionStore.subscribe(onStoreChange),
     () => getChildSessionsSnapshot(parentId),
     () => getChildSessionsSnapshot(parentId)
+  )
+}
+
+/**
+ * 获取子 session 的详细信息
+ */
+export function useChildSessionInfo(sessionId: string | null): ChildSessionInfo | null {
+  return useSyncExternalStore(
+    (onStoreChange) => childSessionStore.subscribe(onStoreChange),
+    () => (sessionId ? childSessionStore.getSessionInfo(sessionId) ?? null : null),
+    () => (sessionId ? childSessionStore.getSessionInfo(sessionId) ?? null : null)
   )
 }
 

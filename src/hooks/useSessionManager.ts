@@ -20,6 +20,7 @@ import {
 } from '../api'
 import { sessionErrorHandler } from '../utils'
 import { INITIAL_MESSAGE_LIMIT, HISTORY_LOAD_BATCH_SIZE, MAX_HISTORY_MESSAGES } from '../constants'
+import { childSessionStore } from '../store/childSessionStore'
 
 interface UseSessionManagerOptions {
   sessionId: string | null
@@ -109,6 +110,10 @@ export function useSessionManager({
       ]).then(([sessionInfo, messagesResult]) => {
         if (isStale()) return
 
+        if (sessionInfo?.parentID) {
+          childSessionStore.registerChildSession(sessionInfo)
+        }
+
         if (messagesResult.ok) {
           historyLimitRef.current.set(sid, Math.max(INITIAL_MESSAGE_LIMIT, messagesResult.messages.length))
           historyJsonRef.current.set(sid, serializeApiMessageIds(messagesResult.messages))
@@ -138,6 +143,10 @@ export function useSessionManager({
       ])
 
       if (isStale()) return
+
+      if (sessionInfo?.parentID) {
+        childSessionStore.registerChildSession(sessionInfo)
+      }
 
       // 再次检查：加载期间 SSE 可能已经推送了更多消息
       // force 模式下（重连）始终用服务器数据覆盖，因为本地数据可能不完整

@@ -3,10 +3,10 @@ import { PanelRightIcon, PanelBottomIcon, ChevronDownIcon, SidebarIcon } from '.
 import { IconButton } from '../../components/ui'
 import { ShareDialog } from './ShareDialog'
 import { OpenEditorButton } from './OpenEditorButton'
-import { useMessageStore } from '../../store'
+import { useMessageStore, useChildSessionInfo, childSessionStore } from '../../store'
 import { useLayoutStore, layoutStore } from '../../store/layoutStore'
 import { useSessionContext } from '../../contexts/SessionContext'
-import { updateSession } from '../../api'
+import { getSession, updateSession, type ApiSession } from '../../api'
 import { uiErrorHandler } from '../../utils'
 import { handleWindowTitlebarMouseDown, isTauriMacOS } from '../../utils/tauri'
 
@@ -19,9 +19,11 @@ export function Header({
   onOpenSidebar,
   showDesktopSidebarToggle = false,
 }: HeaderProps) {
-  const { sessionId } = useMessageStore()
+  const { sessionId, messages, sessionDirectory } = useMessageStore()
   const { rightPanelOpen, bottomPanelOpen } = useLayoutStore()
   const { sessions, refresh } = useSessionContext()
+  const childSessionInfo = useChildSessionInfo(sessionId)
+  const [sessionDetail, setSessionDetail] = useState<ApiSession | null>(null)
   
   const [shareDialogOpen, setShareDialogOpen] = useState(false)
   
@@ -39,7 +41,50 @@ export function Header({
     sessions.find(s => s.id === sessionId), 
     [sessions, sessionId]
   )
-  const sessionTitle = currentSession?.title || 'New Chat'
+
+  useEffect(() => {
+    let cancelled = false
+
+    if (!sessionId) {
+      setSessionDetail(null)
+      return
+    }
+
+    const targetDirectory = sessionDirectory || currentSession?.directory || undefined
+    getSession(sessionId, targetDirectory)
+      .then((session) => {
+        if (!cancelled) setSessionDetail(session)
+      })
+      .catch(() => {
+        if (!cancelled) setSessionDetail(null)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [sessionId, sessionDirectory, currentSession?.directory])
+
+  const fallbackAgentName = useMemo(() => {
+    for (const message of messages) {
+      const agent = message.info.agent?.trim()
+      if (agent) return agent
+    }
+    return ''
+  }, [messages])
+
+  const trimmedDetailTitle = sessionDetail?.title?.trim()
+  const trimmedCurrentTitle = currentSession?.title?.trim()
+  const trimmedChildTitle = childSessionInfo?.title?.trim()
+  const isSubagentSession = Boolean(sessionDetail?.parentID || childSessionInfo?.parentID)
+  const resolvedTitle =
+    trimmedDetailTitle
+    || trimmedCurrentTitle
+    || trimmedChildTitle
+    || (isSubagentSession && fallbackAgentName ? fallbackAgentName : '')
+  const sessionTitle = sessionId
+    ? (resolvedTitle || (currentSession ? 'New Chat' : `Session ${sessionId.slice(0, 6)}`))
+    : 'New Chat'
+  const hasNamedTitle = Boolean(resolvedTitle)
 
   // 同步 document.title - 有 session 标题时显示 "标题 - OpenCode"，否则只显示 "OpenCode"
   useEffect(() => {
@@ -48,13 +93,13 @@ export function Header({
       return () => { document.title = 'OpenCode' }
     }
 
-    if (currentSession?.title) {
-      document.title = `${currentSession.title} - OpenCode`
+    if (hasNamedTitle) {
+      document.title = `${sessionTitle} - OpenCode`
     } else {
       document.title = 'OpenCode'
     }
     return () => { document.title = 'OpenCode' }
-  }, [currentSession?.title, nativeMacTitlebar])
+  }, [hasNamedTitle, sessionTitle, nativeMacTitlebar])
 
   // Editing Logic
   useEffect(() => {
@@ -80,8 +125,11 @@ export function Header({
       return
     }
     try {
-      await updateSession(sessionId, { title: editTitle.trim() }, currentSession?.directory)
+      const targetDirectory = currentSession?.directory || sessionDirectory || undefined
+      const updatedSession = await updateSession(sessionId, { title: editTitle.trim() }, targetDirectory)
       refresh()
+      setSessionDetail(updatedSession)
+      childSessionStore.updateChildSession(sessionId, { title: updatedSession.title })
     } catch (e) {
       uiErrorHandler('rename session', e)
     } finally {
