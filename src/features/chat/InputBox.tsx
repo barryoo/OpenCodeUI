@@ -60,6 +60,9 @@ export interface InputBoxProps {
   models?: ModelInfo[]
   selectedModelKey?: string | null
   onModelChange?: (modelKey: string, model: ModelInfo) => void
+  showRestoreModel?: boolean
+  restoreModelLabel?: string
+  onRestoreModel?: () => void
   modelsLoading?: boolean
   modelSelectorRef?: React.RefObject<ModelSelectorHandle | null>
   rootPath?: string
@@ -105,6 +108,9 @@ function InputBoxComponent({
   models = [],
   selectedModelKey = null,
   onModelChange,
+  showRestoreModel = false,
+  restoreModelLabel,
+  onRestoreModel,
   modelsLoading = false,
   modelSelectorRef,
   rootPath = '',
@@ -993,6 +999,9 @@ function InputBoxComponent({
                       models={models}
                       selectedModelKey={selectedModelKey}
                       onModelChange={onModelChange}
+                      showRestoreModel={showRestoreModel}
+                      restoreModelLabel={restoreModelLabel}
+                      onRestoreModel={onRestoreModel}
                       modelsLoading={modelsLoading}
                       modelSelectorRef={modelSelectorRef}
                       inputContainerRef={inputContainerRef}

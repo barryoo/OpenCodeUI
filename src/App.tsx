@@ -66,6 +66,13 @@ function summarizeIntentFromToolInput(part: ToolPart, filePath?: string, subtitl
   return subtitle
 }
 
+interface SessionBaselineModel {
+  sessionKey: string
+  modelKey: string
+  modelName: string
+  variant?: string
+}
+
 function App() {
   // ============================================
   // Refs
@@ -73,6 +80,8 @@ function App() {
   const chatAreaRef = useRef<ChatAreaHandle>(null)
   const modelSelectorRef = useRef<ModelSelectorHandle>(null)
   const lastEscTimeRef = useRef(0)
+  const restoredModelSessionRef = useRef<string | null>(null)
+  const initializedBaselineSessionRef = useRef<string | null>(null)
 
   // Directory (for new-session project banner)
   const { currentDirectory, savedDirectories } = useDirectory()
@@ -104,6 +113,7 @@ function App() {
     handleVariantChange,
     restoreFromMessage,
   } = useModelSelection({ models })
+  const [sessionBaselineModel, setSessionBaselineModel] = useState<SessionBaselineModel | null>(null)
 
   // ============================================
   // Visible Message IDs (for outline index)
@@ -216,6 +226,7 @@ function App() {
     agents,
     selectedAgent,
     setSelectedAgent,
+    activeStoreSessionId,
     routeSessionId,
     loadState,
     hasMoreHistory,
@@ -255,6 +266,7 @@ function App() {
     handleCopyLastResponse,
     restoreAgentFromMessage,
   } = useChatSession({ chatAreaRef, currentModel, refetchModels })
+  const activeSessionKey = routeSessionId ?? '__new_session__'
 
   // ============================================
   // Agent Change with Model Sync
@@ -276,6 +288,14 @@ function App() {
     syncModelForAgent(agentName)
   }, [setSelectedAgent, syncModelForAgent])
 
+  const handleRestoreSessionModel = useCallback(() => {
+    if (!sessionBaselineModel) return
+    const baselineModel = findModelByKey(models, sessionBaselineModel.modelKey)
+    if (!baselineModel) return
+
+    handleModelChange(sessionBaselineModel.modelKey, baselineModel)
+  }, [sessionBaselineModel, models, handleModelChange])
+
   // 包装 handleToggleAgent，切换后同步模型
   const handleToggleAgentWithSync = useCallback(() => {
     const primaryAgents = agents.filter(a => a.mode !== 'subagent' && !a.hidden)
@@ -290,28 +310,76 @@ function App() {
   // Model Restoration Effect
   // ============================================
   useEffect(() => {
-    // 1. 优先从 revertedContent 恢复（Undo/Redo 场景）
-    if (revertedContent?.model) {
-      const modelSelection = restoreModelSelection(
-        revertedContent.model, 
-        revertedContent.variant ?? null,
-        models
-      )
-      if (modelSelection) {
-        restoreFromMessage(revertedContent.model, revertedContent.variant)
-        return
-      }
+    if (!routeSessionId) {
+      restoredModelSessionRef.current = null
+      return
     }
 
-    // 2. 其次从历史消息恢复
-    if (messages.length === 0) return
-    
+    if (activeStoreSessionId !== routeSessionId) return
+
+    // 只在切换/初始化会话后恢复一次模型，避免 Undo 或消息更新覆盖用户手动选择
+    if (restoredModelSessionRef.current === routeSessionId) return
+    if (loadState !== 'loaded' || models.length === 0) return
+
+    if (messages.length === 0) {
+      restoredModelSessionRef.current = routeSessionId
+      return
+    }
+
     const lastUserMsg = [...messages].reverse().find(m => m.info.role === 'user')
     if (lastUserMsg && 'model' in lastUserMsg.info) {
       const userInfo = lastUserMsg.info as { model?: { providerID: string; modelID: string }; variant?: string }
       restoreFromMessage(userInfo.model, userInfo.variant)
     }
-  }, [messages, models, revertedContent, restoreFromMessage])
+
+    restoredModelSessionRef.current = routeSessionId
+  }, [routeSessionId, activeStoreSessionId, loadState, messages, models, restoreFromMessage])
+
+  useEffect(() => {
+    initializedBaselineSessionRef.current = null
+    setSessionBaselineModel(null)
+  }, [activeSessionKey])
+
+  useEffect(() => {
+    if (models.length === 0) return
+    if (routeSessionId && activeStoreSessionId !== routeSessionId) return
+
+    const lastUserMsg = [...messages].reverse().find(m => m.info.role === 'user')
+    if (lastUserMsg && 'model' in lastUserMsg.info) {
+      const userInfo = lastUserMsg.info as { model?: { providerID: string; modelID: string }; variant?: string }
+      const restoredSelection = restoreModelSelection(userInfo.model ?? null, userInfo.variant ?? null, models)
+
+      if (restoredSelection) {
+        setSessionBaselineModel({
+          sessionKey: activeSessionKey,
+          modelKey: restoredSelection.modelKey,
+          modelName: restoredSelection.model.name,
+          variant: restoredSelection.variant,
+        })
+        initializedBaselineSessionRef.current = activeSessionKey
+        return
+      }
+    }
+
+    const canInitializeEmptySession = !routeSessionId || loadState === 'loaded'
+    if (!canInitializeEmptySession || initializedBaselineSessionRef.current === activeSessionKey || !selectedModelKey) return
+
+    const baselineModel = findModelByKey(models, selectedModelKey)
+    if (!baselineModel) return
+
+    setSessionBaselineModel({
+      sessionKey: activeSessionKey,
+      modelKey: selectedModelKey,
+      modelName: baselineModel.name,
+      variant: selectedVariant,
+    })
+    initializedBaselineSessionRef.current = activeSessionKey
+  }, [activeSessionKey, routeSessionId, activeStoreSessionId, loadState, messages, models, selectedModelKey, selectedVariant])
+
+  const showRestoreSessionModel = !!sessionBaselineModel
+    && sessionBaselineModel.sessionKey === activeSessionKey
+    && sessionBaselineModel.modelKey !== selectedModelKey
+    && !!findModelByKey(models, sessionBaselineModel.modelKey)
 
   // ============================================
   // Agent Restoration Effect
@@ -711,6 +779,9 @@ function App() {
                     models={models}
                     selectedModelKey={selectedModelKey}
                     onModelChange={handleModelChange}
+                    showRestoreModel={showRestoreSessionModel}
+                    restoreModelLabel={sessionBaselineModel?.modelName}
+                    onRestoreModel={handleRestoreSessionModel}
                     modelsLoading={modelsLoading}
                     modelSelectorRef={modelSelectorRef}
                     rootPath={effectiveDirectory}

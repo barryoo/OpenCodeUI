@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
-import { ChevronDownIcon, SendIcon, StopIcon, ImageIcon, AgentIcon, ThinkingIcon } from '../../../components/Icons'
+import { ChevronDownIcon, SendIcon, StopIcon, ImageIcon, AgentIcon, ThinkingIcon, UndoIcon } from '../../../components/Icons'
 import { DropdownMenu, MenuItem, IconButton, AnimatedPresence } from '../../../components/ui'
 import { InputToolbarModelSelector, type ModelSelectorHandle } from '../ModelSelector'
 import { isTauri } from '../../../utils/tauri'
@@ -28,6 +28,9 @@ interface InputToolbarProps {
   models?: ModelInfo[]
   selectedModelKey?: string | null
   onModelChange?: (modelKey: string, model: ModelInfo) => void
+  showRestoreModel?: boolean
+  restoreModelLabel?: string
+  onRestoreModel?: () => void
   modelsLoading?: boolean
   // 输入框容器 ref，用于约束菜单边界
   inputContainerRef?: React.RefObject<HTMLDivElement | null>
@@ -51,6 +54,9 @@ export function InputToolbar({
   models = [],
   selectedModelKey = null,
   onModelChange,
+  showRestoreModel = false,
+  restoreModelLabel,
+  onRestoreModel,
   modelsLoading = false,
   inputContainerRef,
   modelSelectorRef,
@@ -149,6 +155,18 @@ export function InputToolbar({
               constrainToRef={inputContainerRef}
             />
           </div>
+        )}
+
+        {showRestoreModel && restoreModelLabel && onRestoreModel && (
+          <button
+            type="button"
+            onClick={onRestoreModel}
+            className="flex items-center gap-1.5 px-3 h-[32px] rounded-full bg-accent-main-100/10 backdrop-blur-md border border-accent-main-100/20 text-[11px] text-accent-main-000 hover:bg-accent-main-100/20 transition-colors min-w-0 max-w-[42%] sm:max-w-[48%] md:max-w-[240px]"
+            title={`恢复到 ${restoreModelLabel}`}
+          >
+            <UndoIcon size={12} className="shrink-0" />
+            <span className="truncate">恢复到 {restoreModelLabel}</span>
+          </button>
         )}
 
         {/* Thinking Selector */}

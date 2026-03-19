@@ -41,6 +41,7 @@ interface UseChatSessionOptions {
 export function useChatSession({ chatAreaRef, currentModel, refetchModels }: UseChatSessionOptions) {
   // Store State
   const {
+    sessionId: activeStoreSessionId,
     messages,
     isStreaming,
     prependedCount,
@@ -552,6 +553,7 @@ export function useChatSession({ chatAreaRef, currentModel, refetchModels }: Use
     agents,
     selectedAgent,
     setSelectedAgent,
+    activeStoreSessionId,
     routeSessionId,
     currentDirectory,
     sidebarExpanded,
