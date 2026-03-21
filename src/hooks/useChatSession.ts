@@ -14,6 +14,7 @@ import {
   getSessionChildren,
   executeCommand,
   summarizeSession,
+  forkSession,
   updateSession,
   type ApiSession,
   type ApiAgent, type Attachment, type ModelInfo,
@@ -442,6 +443,18 @@ export function useChatSession({ chatAreaRef, currentModel, refetchModels }: Use
     }, UNDO_SCROLL_DELAY_MS)
   }, [messages, animateUndo, handleUndo])
 
+  const handleForkSession = useCallback(async (userMessageId: string) => {
+    if (!routeSessionId) return
+
+    try {
+      const forked = await forkSession(routeSessionId, userMessageId, effectiveDirectory)
+      messageStore.setCurrentSession(forked.id)
+      navigateToSession(forked.id, forked.directory || effectiveDirectory)
+    } catch (error) {
+      handleError('fork session', error)
+    }
+  }, [routeSessionId, effectiveDirectory, navigateToSession])
+
   // Redo with animation
   const handleRedoWithAnimation = useCallback(async () => {
     chatAreaRef.current?.suppressAutoScroll(AUTO_SCROLL_SUPPRESS_DURATION_MS)
@@ -582,6 +595,7 @@ export function useChatSession({ chatAreaRef, currentModel, refetchModels }: Use
     handleAbort,
     handleCommand,
     handleUndoWithAnimation,
+    handleForkSession,
     handleRedoWithAnimation,
     handleSelectSession,
     handleNewSession,

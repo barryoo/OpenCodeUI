@@ -1,6 +1,6 @@
 import { memo, useState, useRef, useEffect, useMemo } from 'react'
-import { ChevronDownIcon, ChevronRightIcon, UndoIcon } from '../../components/Icons'
-import { CopyButton } from '../../components/ui'
+import { ChevronDownIcon, ChevronRightIcon, UndoIcon, GitBranchIcon } from '../../components/Icons'
+import { Button, CopyButton, DropdownMenu } from '../../components/ui'
 import { useDelayedRender } from '../../hooks'
 import { useTheme } from '../../hooks/useTheme'
 import {
@@ -39,6 +39,7 @@ interface MessageRendererProps {
   /** 回合内所有 tool parts，仅在回合最后一条 assistant 消息上有值，用于文件改动汇总 */
   turnToolParts?: ToolPart[]
   onUndo?: (userMessageId: string) => void
+  onFork?: (userMessageId: string) => void
   canUndo?: boolean
   onEnsureParts?: (messageId: string) => void
 }
@@ -65,12 +66,12 @@ function formatDuration(ms: number): string {
   return rem > 0 ? `${m}m${rem}s` : `${m}m`
 }
 
-export const MessageRenderer = memo(function MessageRenderer({ message, turnDuration, turnToolParts, onUndo, canUndo, onEnsureParts }: MessageRendererProps) {
+export const MessageRenderer = memo(function MessageRenderer({ message, turnDuration, turnToolParts, onUndo, onFork, canUndo, onEnsureParts }: MessageRendererProps) {
   const { info } = message
   const isUser = info.role === 'user'
   
   if (isUser) {
-    return <UserMessageView message={message} onUndo={onUndo} canUndo={canUndo} />
+    return <UserMessageView message={message} onUndo={onUndo} onFork={onFork} canUndo={canUndo} />
   }
   
   return <AssistantMessageView message={message} turnDuration={turnDuration} turnToolParts={turnToolParts} onEnsureParts={onEnsureParts} />
@@ -148,12 +149,17 @@ const CollapsibleUserText = memo(function CollapsibleUserText({ text, collapseEn
 interface UserMessageViewProps {
   message: Message
   onUndo?: (userMessageId: string) => void
+  onFork?: (userMessageId: string) => void
   canUndo?: boolean
 }
 
-const UserMessageView = memo(function UserMessageView({ message, onUndo, canUndo }: UserMessageViewProps) {
+const UserMessageView = memo(function UserMessageView({ message, onUndo, onFork, canUndo }: UserMessageViewProps) {
   const { parts, info } = message
   const [showSystemContext, setShowSystemContext] = useState(false)
+  const [confirmOpen, setConfirmOpen] = useState(false)
+  const [isForking, setIsForking] = useState(false)
+  const triggerRef = useRef<HTMLButtonElement>(null)
+  const menuRef = useRef<HTMLDivElement>(null)
   const shouldRenderSystemContext = useDelayedRender(showSystemContext)
   const { collapseUserMessages } = useTheme()
   const messageTime = formatMessageTime(info.time.created)
@@ -167,6 +173,44 @@ const UserMessageView = memo(function UserMessageView({ message, onUndo, canUndo
   
   const hasSystemContext = syntheticParts.length > 0
   const messageText = textParts.map(p => p.text).join('')
+
+  const handleConfirmFork = async () => {
+    if (!onFork || isForking) return
+    setIsForking(true)
+    try {
+      await onFork(info.id)
+      setConfirmOpen(false)
+    } finally {
+      setIsForking(false)
+    }
+  }
+
+  useEffect(() => {
+    if (!confirmOpen) return
+
+    const handlePointerDown = (event: MouseEvent) => {
+      const target = event.target as Node
+      if (
+        menuRef.current && !menuRef.current.contains(target) &&
+        triggerRef.current && !triggerRef.current.contains(target)
+      ) {
+        setConfirmOpen(false)
+      }
+    }
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && !isForking) {
+        setConfirmOpen(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handlePointerDown)
+    document.addEventListener('keydown', handleKeyDown)
+    return () => {
+      document.removeEventListener('mousedown', handlePointerDown)
+      document.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [confirmOpen, isForking])
   
   return (
     <div className="flex flex-col items-end group">
@@ -217,30 +261,78 @@ const UserMessageView = memo(function UserMessageView({ message, onUndo, canUndo
           </div>
         )}
 
-        {/* Footer */}
-        <div className="flex items-center justify-end gap-2 text-[10px] text-text-300 mt-0.5">
-          {messageTime && (
-            <span className="text-text-400 tabular-nums" title={messageDateTime}>
-              {messageTime}
-            </span>
-          )}
-          <div className="flex items-center gap-1 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
-            {/* Undo button */}
-            {canUndo && onUndo && (
-              <button
-                onClick={() => onUndo(info.id)}
-                className="p-1.5 rounded-md transition-colors duration-150 text-text-300 hover:text-text-100"
-                title="Undo from here"
-              >
-                <UndoIcon />
-              </button>
+          {/* Footer */}
+          <div className="flex items-center justify-end gap-2 text-[10px] text-text-300 mt-0.5">
+            {messageTime && (
+              <span className="text-text-400 tabular-nums" title={messageDateTime}>
+                {messageTime}
+              </span>
             )}
-            {/* Copy button */}
-            {messageText && (
-              <CopyButton text={messageText} position="static" />
-            )}
+            <div className={`flex items-center gap-1 transition-opacity ${confirmOpen ? 'opacity-100' : 'md:opacity-0 md:group-hover:opacity-100'}`}>
+              {onFork && (
+                <>
+                  <button
+                    ref={triggerRef}
+                    onClick={() => setConfirmOpen((value) => !value)}
+                    className="p-1.5 rounded-md transition-colors duration-150 text-text-300 hover:text-text-100"
+                    title="Fork from here"
+                  >
+                    <GitBranchIcon size={14} />
+                  </button>
+                  <DropdownMenu
+                    triggerRef={triggerRef}
+                    isOpen={confirmOpen}
+                    position="top"
+                    align="right"
+                    minWidth="280px"
+                    maxWidth="min(320px, calc(100vw - 24px))"
+                    className="!p-0 overflow-hidden"
+                  >
+                    <div ref={menuRef}>
+                      <div className="px-3 pt-2.5 pb-2 border-b border-border-200/50">
+                        <div className="text-sm font-medium text-text-100">从这里分叉？</div>
+                        <div className="mt-1 text-xs leading-snug text-text-400">
+                          将基于这条用户消息之前的上下文创建一个新会话。当前会话不会被修改。
+                        </div>
+                      </div>
+                      <div className="px-3 pt-2 pb-3 flex items-center justify-end gap-2">
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          onClick={() => setConfirmOpen(false)}
+                          disabled={isForking}
+                        >
+                          取消
+                        </Button>
+                        <Button
+                          variant="danger"
+                          size="sm"
+                          onClick={() => { void handleConfirmFork() }}
+                          isLoading={isForking}
+                        >
+                          确认分叉
+                        </Button>
+                      </div>
+                    </div>
+                  </DropdownMenu>
+                </>
+              )}
+              {/* Undo button */}
+              {canUndo && onUndo && (
+                <button
+                  onClick={() => onUndo(info.id)}
+                  className="p-1.5 rounded-md transition-colors duration-150 text-text-300 hover:text-text-100"
+                  title="Undo from here"
+                >
+                  <UndoIcon />
+                </button>
+              )}
+              {/* Copy button */}
+              {messageText && (
+                <CopyButton text={messageText} position="static" />
+              )}
+            </div>
           </div>
-        </div>
       </div>
     </div>
   )
