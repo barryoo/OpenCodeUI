@@ -33,6 +33,7 @@ interface ChatAreaProps {
   hasMoreHistory?: boolean
   onLoadMore?: () => void | Promise<void>
   onUndo?: (userMessageId: string) => void
+  onFork?: (userMessageId: string) => void
   canUndo?: boolean
   registerMessage?: (id: string, element: HTMLElement | null) => void
   isWideMode?: boolean
@@ -193,6 +194,7 @@ export const ChatArea = memo(forwardRef<ChatAreaHandle, ChatAreaProps>(({
   hasMoreHistory = false,
   onLoadMore,
   onUndo,
+  onFork,
   canUndo,
   registerMessage,
   isWideMode = false,
@@ -689,6 +691,7 @@ export const ChatArea = memo(forwardRef<ChatAreaHandle, ChatAreaProps>(({
               turnDuration={turnDurationMap.get(msg.info.id)}
               turnToolParts={turnToolPartsMap.get(msg.info.id)}
               onUndo={onUndo}
+              onFork={msg.info.role === 'user' ? onFork : undefined}
               canUndo={canUndo}
               onEnsureParts={(id) => {
                 if (!sessionId) return
@@ -699,7 +702,7 @@ export const ChatArea = memo(forwardRef<ChatAreaHandle, ChatAreaProps>(({
         </div>
       </div>
     )
-  }, [registerMessage, onUndo, canUndo, isWideMode, sessionId, turnDurationMap, turnToolPartsMap])
+  }, [registerMessage, onUndo, onFork, canUndo, isWideMode, sessionId, turnDurationMap, turnToolPartsMap])
 
   // Session 正在加载且没有消息 → 显示全屏 spinner（仅在有 sessionId 时，新建对话不显示）
   const showSessionLoading = !!sessionId && loadState === 'loading' && visibleMessages.length === 0

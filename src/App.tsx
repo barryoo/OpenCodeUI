@@ -245,6 +245,7 @@ function App() {
     handleAbort,
     handleCommand,
     handleUndoWithAnimation,
+    handleForkSession,
     handleRedoWithAnimation,
     handleSelectSession,
     handleNewSession,
@@ -615,6 +616,7 @@ function App() {
                   hasMoreHistory={hasMoreHistory}
                   onLoadMore={loadMoreHistory}
                   onUndo={handleUndoWithAnimation}
+                  onFork={handleForkSession}
                   canUndo={canUndo}
                   registerMessage={registerMessage}
                   isWideMode={isWideMode}
