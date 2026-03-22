@@ -11,7 +11,7 @@ import { usePathMode, useServerStore, useIsMobile, useNotification, useRouter } 
 import { layoutStore, useLayoutStore, type SidebarViewMode } from '../../store/layoutStore'
 import { autoApproveStore, messageStore, notificationStore } from '../../store'
 import { serviceStore, useServiceStore } from '../../store/serviceStore'
-import { themeStore } from '../../store/themeStore'
+import { themeStore, type ToolOutputExpansionLevel } from '../../store/themeStore'
 import { isTauri } from '../../utils/tauri'
 import { KeybindingsSection } from './KeybindingsSection'
 import type { ThemeMode } from '../../hooks'
@@ -531,6 +531,10 @@ function GeneralSettings({ mode }: { mode: 'chat' | 'notifications' | 'service' 
   const { enabled: notificationsEnabled, setEnabled: setNotificationsEnabled, supported: notificationsSupported, permission: notificationPermission, sendNotification } = useNotification()
   const [collapseUserMessages, setCollapseUserMessages] = useState(themeStore.collapseUserMessages)
   const [stepFinishDisplay, setStepFinishDisplay] = useState(themeStore.stepFinishDisplay)
+  const [toolOutputExpansionLevel, setToolOutputExpansionLevel] = useState(themeStore.toolOutputExpansionLevel)
+  const [toolOutputReadOnlyCommandGlobs, setToolOutputReadOnlyCommandGlobs] = useState(
+    themeStore.toolOutputReadOnlyCommandGlobs.join('\n')
+  )
   const [toastEnabled, setToastEnabledState] = useState(notificationStore.toastEnabled)
   const isMobile = useIsMobile()
   const { autoStart: autoStartService, binaryPath, envVars, running: serviceRunning, startedByUs, starting: serviceStarting } = useServiceStore()
@@ -568,6 +572,20 @@ function GeneralSettings({ mode }: { mode: 'chat' | 'notifications' | 'service' 
 
   const handleTestNotification = () => {
     sendNotification('OpenCode', 'This is a test notification')
+  }
+
+  const handleToolOutputExpansionLevelChange = (level: ToolOutputExpansionLevel) => {
+    setToolOutputExpansionLevel(level)
+    themeStore.setToolOutputExpansionLevel(level)
+  }
+
+  const handleToolOutputReadOnlyGlobsChange = (value: string) => {
+    setToolOutputReadOnlyCommandGlobs(value)
+    const globs = value
+      .split(/\r?\n/)
+      .map(item => item.trim())
+      .filter(Boolean)
+    themeStore.setToolOutputReadOnlyCommandGlobs(globs)
   }
 
 
@@ -694,6 +712,47 @@ function GeneralSettings({ mode }: { mode: 'chat' | 'notifications' | 'service' 
                 >
                   <Toggle enabled={collapseUserMessages} onChange={handleCollapseToggle} />
                 </SettingRow>
+              </div>
+
+              <div className="pt-3 border-t border-border-100/55 space-y-3">
+                <div>
+                  <div className="text-[11px] font-medium text-text-400 uppercase tracking-wider mb-2">Tool Output</div>
+                  <div className="text-[11px] text-text-400 mb-2 leading-relaxed">
+                    Choose when tool call details expand automatically.
+                  </div>
+                  <SegmentedControl
+                    value={String(toolOutputExpansionLevel) as '1' | '2' | '3' | '4'}
+                    options={[
+                      { value: '1', label: 'Level 1' },
+                      { value: '2', label: 'Level 2' },
+                      { value: '3', label: 'Level 3' },
+                      { value: '4', label: 'Level 4' },
+                    ]}
+                    onChange={(value) => handleToolOutputExpansionLevelChange(Number(value) as ToolOutputExpansionLevel)}
+                  />
+                  <div className="mt-2 space-y-1 text-[11px] text-text-400 leading-relaxed">
+                    <div>Level 1: keep the current behavior.</div>
+                    <div>Level 2: collapse read-only tools like Read, Grep, and Glob.</div>
+                    <div>Level 3: Level 2 plus simple read-only bash commands collapse automatically.</div>
+                    <div>Level 4: collapse all tool output by default.</div>
+                  </div>
+                </div>
+
+                {toolOutputExpansionLevel === 3 && (
+                  <div>
+                    <div className="text-[11px] font-medium text-text-300 mb-1">Extra Read-Only Bash Globs</div>
+                    <textarea
+                      value={toolOutputReadOnlyCommandGlobs}
+                      onChange={(e) => handleToolOutputReadOnlyGlobsChange(e.target.value)}
+                      placeholder={['git blame *', 'git ls-tree *'].join('\n')}
+                      rows={4}
+                      className="w-full px-3 py-2 text-[12px] leading-5 bg-bg-200/50 border border-border-200 rounded-md resize-y min-h-[88px] focus:outline-none focus:border-accent-main-100/50 text-text-100 placeholder:text-text-500 font-mono"
+                    />
+                    <div className="text-[11px] text-text-400 mt-1 leading-relaxed">
+                      One glob per line. Only simple bash commands are matched; complex commands stay expanded to avoid false positives.
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="pt-3 border-t border-border-100/55">

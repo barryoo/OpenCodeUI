@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef, useSyncExternalStore } from '
 import { flushSync } from 'react-dom'
 import { THEME_SWITCH_DISABLE_MS } from '../constants'
 import { themeStore, type ColorMode } from '../store/themeStore'
-import type { StepFinishDisplay } from '../store/themeStore'
+import type { StepFinishDisplay, ToolOutputExpansionLevel } from '../store/themeStore'
 
 // 保持向后兼容的类型别名
 export type ThemeMode = ColorMode
@@ -160,6 +160,14 @@ export function useTheme() {
     themeStore.setStepFinishDisplay(display)
   }, [])
 
+  const setToolOutputExpansionLevel = useCallback((level: ToolOutputExpansionLevel) => {
+    themeStore.setToolOutputExpansionLevel(level)
+  }, [])
+
+  const setToolOutputReadOnlyCommandGlobs = useCallback((globs: string[]) => {
+    themeStore.setToolOutputReadOnlyCommandGlobs(globs)
+  }, [])
+
 
   return {
     // 日夜模式（向后兼容）
@@ -188,6 +196,12 @@ export function useTheme() {
     // step-finish 信息栏显示
     stepFinishDisplay: state.stepFinishDisplay,
     setStepFinishDisplay,
+
+    // 工具输出展开策略
+    toolOutputExpansionLevel: state.toolOutputExpansionLevel,
+    setToolOutputExpansionLevel,
+    toolOutputReadOnlyCommandGlobs: state.toolOutputReadOnlyCommandGlobs,
+    setToolOutputReadOnlyCommandGlobs,
 
   }
 }

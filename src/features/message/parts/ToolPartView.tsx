@@ -2,8 +2,10 @@ import { memo, useState, useMemo, useEffect } from 'react'
 import { ChevronDownIcon, ChevronRightIcon } from '../../../components/Icons'
 import type { ToolPart } from '../../../types/message'
 import { useDelayedRender } from '../../../hooks'
+import { useTheme } from '../../../hooks/useTheme'
 import { useCurrentDirectory } from '../../../contexts/DirectoryContext'
 import { usePermissionContext } from '../../../contexts/PermissionContext'
+import type { ToolOutputExpansionLevel } from '../../../store/themeStore'
 import { 
   getToolIcon, 
   extractToolData, 
@@ -98,6 +100,130 @@ function isDuplicateHeaderText(primary?: string, secondary?: string): boolean {
   return left === right || left.includes(right) || right.includes(left)
 }
 
+const READ_ONLY_TOOL_KEYWORDS = [
+  'read',
+  'grep',
+  'glob',
+  'search',
+  'lsp',
+  'hover',
+  'definition',
+  'reference',
+  'symbol',
+  'diagnostic',
+  'webfetch',
+  'websearch',
+  'codesearch',
+  'context7',
+]
+
+const NON_READ_ONLY_TOOL_KEYWORDS = [
+  'write',
+  'edit',
+  'patch',
+  'replace',
+  'rename',
+  'bash',
+  'shell',
+  'terminal',
+  'cmd',
+]
+
+const READ_ONLY_BASH_COMMAND_GLOBS = [
+  'git status',
+  'git diff*',
+  'git log*',
+  'git show*',
+  'git branch',
+  'git branch --show-current',
+  'git remote*',
+  'git rev-parse*',
+  'git stash list*',
+  'git ls-files*',
+  'git symbolic-ref*',
+  'ls*',
+  'pwd',
+  'which *',
+  'type *',
+  'env',
+  'printenv*',
+]
+
+function getToolInitialExpanded(
+  part: ToolPart,
+  level: ToolOutputExpansionLevel,
+  commandGlobs: string[],
+): boolean {
+  const isActive = part.state.status === 'running' || part.state.status === 'pending'
+
+  if (level === 1) return isActive
+  if (level === 4) return false
+  if (isActive) return true
+
+  if (level === 2) {
+    return !isReadOnlyToolPart(part, false, commandGlobs)
+  }
+
+  return !isReadOnlyToolPart(part, true, commandGlobs)
+}
+
+function isReadOnlyToolPart(
+  part: ToolPart,
+  inspectBashCommand: boolean,
+  commandGlobs: string[],
+): boolean {
+  const tool = part.tool.toLowerCase()
+
+  if (NON_READ_ONLY_TOOL_KEYWORDS.some(keyword => tool.includes(keyword))) {
+    if (inspectBashCommand && isBashLikeTool(tool)) {
+      return isReadOnlyBashCommand(part, commandGlobs)
+    }
+    return false
+  }
+
+  if (READ_ONLY_TOOL_KEYWORDS.some(keyword => tool.includes(keyword))) {
+    return true
+  }
+
+  return false
+}
+
+function isBashLikeTool(tool: string): boolean {
+  return tool.includes('bash') || tool.includes('shell') || tool.includes('terminal') || tool === 'sh' || tool === 'cmd'
+}
+
+function isReadOnlyBashCommand(part: ToolPart, commandGlobs: string[]): boolean {
+  const command = extractSimpleCommand(part)
+  if (!command) return false
+  const normalized = normalizeCommand(command)
+  const patterns = [...READ_ONLY_BASH_COMMAND_GLOBS, ...commandGlobs]
+  return patterns.some(pattern => wildcardMatch(normalized, pattern))
+}
+
+function extractSimpleCommand(part: ToolPart): string | undefined {
+  const inputObj = part.state.input as Record<string, unknown> | undefined
+  const raw = typeof inputObj?.command === 'string'
+    ? inputObj.command
+    : typeof part.state.raw === 'string'
+      ? part.state.raw
+      : undefined
+  if (!raw) return undefined
+  if (/[\n;&|><`$()]/.test(raw)) return undefined
+  return raw
+}
+
+function normalizeCommand(command: string): string {
+  return command.trim().replace(/\s+/g, ' ').toLowerCase()
+}
+
+function wildcardMatch(value: string, pattern: string): boolean {
+  const normalizedPattern = normalizeCommand(pattern)
+  if (!normalizedPattern) return false
+  const escaped = normalizedPattern.replace(/[.+^${}()|[\]\\]/g, '\\$&')
+  const regex = new RegExp(`^${escaped.replace(/\*/g, '.*').replace(/\?/g, '.')}$`)
+  return regex.test(value)
+}
+
 // ============================================
 // ToolPartView - 单个工具调用
 // ============================================
@@ -114,6 +240,8 @@ interface ToolPartViewProps {
 export const ToolPartView = memo(function ToolPartView({ part, isFirst = false, isLast = false, compact = false }: ToolPartViewProps) {
   const cwd = useCurrentDirectory()
   const permission = usePermissionContext()
+  const { toolOutputExpansionLevel, toolOutputReadOnlyCommandGlobs } = useTheme()
+  const commandSignature = extractSimpleCommand(part) || ''
 
   // 判断当前 tool 是否有待处理的 permission 请求（用于强制展开，按钮在底部）
   const hasPendingPermission = !!(
@@ -121,16 +249,21 @@ export const ToolPartView = memo(function ToolPartView({ part, isFirst = false, 
     permission.pendingPermission.tool.callID === part.callID
   )
 
-  const [expanded, setExpanded] = useState(() => {
-    return hasPendingPermission || part.state.status === 'running' || part.state.status === 'pending'
-  })
+  const autoExpanded = useMemo(() => {
+    if (hasPendingPermission) return true
+    return getToolInitialExpanded(part, toolOutputExpansionLevel, toolOutputReadOnlyCommandGlobs)
+  }, [hasPendingPermission, part.tool, part.state.status, commandSignature, toolOutputExpansionLevel, toolOutputReadOnlyCommandGlobs])
+
+  const [expanded, setExpanded] = useState(autoExpanded)
 
   // 有 pending permission 时自动展开，让用户看到 diff 内容再决策
   useEffect(() => {
     if (hasPendingPermission) {
       setExpanded(true)
+      return
     }
-  }, [hasPendingPermission])
+    setExpanded(autoExpanded)
+  }, [autoExpanded, hasPendingPermission])
 
   const shouldRenderBody = useDelayedRender(expanded)
 

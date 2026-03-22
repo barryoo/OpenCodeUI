@@ -63,6 +63,8 @@ export interface StepFinishDisplay {
   turnDuration: boolean
 }
 
+export type ToolOutputExpansionLevel = 1 | 2 | 3 | 4
+
 const DEFAULT_STEP_FINISH_DISPLAY: StepFinishDisplay = {
   tokens: true,
   cache: true,
@@ -82,6 +84,10 @@ export interface ThemeState {
   collapseUserMessages: boolean
   /** step-finish 信息栏显示开关 */
   stepFinishDisplay: StepFinishDisplay
+  /** 工具输出自动展开级别 */
+  toolOutputExpansionLevel: ToolOutputExpansionLevel
+  /** 第三级别下附加的 bash 只读命令通配符 */
+  toolOutputReadOnlyCommandGlobs: string[]
 }
 
 // ============================================
@@ -93,6 +99,33 @@ const STORAGE_KEY_COLOR_MODE = 'theme-mode'
 const STORAGE_KEY_CUSTOM_CSS = 'theme-custom-css'
 const STORAGE_KEY_COLLAPSE_USER_MESSAGES = 'collapse-user-messages'
 const STORAGE_KEY_STEP_FINISH_DISPLAY = 'step-finish-display'
+const STORAGE_KEY_TOOL_OUTPUT_EXPANSION_LEVEL = 'tool-output-expansion-level'
+const STORAGE_KEY_TOOL_OUTPUT_READONLY_GLOBS = 'tool-output-readonly-command-globs'
+
+const DEFAULT_TOOL_OUTPUT_EXPANSION_LEVEL: ToolOutputExpansionLevel = 3
+
+function parseStoredExpansionLevel(value: string | null): ToolOutputExpansionLevel {
+  if (value === '1' || value === '2' || value === '3' || value === '4') {
+    return Number(value) as ToolOutputExpansionLevel
+  }
+  return DEFAULT_TOOL_OUTPUT_EXPANSION_LEVEL
+}
+
+function normalizeCommandGlobs(value: unknown): string[] {
+  if (!Array.isArray(value)) return []
+  const seen = new Set<string>()
+  const result: string[] = []
+
+  for (const item of value) {
+    if (typeof item !== 'string') continue
+    const normalized = item.trim().replace(/\s+/g, ' ').toLowerCase()
+    if (!normalized || seen.has(normalized)) continue
+    seen.add(normalized)
+    result.push(normalized)
+  }
+
+  return result
+}
 
 // ============================================
 // DOM Style Element IDs
@@ -115,10 +148,16 @@ class ThemeStore {
     const savedCSS = localStorage.getItem(STORAGE_KEY_CUSTOM_CSS) || ''
     const savedCollapse = localStorage.getItem(STORAGE_KEY_COLLAPSE_USER_MESSAGES)
     const collapseUserMessages = savedCollapse === null ? true : savedCollapse === 'true'
+    const toolOutputExpansionLevel = parseStoredExpansionLevel(localStorage.getItem(STORAGE_KEY_TOOL_OUTPUT_EXPANSION_LEVEL))
+    let toolOutputReadOnlyCommandGlobs: string[] = []
     let stepFinishDisplay = DEFAULT_STEP_FINISH_DISPLAY
     try {
       const saved = localStorage.getItem(STORAGE_KEY_STEP_FINISH_DISPLAY)
       if (saved) stepFinishDisplay = { ...DEFAULT_STEP_FINISH_DISPLAY, ...JSON.parse(saved) }
+    } catch { /* ignore */ }
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY_TOOL_OUTPUT_READONLY_GLOBS)
+      if (saved) toolOutputReadOnlyCommandGlobs = normalizeCommandGlobs(JSON.parse(saved))
     } catch { /* ignore */ }
     
     this.state = {
@@ -127,6 +166,8 @@ class ThemeStore {
       customCSS: savedCSS,
       collapseUserMessages,
       stepFinishDisplay,
+      toolOutputExpansionLevel,
+      toolOutputReadOnlyCommandGlobs,
     }
   }
   
@@ -141,6 +182,8 @@ class ThemeStore {
   get customCSS() { return this.state.customCSS }
   get collapseUserMessages() { return this.state.collapseUserMessages }
   get stepFinishDisplay() { return this.state.stepFinishDisplay }
+  get toolOutputExpansionLevel() { return this.state.toolOutputExpansionLevel }
+  get toolOutputReadOnlyCommandGlobs() { return this.state.toolOutputReadOnlyCommandGlobs }
   
   /** 获取当前主题预设（内置主题返回对象，自定义返回 undefined） */
   getPreset(): ThemePreset | undefined {
@@ -210,6 +253,26 @@ class ThemeStore {
     const next = { ...this.state.stepFinishDisplay, ...display }
     this.state = { ...this.state, stepFinishDisplay: next }
     localStorage.setItem(STORAGE_KEY_STEP_FINISH_DISPLAY, JSON.stringify(next))
+    this.emit()
+  }
+
+  setToolOutputExpansionLevel(level: ToolOutputExpansionLevel) {
+    if (this.state.toolOutputExpansionLevel === level) return
+    this.state = { ...this.state, toolOutputExpansionLevel: level }
+    localStorage.setItem(STORAGE_KEY_TOOL_OUTPUT_EXPANSION_LEVEL, String(level))
+    this.emit()
+  }
+
+  setToolOutputReadOnlyCommandGlobs(globs: string[]) {
+    const next = normalizeCommandGlobs(globs)
+    if (
+      this.state.toolOutputReadOnlyCommandGlobs.length === next.length
+      && this.state.toolOutputReadOnlyCommandGlobs.every((item, index) => item === next[index])
+    ) {
+      return
+    }
+    this.state = { ...this.state, toolOutputReadOnlyCommandGlobs: next }
+    localStorage.setItem(STORAGE_KEY_TOOL_OUTPUT_READONLY_GLOBS, JSON.stringify(next))
     this.emit()
   }
 
