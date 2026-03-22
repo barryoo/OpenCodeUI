@@ -159,6 +159,59 @@ class ActiveSessionStore {
     this.notify()
   }
 
+  mergePendingRequests(
+    permissions: Array<{ id: string; sessionID: string; permission: string; patterns?: string[] }>,
+    questions: Array<{ id: string; sessionID: string; questions?: Array<{ header?: string }> }>,
+  ) {
+    let changed = false
+
+    for (const p of permissions) {
+      const desc = p.patterns?.length ? `${p.permission}: ${p.patterns[0]}` : p.permission
+      const existing = this.pendingRequests.get(p.id)
+      if (
+        existing
+        && existing.sessionId === p.sessionID
+        && existing.type === 'permission'
+        && existing.description === desc
+      ) {
+        continue
+      }
+
+      this.pendingRequests.set(p.id, {
+        requestId: p.id,
+        sessionId: p.sessionID,
+        type: 'permission',
+        description: desc,
+      })
+      changed = true
+    }
+
+    for (const q of questions) {
+      const desc = q.questions?.[0]?.header || 'Waiting for input'
+      const existing = this.pendingRequests.get(q.id)
+      if (
+        existing
+        && existing.sessionId === q.sessionID
+        && existing.type === 'question'
+        && existing.description === desc
+      ) {
+        continue
+      }
+
+      this.pendingRequests.set(q.id, {
+        requestId: q.id,
+        sessionId: q.sessionID,
+        type: 'question',
+        description: desc,
+      })
+      changed = true
+    }
+
+    if (changed) {
+      this.notify()
+    }
+  }
+
   // ============================================
   // SSE 事件：permission/question asked → 注册 pending
   // ============================================
