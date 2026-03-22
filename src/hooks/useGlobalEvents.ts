@@ -9,10 +9,10 @@
 // 4. 与具体 session 无关，处理所有 session 的事件
 
 import { useEffect, useRef, useCallback } from 'react'
-import { messageStore, childSessionStore } from '../store'
+import { messageStore, childSessionStore, autoApproveStore } from '../store'
 import { activeSessionStore } from '../store/activeSessionStore'
 import { notificationStore } from '../store/notificationStore'
-import { subscribeToEvents, getSessionStatus, getPendingPermissions, getPendingQuestions } from '../api'
+import { subscribeToEvents, getSessionStatus, getPendingPermissions, getPendingQuestions, replyPermission } from '../api'
 import { useSavedDirectories, useCurrentDirectory } from '../contexts/DirectoryContext'
 import type { SavedDirectory } from '../contexts/DirectoryContext'
 import type { 
@@ -89,6 +89,51 @@ export function useGlobalEvents(callbacks?: GlobalEventsCallbacks) {
   useEffect(() => {
     currentDirectoryRef.current = currentDirectory
   }, [currentDirectory])
+
+  const handleManualPermissionRequest = useCallback((request: ApiPermissionRequest, directory?: string) => {
+    const meta = activeSessionStore.getSessionMeta(request.sessionID)
+    const sessionLabel = meta?.title || request.sessionID.slice(0, 8)
+    const desc = request.patterns?.length
+      ? `${request.permission}: ${request.patterns[0]}`
+      : request.permission
+
+    activeSessionStore.addPendingRequest(request.id, request.sessionID, 'permission', desc)
+
+    if (!belongsToCurrentSession(request.sessionID)) {
+      const metadata = request.metadata as Record<string, unknown> | undefined
+      const operation = typeof metadata?.operation === 'string'
+        ? metadata.operation
+        : request.permission
+      const intent = typeof metadata?.intent === 'string'
+        ? metadata.intent
+        : undefined
+      const keyDetail = request.patterns?.[0]
+      notificationStore.push(
+        'permission',
+        sessionLabel,
+        desc,
+        request.sessionID,
+        directory ?? meta?.directory,
+        {
+          kind: 'permission',
+          requestId: request.id,
+          operation,
+          intent,
+          keyDetail,
+        },
+      )
+    }
+
+    if (belongsToCurrentSession(request.sessionID)) {
+      callbacksRef.current?.onPermissionAsked?.(request)
+      return
+    }
+
+    pendingPermissions.set(request.sessionID, {
+      request,
+      timestamp: Date.now(),
+    })
+  }, [])
 
   const fetchAndInitialize = useCallback(() => {
     let expandedDirectories = savedDirectoriesRef.current
@@ -257,49 +302,23 @@ export function useGlobalEvents(callbacks?: GlobalEventsCallbacks) {
       
       onPermissionAsked: (request) => {
         const meta = activeSessionStore.getSessionMeta(request.sessionID)
-        const sessionLabel = meta?.title || request.sessionID.slice(0, 8)
-        const desc = request.patterns?.length
-          ? `${request.permission}: ${request.patterns[0]}`
-          : request.permission
+        const requestDirectory = meta?.directory
+          ?? (belongsToCurrentSession(request.sessionID) ? currentDirectoryRef.current : undefined)
 
-        // Active 列表：注册 pending request
-        activeSessionStore.addPendingRequest(request.id, request.sessionID, 'permission', desc)
-
-        // Toast 通知 — 不属于当前 session family 的才弹
-        if (!belongsToCurrentSession(request.sessionID)) {
-          const metadata = request.metadata as Record<string, unknown> | undefined
-          const operation = typeof metadata?.operation === 'string'
-            ? metadata.operation
-            : request.permission
-          const intent = typeof metadata?.intent === 'string'
-            ? metadata.intent
-            : undefined
-          const keyDetail = request.patterns?.[0]
-          notificationStore.push(
-            'permission',
-            sessionLabel,
-            desc,
-            request.sessionID,
-            meta?.directory,
-            {
-              kind: 'permission',
-              requestId: request.id,
-              operation,
-              intent,
-              keyDetail,
-            },
-          )
+        if (autoApproveStore.shouldAutoApprove(request.sessionID, requestDirectory)) {
+          void replyPermission(request.id, 'once', undefined, requestDirectory)
+            .then(() => {
+              if (belongsToCurrentSession(request.sessionID)) {
+                callbacksRef.current?.onPermissionReplied?.({ sessionID: request.sessionID, requestID: request.id })
+              }
+            })
+            .catch(() => {
+              handleManualPermissionRequest(request, requestDirectory)
+            })
+          return
         }
 
-        // 回调给 UI 处理权限弹框
-        if (belongsToCurrentSession(request.sessionID)) {
-          callbacksRef.current?.onPermissionAsked?.(request)
-        } else {
-          pendingPermissions.set(request.sessionID, {
-            request,
-            timestamp: Date.now(),
-          })
-        }
+        handleManualPermissionRequest(request, requestDirectory)
       },
 
       onPermissionReplied: (data) => {
