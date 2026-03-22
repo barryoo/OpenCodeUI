@@ -286,6 +286,8 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
   const renameInputRef = useRef<HTMLInputElement | null>(null)
   const recentRefreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const selectedSessionReloadKeyRef = useRef<string | null>(null)
+  const prefetchedStatusDirectoriesRef = useRef<string[]>([])
+  const inFlightStatusDirectoriesRef = useRef<string[]>([])
   // 移动端长按检测
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const longPressTouchStartRef = useRef<{ x: number; y: number } | null>(null)
@@ -420,6 +422,8 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
 
   useEffect(() => {
     return serverStore.onServerChange(() => {
+      prefetchedStatusDirectoriesRef.current = []
+      inFlightStatusDirectoriesRef.current = []
       const saved = serverStorage.getJSON<PinnedSessionEntry[]>(PINNED_SESSIONS_STORAGE_KEY)
       setPinnedSessions(Array.isArray(saved) ? saved.filter((item) => !!item?.sessionId && !!item?.directory) : [])
 
@@ -460,12 +464,39 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
 
     if (targetDirectories.length === 0) return
 
+    const directoriesToFetch = targetDirectories.filter((directory) => {
+      const alreadyFetched = prefetchedStatusDirectoriesRef.current.some((existing) => isSameDirectory(existing, directory))
+      if (alreadyFetched) return false
+
+      const inFlight = inFlightStatusDirectoriesRef.current.some((existing) => isSameDirectory(existing, directory))
+      return !inFlight
+    })
+
+    if (directoriesToFetch.length === 0) return
+
     let cancelled = false
 
+    inFlightStatusDirectoriesRef.current = [
+      ...inFlightStatusDirectoriesRef.current,
+      ...directoriesToFetch,
+    ]
+
     Promise.all(
-      targetDirectories.map((directory) => getSessionStatus(directory).catch(() => ({} as SessionStatusMap)))
+      directoriesToFetch.map((directory) => getSessionStatus(directory).catch(() => ({} as SessionStatusMap)))
     ).then((maps) => {
+      inFlightStatusDirectoriesRef.current = inFlightStatusDirectoriesRef.current.filter(
+        (existing) => !directoriesToFetch.some((directory) => isSameDirectory(directory, existing))
+      )
+
       if (cancelled) return
+
+      prefetchedStatusDirectoriesRef.current = [
+        ...prefetchedStatusDirectoriesRef.current,
+        ...directoriesToFetch.filter(
+          (directory) => !prefetchedStatusDirectoriesRef.current.some((existing) => isSameDirectory(existing, directory))
+        ),
+      ]
+
       const merged = maps.reduce((acc, map) => ({ ...acc, ...map }), {} as SessionStatusMap)
       activeSessionStore.mergeStatusMap(merged)
     })

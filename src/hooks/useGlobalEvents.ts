@@ -23,6 +23,65 @@ import type {
 } from '../api/types'
 import type { SessionStatus } from '../types/api/session'
 
+type SessionStatusResponse = Record<string, SessionStatus>
+
+interface ExpandedDirectorySnapshot {
+  directories: string[]
+  key: string
+}
+
+function buildExpandedDirectorySnapshot(
+  savedDirectories: SavedDirectory[],
+  currentDirectory?: string
+): ExpandedDirectorySnapshot {
+  let directories = savedDirectories
+    .filter((dir: SavedDirectory) => dir.expanded)
+    .map((dir: SavedDirectory) => dir.path)
+
+  if (directories.length === 0 && currentDirectory) {
+    directories = [currentDirectory]
+  }
+
+  const uniqueDirectories: string[] = []
+  for (const directory of directories) {
+    if (!directory || uniqueDirectories.includes(directory)) continue
+    uniqueDirectories.push(directory)
+  }
+
+  return {
+    directories: uniqueDirectories,
+    key: uniqueDirectories.join('\n'),
+  }
+}
+
+async function fetchExpandedDirectoryState(directories: string[]) {
+  if (directories.length === 0) {
+    return {
+      statusMaps: [{} as SessionStatusResponse],
+      permissionsList: [[] as ApiPermissionRequest[]],
+      questionsList: [[] as ApiQuestionRequest[]],
+    }
+  }
+
+  const statusRequests = directories.map((directory: string) =>
+    getSessionStatus(directory).catch(() => ({} as SessionStatusResponse))
+  )
+  const permissionRequests = directories.map((directory: string) =>
+    getPendingPermissions(undefined, directory).catch(() => [])
+  )
+  const questionRequests = directories.map((directory: string) =>
+    getPendingQuestions(undefined, directory).catch(() => [])
+  )
+
+  const [statusMaps, permissionsList, questionsList] = await Promise.all([
+    Promise.all(statusRequests),
+    Promise.all(permissionRequests),
+    Promise.all(questionRequests),
+  ])
+
+  return { statusMaps, permissionsList, questionsList }
+}
+
 interface GlobalEventsCallbacks {
   onPermissionAsked?: (request: ApiPermissionRequest) => void
   onPermissionReplied?: (data: { sessionID: string; requestID: string }) => void
@@ -81,6 +140,7 @@ export function useGlobalEvents(callbacks?: GlobalEventsCallbacks) {
   const currentDirectory = useCurrentDirectory()
   const savedDirectoriesRef = useRef(savedDirectories)
   const currentDirectoryRef = useRef(currentDirectory)
+  const lastFetchKeyRef = useRef<string | null>(null)
 
   useEffect(() => {
     savedDirectoriesRef.current = savedDirectories
@@ -90,53 +150,73 @@ export function useGlobalEvents(callbacks?: GlobalEventsCallbacks) {
     currentDirectoryRef.current = currentDirectory
   }, [currentDirectory])
 
-  const fetchAndInitialize = useCallback(() => {
-    let expandedDirectories = savedDirectoriesRef.current
-      .filter((dir: SavedDirectory) => dir.expanded)
-      .map((dir: SavedDirectory) => dir.path)
+  const fetchIncrementalDirectoryState = useCallback((directories: string[]) => {
+    const uniqueDirectories = directories.filter((directory, index) => directory && directories.indexOf(directory) === index)
+    if (uniqueDirectories.length === 0) return
 
-    if (expandedDirectories.length === 0 && currentDirectoryRef.current) {
-      expandedDirectories = [currentDirectoryRef.current]
-    }
-
-    const statusRequests = expandedDirectories.length > 0
-      ? expandedDirectories.map((directory: string) => getSessionStatus(directory).catch(() => ({} as Record<string, SessionStatus>)))
-      : [Promise.resolve({} as Record<string, SessionStatus>)]
-
-    const permissionRequests = expandedDirectories.length > 0
-      ? expandedDirectories.map((directory: string) => getPendingPermissions(undefined, directory).catch(() => []))
-      : [Promise.resolve([] as ApiPermissionRequest[])]
-
-    const questionRequests = expandedDirectories.length > 0
-      ? expandedDirectories.map((directory: string) => getPendingQuestions(undefined, directory).catch(() => []))
-      : [Promise.resolve([] as ApiQuestionRequest[])]
-
-    Promise.all([
-      Promise.all(statusRequests),
-      Promise.all(permissionRequests),
-      Promise.all(questionRequests),
-    ]).then(([
+    void fetchExpandedDirectoryState(uniqueDirectories).then(({
       statusMaps,
       permissionsList,
       questionsList,
-    ]: [Array<Record<string, SessionStatus>>, ApiPermissionRequest[][], ApiQuestionRequest[][]]) => {
+    }) => {
       const mergedStatus = statusMaps.reduce(
         (acc, map) => ({ ...acc, ...map }),
-        {} as Record<string, SessionStatus>
+        {} as SessionStatusResponse
+      )
+
+      activeSessionStore.mergeStatusMap(mergedStatus)
+      activeSessionStore.mergePendingRequests(permissionsList.flat(), questionsList.flat())
+    })
+  }, [])
+
+  const fetchAndInitialize = useCallback(() => {
+    const snapshot = buildExpandedDirectorySnapshot(savedDirectoriesRef.current, currentDirectoryRef.current)
+    lastFetchKeyRef.current = snapshot.key
+
+    void fetchExpandedDirectoryState(snapshot.directories).then(({
+      statusMaps,
+      permissionsList,
+      questionsList,
+    }) => {
+      if (lastFetchKeyRef.current !== snapshot.key) return
+
+      const mergedStatus = statusMaps.reduce(
+        (acc, map) => ({ ...acc, ...map }),
+        {} as SessionStatusResponse
       )
       activeSessionStore.initialize(mergedStatus)
 
       const permissions = permissionsList.flat()
       const questions = questionsList.flat()
-      if (permissions.length > 0 || questions.length > 0) {
-        activeSessionStore.initializePendingRequests(permissions, questions)
-      }
+      activeSessionStore.initializePendingRequests(permissions, questions)
     })
   }, [])
 
   useEffect(() => {
     fetchAndInitialize()
-  }, [savedDirectories, currentDirectory, fetchAndInitialize])
+  }, [fetchAndInitialize])
+
+  useEffect(() => {
+    const snapshot = buildExpandedDirectorySnapshot(savedDirectories, currentDirectory)
+    const prevKey = lastFetchKeyRef.current
+
+    if (prevKey === null) {
+      lastFetchKeyRef.current = snapshot.key
+      return
+    }
+
+    if (prevKey === snapshot.key) {
+      return
+    }
+
+    const prevDirectories = prevKey ? prevKey.split('\n').filter(Boolean) : []
+    const addedDirectories = snapshot.directories.filter((directory) => !prevDirectories.includes(directory))
+    lastFetchKeyRef.current = snapshot.key
+
+    if (addedDirectories.length > 0) {
+      fetchIncrementalDirectoryState(addedDirectories)
+    }
+  }, [savedDirectories, currentDirectory, fetchIncrementalDirectoryState])
 
   useEffect(() => {
     // 节流滚动
