@@ -25,6 +25,8 @@ export interface DirectoryContextValue {
   setCurrentDirectory: (directory: string | undefined) => void
   /** 保存的目录列表 */
   savedDirectories: SavedDirectory[]
+  /** 隐藏的项目路径列表（仅 UI 隐藏，不影响服务端数据） */
+  hiddenDirectories: string[]
   /** 设置目录展开状态 */
   setDirectoryExpanded: (path: string, expanded: boolean) => void
   /** 添加目录 */
@@ -47,6 +49,7 @@ const DirectoryContext = createContext<DirectoryContextValue | null>(null)
 
 const STORAGE_KEY_SAVED = 'opencode-saved-directories'
 const STORAGE_KEY_RECENT = 'opencode-recent-projects'
+const STORAGE_KEY_HIDDEN = 'opencode-hidden-projects'
 
 // 最近使用记录: { [path]: lastUsedAt }
 type RecentProjects = Record<string, number>
@@ -93,14 +96,50 @@ export function DirectoryProvider({ children }: { children: ReactNode }) {
   const { sidebarExpanded } = useLayoutStore()
   
   const [savedDirectories, setSavedDirectories] = useState<SavedDirectory[]>(() => {
-    return serverStorage.getJSON<SavedDirectory[]>(STORAGE_KEY_SAVED) ?? []
+    const saved = serverStorage.getJSON<SavedDirectory[]>(STORAGE_KEY_SAVED) ?? []
+    const hiddenRaw = serverStorage.getJSON<string[]>(STORAGE_KEY_HIDDEN)
+    const hidden = Array.isArray(hiddenRaw) ? hiddenRaw.filter((p) => typeof p === 'string' && p.trim().length > 0) : []
+    if (hidden.length === 0) return saved
+    return saved.filter((d) => !hidden.some((p) => isSameDirectory(p, d.path)))
   })
+
+  const [hiddenDirectories, setHiddenDirectories] = useState<string[]>(() => {
+    const raw = serverStorage.getJSON<string[]>(STORAGE_KEY_HIDDEN)
+    return Array.isArray(raw) ? raw.filter((p) => typeof p === 'string' && p.trim().length > 0) : []
+  })
+
+  const hiddenDirectoriesRef = useRef(hiddenDirectories)
+  useEffect(() => {
+    hiddenDirectoriesRef.current = hiddenDirectories
+  }, [hiddenDirectories])
 
   const [recentProjects, setRecentProjects] = useState<RecentProjects>(() => {
     return serverStorage.getJSON<RecentProjects>(STORAGE_KEY_RECENT) ?? {}
   })
   
   const [pathInfo, setPathInfo] = useState<ApiPath | null>(null)
+
+  const ensureDirectoryVisible = useCallback((path: string) => {
+    const normalized = normalizeDirectoryPath(path)
+    if (!normalized || normalized === '.') return
+
+    // 1) 自动从隐藏列表恢复
+    setHiddenDirectories((prev) => prev.filter((p) => !isSameDirectory(p, normalized)))
+
+    // 2) 确保存在于 savedDirectories（Multi 视图依赖该列表渲染项目树）
+    setSavedDirectories((prev) => {
+      if (prev.some((d) => isSameDirectory(d.path, normalized))) return prev
+      return [
+        ...prev,
+        {
+          path: normalized,
+          name: getDirectoryName(normalized) || normalized,
+          addedAt: Date.now(),
+          expanded: true,
+        },
+      ]
+    })
+  }, [])
 
   const syncProjectsFromApi = useCallback(async (
     targetCurrentDirectory: string | undefined,
@@ -113,9 +152,23 @@ export function DirectoryProvider({ children }: { children: ReactNode }) {
       const now = Date.now()
       const fromApi: SavedDirectory[] = []
 
+      const hidden = hiddenDirectoriesRef.current
+      const normalizedCurrent = targetCurrentDirectory ? normalizeDirectoryPath(targetCurrentDirectory) : undefined
+
+      // 如果当前目录在隐藏列表中，视为“用户打开了该项目”，自动恢复显示。
+      if (normalizedCurrent && hidden.some((p) => isSameDirectory(p, normalizedCurrent))) {
+        setHiddenDirectories((prev) => prev.filter((p) => !isSameDirectory(p, normalizedCurrent)))
+      }
+
       for (const project of apiProjects) {
         const normalizedPath = normalizeDirectoryPath(project.worktree || '')
         if (!normalizedPath || normalizedPath === '.') continue
+
+        // 隐藏项目：从 UI 项目列表中过滤掉（但如果就是当前目录，则保留并自动恢复）
+        const isHidden = hidden.some((p) => isSameDirectory(p, normalizedPath))
+        if (isHidden && (!normalizedCurrent || !isSameDirectory(normalizedCurrent, normalizedPath))) {
+          continue
+        }
 
         if (fromApi.some((dir) => isSameDirectory(dir.path, normalizedPath))) continue
 
@@ -178,7 +231,14 @@ export function DirectoryProvider({ children }: { children: ReactNode }) {
       const nextSaved = serverStorage.getJSON<SavedDirectory[]>(STORAGE_KEY_SAVED) ?? []
       const nextRecent = serverStorage.getJSON<RecentProjects>(STORAGE_KEY_RECENT) ?? {}
 
-      setSavedDirectories(nextSaved)
+      const nextHiddenRaw = serverStorage.getJSON<string[]>(STORAGE_KEY_HIDDEN)
+      const nextHidden = Array.isArray(nextHiddenRaw) ? nextHiddenRaw.filter((p) => typeof p === 'string' && p.trim().length > 0) : []
+
+      // 先更新 ref，避免 syncProjectsFromApi 使用旧隐藏列表
+      hiddenDirectoriesRef.current = nextHidden
+
+      setHiddenDirectories(nextHidden)
+      setSavedDirectories(nextSaved.filter((d) => !nextHidden.some((p) => isSameDirectory(p, d.path))))
       setRecentProjects(nextRecent)
       setPathInfo(null) // 重置，等待重新加载
       setUrlDirectory(undefined) // 清除当前目录选择
@@ -205,6 +265,11 @@ export function DirectoryProvider({ children }: { children: ReactNode }) {
     serverStorage.setJSON(STORAGE_KEY_SAVED, savedDirectories)
   }, [savedDirectories])
 
+  // 保存 hiddenDirectories 到 per-server storage
+  useEffect(() => {
+    serverStorage.setJSON(STORAGE_KEY_HIDDEN, hiddenDirectories)
+  }, [hiddenDirectories])
+
   // 保存 recentProjects 到 per-server storage
   useEffect(() => {
     serverStorage.setJSON(STORAGE_KEY_RECENT, recentProjects)
@@ -212,11 +277,18 @@ export function DirectoryProvider({ children }: { children: ReactNode }) {
 
   // 设置当前目录（更新 URL + 记录最近使用）
   const setCurrentDirectory = useCallback((directory: string | undefined) => {
-    setUrlDirectory(directory)
     if (directory) {
-      setRecentProjects(prev => ({ ...prev, [directory]: Date.now() }))
+      const normalized = normalizeDirectoryPath(directory)
+      if (normalized) {
+        ensureDirectoryVisible(normalized)
+        setUrlDirectory(normalized)
+        setRecentProjects(prev => ({ ...prev, [normalized]: Date.now() }))
+        return
+      }
     }
-  }, [setUrlDirectory])
+
+    setUrlDirectory(undefined)
+  }, [ensureDirectoryVisible, setUrlDirectory])
 
   // 添加目录
   const addDirectory = useCallback((path: string) => {
@@ -227,9 +299,14 @@ export function DirectoryProvider({ children }: { children: ReactNode }) {
     
     // 使用 isSameDirectory 检查是否已存在（处理大小写和斜杠差异）
     if (savedDirectories.some(d => isSameDirectory(d.path, normalized))) {
+      // 如果此前被隐藏，添加行为视为“重新打开”，自动恢复
+      setHiddenDirectories((prev) => prev.filter((p) => !isSameDirectory(p, normalized)))
       setCurrentDirectory(normalized)
       return
     }
+
+    // 如果此前被隐藏，添加行为视为“重新打开”，自动恢复
+    setHiddenDirectories((prev) => prev.filter((p) => !isSameDirectory(p, normalized)))
     
     const newDir: SavedDirectory = {
       path: normalized,
@@ -245,11 +322,26 @@ export function DirectoryProvider({ children }: { children: ReactNode }) {
   // 移除目录
   const removeDirectory = useCallback((path: string) => {
     const normalized = normalizeDirectoryPath(path)
+
+    // 语义：仅从 UI 项目列表隐藏（刷新也不再出现）；不删除服务端数据
+    if (normalized && normalized !== '.') {
+      setHiddenDirectories((prev) => {
+        if (prev.some((p) => isSameDirectory(p, normalized))) return prev
+        return [...prev, normalized]
+      })
+    }
+
     setSavedDirectories(prev => prev.filter(d => !isSameDirectory(d.path, normalized)))
     if (isSameDirectory(urlDirectory, normalized)) {
       setCurrentDirectory(undefined)
     }
   }, [urlDirectory, setCurrentDirectory])
+
+  // URL 直接打开某个目录时（刷新/深链），确保该目录可见（自动从隐藏恢复）
+  useEffect(() => {
+    if (!urlDirectory) return
+    ensureDirectoryVisible(urlDirectory)
+  }, [urlDirectory, ensureDirectoryVisible])
 
   // 调整目录顺序
   const reorderDirectory = useCallback((sourcePath: string, targetPath?: string) => {
@@ -360,6 +452,7 @@ export function DirectoryProvider({ children }: { children: ReactNode }) {
     currentDirectory: urlDirectory,
     setCurrentDirectory,
     savedDirectories,
+    hiddenDirectories,
     setDirectoryExpanded,
     addDirectory,
     removeDirectory,
@@ -372,6 +465,7 @@ export function DirectoryProvider({ children }: { children: ReactNode }) {
     urlDirectory,
     setCurrentDirectory,
     savedDirectories,
+    hiddenDirectories,
     setDirectoryExpanded,
     addDirectory,
     removeDirectory,
