@@ -119,5 +119,6 @@ export interface Config {
   agent?: AgentConfig
   provider?: ProviderConfig
   mcp?: Record<string, McpLocalConfig | McpOAuthConfig | McpRemoteConfig>
+  plugin?: string[]
   layout?: LayoutConfig
 }

@@ -464,13 +464,13 @@ export function OpenEditorButton() {
 
   return (
     <div ref={triggerRef} className="hidden md:flex items-center">
-      <div className="h-8 flex items-center rounded-lg border border-border-200/55 bg-bg-100/70 backdrop-blur-sm overflow-hidden">
+      <div className="h-7 flex items-center rounded-lg border border-border-200/55 bg-bg-100/70 backdrop-blur-sm overflow-hidden">
         <button
           type="button"
           aria-label={selectedOption ? `Open project in ${selectedOption.label}` : 'Open project'}
           onClick={handleOpen}
           disabled={disabled}
-          className="h-full px-2.5 flex items-center gap-1.5 text-sm text-text-200 hover:text-text-100 hover:bg-bg-200/60 transition-colors disabled:opacity-45 disabled:cursor-not-allowed"
+          className="h-full px-2.5 flex items-center gap-1.5 text-[13px] text-text-200 hover:text-text-100 hover:bg-bg-200/60 transition-colors disabled:opacity-45 disabled:cursor-not-allowed"
           title={selectedOption ? `Open in ${selectedOption.label}` : 'Open project'}
         >
           <span className="text-text-400 shrink-0">
@@ -486,9 +486,9 @@ export function OpenEditorButton() {
           aria-label="Open editor options"
           onClick={() => setMenuOpen(v => !v)}
           disabled={disabled}
-          className="h-full w-7 flex items-center justify-center text-text-400 hover:text-text-100 hover:bg-bg-200/60 transition-colors disabled:opacity-45 disabled:cursor-not-allowed"
+          className="h-full w-6.5 flex items-center justify-center text-text-400 hover:text-text-100 hover:bg-bg-200/60 transition-colors disabled:opacity-45 disabled:cursor-not-allowed"
         >
-          <ChevronDownIcon size={14} className={`transition-transform duration-150 ${menuOpen ? 'rotate-180' : ''}`} />
+          <ChevronDownIcon size={13} className={`transition-transform duration-150 ${menuOpen ? 'rotate-180' : ''}`} />
         </button>
       </div>
 
@@ -499,7 +499,7 @@ export function OpenEditorButton() {
         minWidth="220px"
       >
         <div ref={menuRef}>
-          <div className="px-2 py-1.5 text-[11px] uppercase tracking-wide text-text-500">Open with</div>
+          <div className="px-2 py-1 text-[10px] uppercase tracking-wide text-text-500">Open with</div>
           {options.map(option => (
             <MenuItem
               key={option.id}

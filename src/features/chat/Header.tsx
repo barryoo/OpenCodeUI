@@ -3,6 +3,7 @@ import { PanelRightIcon, PanelBottomIcon, ChevronDownIcon, SidebarIcon } from '.
 import { IconButton } from '../../components/ui'
 import { ShareDialog } from './ShareDialog'
 import { OpenEditorButton } from './OpenEditorButton'
+import { StatusPopover } from './StatusPopover'
 import { useMessageStore, useChildSessionInfo, childSessionStore } from '../../store'
 import { useLayoutStore, layoutStore } from '../../store/layoutStore'
 import { useSessionContext } from '../../contexts/SessionContext'
@@ -245,6 +246,7 @@ export function Header({
       {/* Right: Open Editor + Panel Toggles (z-20) */}
       <div className="flex items-center gap-1 pointer-events-auto shrink-0 z-20" data-no-window-drag="true">
         <OpenEditorButton />
+        <StatusPopover />
 
         {/* Panel Toggles Group */}
         <div className="flex items-center gap-0.5">

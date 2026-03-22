@@ -21,7 +21,7 @@ export function MenuItem({
     <div
       onClick={disabled ? undefined : onClick}
       className={`
-        px-2 py-2 rounded-lg flex items-start gap-2
+        px-2 py-1.5 rounded-lg flex items-start gap-2
         transition-all duration-150 select-none
         ${disabled
           ? 'text-text-500 cursor-not-allowed'
@@ -36,11 +36,11 @@ export function MenuItem({
         </span>
       )}
       <div className="flex-1 min-w-0">
-        <div className={`text-sm ${disabled ? 'text-text-500' : selected ? 'text-text-100' : 'text-text-200'}`}>
+        <div className={`text-[13px] leading-5 ${disabled ? 'text-text-500' : selected ? 'text-text-100' : 'text-text-200'}`}>
           {label}
         </div>
         {description && (
-          <div className="text-xs text-text-500 mt-0.5 line-clamp-2" title={description}>
+          <div className="mt-0.5 line-clamp-2 text-[11px] leading-4 text-text-500" title={description}>
             {description}
           </div>
         )}
@@ -53,4 +53,3 @@ export function MenuItem({
     </div>
   )
 }
-
