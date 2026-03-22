@@ -130,13 +130,7 @@ export function useChatSession({ chatAreaRef, currentModel, refetchModels }: Use
   // Global Events (SSE)
   useGlobalEvents({
     onPermissionAsked: (request) => {
-      // 自动批准检查（实验性功能）
-      if (autoApproveStore.enabled && autoApproveStore.shouldAutoApprove(
-        request.sessionID,
-        request.permission,
-        request.patterns
-      )) {
-        // 匹配规则，自动用 once 批准，不弹框
+      if (autoApproveStore.shouldAutoApprove(request.sessionID, effectiveDirectory)) {
         handlePermissionReply(request.id, 'once', effectiveDirectory)
         return
       }
@@ -243,6 +237,12 @@ export function useChatSession({ chatAreaRef, currentModel, refetchModels }: Use
     return () => clearInterval(interval)
   }, [routeSessionId, isStreaming, effectiveDirectory, sessionFamily, refreshPendingRequests])
 
+  useEffect(() => {
+    const next = pendingPermissionRequests.find(request => autoApproveStore.shouldAutoApprove(request.sessionID, effectiveDirectory))
+    if (!next) return
+    void handlePermissionReply(next.id, 'once', effectiveDirectory)
+  }, [pendingPermissionRequests, effectiveDirectory, handlePermissionReply])
+
   // Load agents
   useEffect(() => {
     getSelectableAgents(currentDirectory)
@@ -342,10 +342,14 @@ export function useChatSession({ chatAreaRef, currentModel, refetchModels }: Use
     try {
       if (!sessionId) {
         const newSession = await createSession()
-        sessionId = newSession.id
-        messageStore.setCurrentSession(sessionId)
-        messageStore.setStreaming(sessionId, true)
-        navigateToSession(sessionId)
+        const createdSessionId = newSession.id
+        sessionId = createdSessionId
+        if (effectiveDirectory && autoApproveStore.isDirectoryAutoAccepting(effectiveDirectory)) {
+          autoApproveStore.enableAutoAccept(createdSessionId, effectiveDirectory)
+        }
+        messageStore.setCurrentSession(createdSessionId)
+        messageStore.setStreaming(createdSessionId, true)
+        navigateToSession(createdSessionId)
       }
 
       await sendMessageAsync({
@@ -406,9 +410,13 @@ export function useChatSession({ chatAreaRef, currentModel, refetchModels }: Use
       // Create session if needed (like handleSend does)
       if (!sessionId) {
         const newSession = await createSession()
-        sessionId = newSession.id
-        messageStore.setCurrentSession(sessionId)
-        navigateToSession(sessionId)
+        const createdSessionId = newSession.id
+        sessionId = createdSessionId
+        if (effectiveDirectory && autoApproveStore.isDirectoryAutoAccepting(effectiveDirectory)) {
+          autoApproveStore.enableAutoAccept(createdSessionId, effectiveDirectory)
+        }
+        messageStore.setCurrentSession(createdSessionId)
+        navigateToSession(createdSessionId)
       }
       
       if (command === 'compact') {

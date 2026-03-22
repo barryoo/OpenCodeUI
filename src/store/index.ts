@@ -14,8 +14,7 @@ export type { ChildSessionInfo } from './childSessionStore'
 
 export { layoutStore, useLayoutStore } from './layoutStore'
 
-export { autoApproveStore } from './autoApproveStore'
-export type { AutoApproveRule } from './autoApproveStore'
+export { autoApproveStore, useAutoApproveStore } from './autoApproveStore'
 
 export { serverStore, makeBasicAuthHeader } from './serverStore'
 export type { ServerConfig, ServerHealth, ServerAuth } from './serverStore'

@@ -1,184 +1,183 @@
-// ============================================
-// Auto-Approve Store (Experimental)
-// 前端自动批准规则存储，只存内存，刷新即清空
-// ============================================
-
+import { useSyncExternalStore } from 'react'
+import { childSessionStore } from './childSessionStore'
 import { serverStorage } from '../utils/perServerStorage'
 
-/**
- * 自动批准规则
- */
-export interface AutoApproveRule {
-  permission: string  // 工具类型: bash, edit, read, etc.
-  pattern: string     // 匹配模式，如 "mkdir *", "ls", "*.tsx"
+interface AutoApproveState {
+  autoAccept: Record<string, boolean>
 }
 
-/**
- * 通配符匹配函数
- * 支持 * (任意字符) 和 ? (单个字符)
- */
-function wildcardMatch(pattern: string, text: string): boolean {
-  // 转换为正则表达式
-  const regexStr = pattern
-    .replace(/[.+^${}()|[\]\\]/g, '\\$&')  // 转义特殊字符
-    .replace(/\*/g, '.*')                   // * -> .*
-    .replace(/\?/g, '.')                    // ? -> .
-  
-  const regex = new RegExp(`^${regexStr}$`, 'i')
-  return regex.test(text)
+function encodeStoragePart(value: string): string {
+  try {
+    return btoa(unescape(encodeURIComponent(value)))
+  } catch {
+    return btoa(value)
+  }
 }
 
-/**
- * Auto-Approve Store
- * 按 sessionId 存储自动批准规则
- */
+function sessionKey(sessionId: string, directory?: string): string {
+  if (!directory) return sessionId
+  return `${encodeStoragePart(directory)}/${sessionId}`
+}
+
+function directoryKey(directory: string): string {
+  return `${encodeStoragePart(directory)}/*`
+}
+
 class AutoApproveStore {
-  // 规则存储：sessionId -> rules[]
-  private rulesMap = new Map<string, AutoApproveRule[]>()
-  
-  // 功能开关（存 localStorage，持久化）
-  private _enabled: boolean = false
-  private readonly STORAGE_KEY = 'opencode-auto-approve-enabled'
-  
+  private readonly STORAGE_KEY = 'opencode-auto-approve-state'
+  private state: AutoApproveState = { autoAccept: {} }
+  private listeners = new Set<() => void>()
+  private cachedSnapshot: AutoApproveState | null = null
+
   constructor() {
-    // 从 localStorage 读取开关状态
-    try {
-      const stored = serverStorage.get(this.STORAGE_KEY)
-      this._enabled = stored === 'true'
-    } catch {
-      this._enabled = false
-    }
+    this.reloadFromStorage()
   }
-  
-  /**
-   * 重新从 storage 加载开关状态（服务器切换时调用）
-   */
+
+  subscribe = (listener: () => void): (() => void) => {
+    this.listeners.add(listener)
+    return () => this.listeners.delete(listener)
+  }
+
+  private emit() {
+    this.cachedSnapshot = null
+    this.listeners.forEach(listener => listener())
+  }
+
+  private persist() {
+    serverStorage.setJSON(this.STORAGE_KEY, this.state)
+  }
+
+  private setState(updater: (draft: AutoApproveState) => void) {
+    const next: AutoApproveState = {
+      autoAccept: { ...this.state.autoAccept },
+    }
+    updater(next)
+    this.state = next
+    this.persist()
+    this.emit()
+  }
+
   reloadFromStorage(): void {
-    try {
-      const stored = serverStorage.get(this.STORAGE_KEY)
-      this._enabled = stored === 'true'
-    } catch {
-      this._enabled = false
+    const stored = serverStorage.getJSON<AutoApproveState>(this.STORAGE_KEY)
+    this.state = {
+      autoAccept: stored?.autoAccept && typeof stored.autoAccept === 'object'
+        ? { ...stored.autoAccept }
+        : {},
     }
-    // 切换服务器时也清空所有规则
-    this.rulesMap.clear()
+    this.emit()
   }
-  
-  /**
-   * 获取功能开关状态
-   */
-  get enabled(): boolean {
-    return this._enabled
-  }
-  
-  /**
-   * 设置功能开关
-   */
-  setEnabled(value: boolean): void {
-    this._enabled = value
-    try {
-      serverStorage.set(this.STORAGE_KEY, String(value))
-    } catch {
-      // ignore
-    }
-  }
-  
-  /**
-   * 添加自动批准规则
-   * @param sessionId 会话 ID
-   * @param permission 工具类型
-   * @param patterns 要添加的 pattern 列表
-   */
-  addRules(sessionId: string, permission: string, patterns: string[]): void {
-    if (!this._enabled) return
-    
-    const existing = this.rulesMap.get(sessionId) || []
-    const newRules: AutoApproveRule[] = patterns.map(pattern => ({
-      permission,
-      pattern,
-    }))
-    
-    // 去重
-    const uniqueRules = [...existing]
-    for (const rule of newRules) {
-      const isDuplicate = uniqueRules.some(
-        r => r.permission === rule.permission && r.pattern === rule.pattern
-      )
-      if (!isDuplicate) {
-        uniqueRules.push(rule)
+
+  getSnapshot = (): AutoApproveState => {
+    if (!this.cachedSnapshot) {
+      this.cachedSnapshot = {
+        autoAccept: { ...this.state.autoAccept },
       }
     }
-    
-    this.rulesMap.set(sessionId, uniqueRules)
+    return this.cachedSnapshot
   }
-  
-  /**
-   * 获取某个会话的所有规则
-   */
-  getRules(sessionId: string): AutoApproveRule[] {
-    return this.rulesMap.get(sessionId) || []
+
+  get enabled(): boolean {
+    return Object.values(this.state.autoAccept).some(Boolean)
   }
-  
-  /**
-   * 清空某个会话的所有规则
-   */
-  clearRules(sessionId: string): void {
-    this.rulesMap.delete(sessionId)
+
+  isAutoAccepting(sessionId: string, directory?: string): boolean {
+    for (const lineageId of this.getSessionLineage(sessionId)) {
+      const accepted = this.getAcceptedValue(lineageId, directory)
+      if (accepted !== undefined) return accepted
+    }
+    return false
   }
-  
-  /**
-   * 清空所有规则
-   */
-  clearAllRules(): void {
-    this.rulesMap.clear()
+
+  isDirectoryAutoAccepting(directory: string): boolean {
+    return this.state.autoAccept[directoryKey(directory)] ?? false
   }
-  
-  /**
-   * 检查权限请求是否应该自动批准
-   * @param sessionId 会话 ID
-   * @param permission 工具类型
-   * @param requestPatterns 请求的 patterns
-   * @returns true 如果所有 patterns 都被规则匹配
-   */
-  shouldAutoApprove(
-    sessionId: string,
-    permission: string,
-    requestPatterns: string[]
-  ): boolean {
-    if (!this._enabled) return false
-    if (!requestPatterns || requestPatterns.length === 0) return false
-    
-    const rules = this.getRules(sessionId)
-    if (rules.length === 0) return false
-    
-    // 检查每个请求的 pattern 是否都被至少一条规则匹配
-    return requestPatterns.every(reqPattern => {
-      return rules.some(rule => {
-        // 权限类型必须匹配（或规则是 * 通配）
-        if (rule.permission !== permission && rule.permission !== '*') {
-          return false
-        }
-        // 双向通配匹配：rule 作为模式匹配 request，或 request 作为模式匹配 rule
-        // patterns 和 always 可能格式不同，双向确保都能命中
-        return wildcardMatch(rule.pattern, reqPattern)
-          || wildcardMatch(reqPattern, rule.pattern)
-      })
+
+  shouldAutoApprove(sessionId: string, directory?: string): boolean {
+    return this.isAutoAccepting(sessionId, directory)
+  }
+
+  toggleAutoAccept(sessionId: string, directory: string): boolean {
+    if (this.isAutoAccepting(sessionId, directory)) {
+      this.disableAutoAccept(sessionId, directory)
+      return false
+    }
+    this.enableAutoAccept(sessionId, directory)
+    return true
+  }
+
+  toggleAutoAcceptDirectory(directory: string): boolean {
+    if (this.isDirectoryAutoAccepting(directory)) {
+      this.disableDirectory(directory)
+      return false
+    }
+    this.enableDirectory(directory)
+    return true
+  }
+
+  enableAutoAccept(sessionId: string, directory: string): void {
+    const key = sessionKey(sessionId, directory)
+    this.setState((draft) => {
+      draft.autoAccept[key] = true
+      delete draft.autoAccept[sessionId]
     })
   }
-  
-  /**
-   * 获取调试信息
-   */
-  getDebugInfo(): { enabled: boolean; sessions: { id: string; rules: AutoApproveRule[] }[] } {
-    return {
-      enabled: this._enabled,
-      sessions: Array.from(this.rulesMap.entries()).map(([id, rules]) => ({
-        id,
-        rules,
-      })),
+
+  disableAutoAccept(sessionId: string, directory?: string): void {
+    const key = directory ? sessionKey(sessionId, directory) : sessionId
+    this.setState((draft) => {
+      draft.autoAccept[key] = false
+      if (directory) delete draft.autoAccept[sessionId]
+    })
+  }
+
+  private enableDirectory(directory: string): void {
+    const key = directoryKey(directory)
+    this.setState((draft) => {
+      draft.autoAccept[key] = true
+    })
+  }
+
+  private disableDirectory(directory: string): void {
+    const key = directoryKey(directory)
+    this.setState((draft) => {
+      draft.autoAccept[key] = false
+    })
+  }
+
+  clearAllRules(): void {
+    this.setState((draft) => {
+      draft.autoAccept = {}
+    })
+  }
+
+  private getAcceptedValue(sessionId: string, directory?: string): boolean | undefined {
+    const scopedKey = directory ? sessionKey(sessionId, directory) : undefined
+    const dirKey = directory ? directoryKey(directory) : undefined
+
+    if (scopedKey && scopedKey in this.state.autoAccept) return this.state.autoAccept[scopedKey]
+    if (sessionId in this.state.autoAccept) return this.state.autoAccept[sessionId]
+    if (dirKey && dirKey in this.state.autoAccept) return this.state.autoAccept[dirKey]
+    return undefined
+  }
+
+  private getSessionLineage(sessionId: string): string[] {
+    const ids = [sessionId]
+    const seen = new Set(ids)
+
+    for (let index = 0; index < ids.length; index += 1) {
+      const currentId = ids[index]
+      const parentId = childSessionStore.getSessionInfo(currentId)?.parentID
+      if (!parentId || seen.has(parentId)) continue
+      seen.add(parentId)
+      ids.push(parentId)
     }
+
+    return ids
   }
 }
 
-// 单例导出
 export const autoApproveStore = new AutoApproveStore()
+
+export function useAutoApproveStore() {
+  return useSyncExternalStore(autoApproveStore.subscribe, autoApproveStore.getSnapshot, autoApproveStore.getSnapshot)
+}

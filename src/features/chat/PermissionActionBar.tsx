@@ -36,20 +36,9 @@ export const PermissionActionBar = memo(function PermissionActionBar({
   const isMobile = useIsMobile()
   const metadata = request.metadata as Record<string, unknown> | undefined
   const intent = buildPermissionIntent(request, toolInfo, metadata) || buildPermissionDetail(request)
+  const autoAccepting = autoApproveStore.isAutoAccepting(request.sessionID)
 
   const handleAlwaysAllow = () => {
-    if (autoApproveStore.enabled) {
-      const rulePatterns = [
-        ...(request.always || []),
-        ...(request.patterns || []),
-      ]
-      const unique = [...new Set(rulePatterns)]
-      if (unique.length > 0) {
-        autoApproveStore.addRules(request.sessionID, request.permission, unique)
-        onReply('once')
-        return
-      }
-    }
     onReply('always')
   }
 
@@ -128,7 +117,7 @@ export const PermissionActionBar = memo(function PermissionActionBar({
             <span>Always allow</span>
             {!isMobile && (
               <span className="text-[10px] text-text-400 ml-0.5">
-                ({autoApproveStore.enabled ? 'Browser' : 'Session'})
+                ({autoAccepting ? 'Auto' : 'Session'})
               </span>
             )}
           </button>

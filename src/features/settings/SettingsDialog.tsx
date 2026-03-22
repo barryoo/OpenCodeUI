@@ -5,11 +5,11 @@ import {
   SunIcon, MoonIcon, SystemIcon, MaximizeIcon, MinimizeIcon, 
   PathAutoIcon, PathUnixIcon, PathWindowsIcon,
   GlobeIcon, PlusIcon, TrashIcon, CheckIcon, WifiIcon, WifiOffIcon, SpinnerIcon, KeyIcon,
-  SettingsIcon, KeyboardIcon, CloseIcon, BellIcon, BoltIcon, CompactIcon, PlugIcon, StopIcon, EyeIcon
+  SettingsIcon, KeyboardIcon, CloseIcon, BellIcon, CompactIcon, PlugIcon, StopIcon, EyeIcon
 } from '../../components/Icons'
 import { usePathMode, useServerStore, useIsMobile, useNotification, useRouter } from '../../hooks'
 import { layoutStore, useLayoutStore, type SidebarViewMode } from '../../store/layoutStore'
-import { autoApproveStore, messageStore, notificationStore } from '../../store'
+import { messageStore, notificationStore } from '../../store'
 import { serviceStore, useServiceStore } from '../../store/serviceStore'
 import { themeStore } from '../../store/themeStore'
 import { isTauri } from '../../utils/tauri'
@@ -527,7 +527,6 @@ function AppearanceSettings({ themeMode, onThemeChange, isWideMode, onToggleWide
 
 function GeneralSettings({ mode }: { mode: 'chat' | 'notifications' | 'service' }) {
   const { pathMode, setPathMode, effectiveStyle, detectedStyle, isAutoMode } = usePathMode()
-  const [autoApprove, setAutoApprove] = useState(autoApproveStore.enabled)
   const { enabled: notificationsEnabled, setEnabled: setNotificationsEnabled, supported: notificationsSupported, permission: notificationPermission, sendNotification } = useNotification()
   const [collapseUserMessages, setCollapseUserMessages] = useState(themeStore.collapseUserMessages)
   const [stepFinishDisplay, setStepFinishDisplay] = useState(themeStore.stepFinishDisplay)
@@ -552,13 +551,6 @@ function GeneralSettings({ mode }: { mode: 'chat' | 'notifications' | 'service' 
     handleCheckService()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isTauriDesktop])
-
-  const handleAutoApprove = () => {
-    const v = !autoApprove
-    setAutoApprove(v)
-    autoApproveStore.setEnabled(v)
-    if (!v) autoApproveStore.clearAllRules()
-  }
 
   const handleCollapseToggle = () => {
     const v = !collapseUserMessages
@@ -664,19 +656,6 @@ function GeneralSettings({ mode }: { mode: 'chat' | 'notifications' | 'service' 
               )}
             </SettingsCard>
 
-            <SettingsCard
-              title="Agent Behavior"
-              description="Execution defaults for tool actions"
-            >
-              <SettingRow
-                label="Auto-Approve"
-                description="Use local rules for always, send once to server"
-                icon={<BoltIcon size={14} />}
-                onClick={handleAutoApprove}
-              >
-                <Toggle enabled={autoApprove} onChange={handleAutoApprove} />
-              </SettingRow>
-            </SettingsCard>
           </div>
 
           <SettingsCard

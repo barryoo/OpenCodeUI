@@ -25,6 +25,7 @@ import { PermissionContext } from './contexts/PermissionContext'
 import { FolderIcon } from './components/Icons'
 import { extractToolData } from './features/message/tools'
 import type { ToolPart } from './types/message'
+import { autoApproveStore } from './store'
 
 function normalizeIntentText(value: unknown): string | undefined {
   if (typeof value !== 'string') return undefined
@@ -306,6 +307,13 @@ function App() {
     const nextAgentName = primaryAgents[nextIndex].name
     handleAgentChange(nextAgentName)
   }, [agents, selectedAgent, handleAgentChange])
+
+  const handleAutoAcceptToggle = useCallback((enabled: boolean) => {
+    if (!enabled) return
+    const next = pendingPermissionRequests.find(request => autoApproveStore.shouldAutoApprove(request.sessionID, effectiveDirectory))
+    if (!next) return
+    void handlePermissionReply(next.id, 'once', effectiveDirectory)
+  }, [pendingPermissionRequests, handlePermissionReply, effectiveDirectory])
 
   // ============================================
   // Model Restoration Effect
@@ -805,6 +813,7 @@ function App() {
                         : undefined
                     }
                     hideCapsuleButtons={false}
+                    onAutoAcceptToggle={handleAutoAcceptToggle}
                   />
                 </>
               )}

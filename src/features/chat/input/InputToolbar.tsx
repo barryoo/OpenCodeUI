@@ -1,10 +1,11 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
-import { ChevronDownIcon, SendIcon, StopIcon, ImageIcon, AgentIcon, ThinkingIcon, UndoIcon } from '../../../components/Icons'
+import { ChevronDownIcon, SendIcon, StopIcon, ImageIcon, AgentIcon, ThinkingIcon, UndoIcon, ShieldIcon } from '../../../components/Icons'
 import { DropdownMenu, MenuItem, IconButton, AnimatedPresence } from '../../../components/ui'
 import { InputToolbarModelSelector, type ModelSelectorHandle } from '../ModelSelector'
 import { isTauri } from '../../../utils/tauri'
 import type { ApiAgent } from '../../../api/client'
 import type { ModelInfo } from '../../../api'
+import { autoApproveStore, useAutoApproveStore } from '../../../store'
 
 interface InputToolbarProps {
   agents: ApiAgent[]
@@ -36,6 +37,9 @@ interface InputToolbarProps {
   inputContainerRef?: React.RefObject<HTMLDivElement | null>
   // 给全局快捷键使用：打开模型菜单
   modelSelectorRef?: React.RefObject<ModelSelectorHandle | null>
+  sessionId?: string | null
+  rootPath?: string
+  onAutoAcceptToggle?: (enabled: boolean) => void
 }
 
 export function InputToolbar({ 
@@ -60,7 +64,11 @@ export function InputToolbar({
   modelsLoading = false,
   inputContainerRef,
   modelSelectorRef,
+  sessionId,
+  rootPath,
+  onAutoAcceptToggle,
 }: InputToolbarProps) {
+  const autoApproveState = useAutoApproveStore()
   // State for menus
   const [agentMenuOpen, setAgentMenuOpen] = useState(false)
   const [variantMenuOpen, setVariantMenuOpen] = useState(false)
@@ -137,6 +145,23 @@ export function InputToolbar({
   const selectableAgents = agents.filter(a => a.mode !== 'subagent' && !a.hidden)
   const currentAgent = agents.find(a => a.name === selectedAgent)
   const selectorControlHeight = 'clamp(34px, 4.6vh, 42px)'
+  const autoAccepting = autoApproveState && rootPath
+    ? (sessionId
+      ? autoApproveStore.isAutoAccepting(sessionId, rootPath)
+      : autoApproveStore.isDirectoryAutoAccepting(rootPath))
+    : false
+
+  const handleAutoAcceptToggle = useCallback(() => {
+    if (!rootPath) return
+    const enabled = sessionId
+      ? autoApproveStore.toggleAutoAccept(sessionId, rootPath)
+      : autoApproveStore.toggleAutoAcceptDirectory(rootPath)
+    onAutoAcceptToggle?.(enabled)
+  }, [sessionId, rootPath, onAutoAcceptToggle])
+
+  const autoAcceptButtonTitle = autoAccepting
+    ? 'Stop auto-accepting permissions'
+    : 'Auto-accept permissions'
 
   return (
     <div
@@ -245,6 +270,22 @@ export function InputToolbar({
 
       {/* Action Buttons */}
       <div className="flex items-center gap-1">
+        <button
+          type="button"
+          aria-label={autoAcceptButtonTitle}
+          aria-pressed={autoAccepting}
+          onClick={handleAutoAcceptToggle}
+          title={autoAcceptButtonTitle}
+          className={[
+            'inline-flex h-8 items-center justify-center gap-1.5 rounded-lg border px-2 text-xs font-medium transition-all duration-150 active:scale-95 sm:px-2.5',
+            autoAccepting
+              ? 'border-emerald-500/40 bg-emerald-500/14 text-emerald-300 shadow-[0_0_0_1px_rgba(16,185,129,0.12)] hover:bg-emerald-500/18'
+              : 'border-border-200/60 bg-transparent text-text-400 hover:border-border-300 hover:bg-bg-200 hover:text-text-200',
+          ].join(' ')}
+        >
+          <ShieldIcon size={14} />
+          <span className="hidden sm:inline">{autoAccepting ? 'Auto On' : 'Auto'}</span>
+        </button>
         <AnimatedPresence show={supportsImages}>
           <>
             {/* 浏览器模式下的隐藏文件输入 */}
