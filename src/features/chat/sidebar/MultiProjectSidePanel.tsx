@@ -2098,7 +2098,7 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
                     {isProjectMenuOpen && openMenu?.anchorRect && (
                       <ActionMenu menuRef={menuRef} anchorRect={openMenu.anchorRect}>
                         <ActionMenuItem
-                          label="移除项目"
+                          label="隐藏项目"
                           icon={<TrashIcon size={12} />}
                           danger
                           onClick={() => handleRequestRemoveProject(project.path)}
@@ -2363,9 +2363,9 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
             handleRemoveProject(projectDeleteConfirm)
           }
         }}
-        title="移除项目"
-        description="确认要从列表中移除该项目吗？不会删除磁盘文件。"
-        confirmText="移除"
+        title="隐藏项目"
+        description="确认要隐藏该项目吗？刷新后仍会保持隐藏；当你再次打开该项目时会自动恢复显示。不会删除磁盘文件。"
+        confirmText="隐藏"
         variant="danger"
       />
 

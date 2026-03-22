@@ -171,9 +171,9 @@ export function ProjectSelector({
           }
           setDeleteConfirm({ isOpen: false, projectId: null })
         }}
-        title="Remove Project"
-        description="Remove this project folder from the list? Files won't be deleted."
-        confirmText="Remove"
+        title="Hide Project"
+        description="Hide this project from the list (it will stay hidden after refresh). It will automatically reappear when you open it again. Files won't be deleted."
+        confirmText="Hide"
         variant="danger"
       />
     </div>
