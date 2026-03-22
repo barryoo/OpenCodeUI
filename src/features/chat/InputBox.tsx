@@ -85,6 +85,7 @@ export interface InputBoxProps {
   collapsedQuestion?: CollapsedDialogInfo
   // Hide capsule buttons (for external rendering)
   hideCapsuleButtons?: boolean
+  onAutoAcceptToggle?: (enabled: boolean) => void
 }
 
 // ============================================
@@ -129,6 +130,7 @@ function InputBoxComponent({
   collapsedPermission,
   collapsedQuestion,
   hideCapsuleButtons = false,
+  onAutoAcceptToggle,
 }: InputBoxProps) {
   // 文本状态
   const [text, setText] = useState('')
@@ -1005,6 +1007,9 @@ function InputBoxComponent({
                       modelsLoading={modelsLoading}
                       modelSelectorRef={modelSelectorRef}
                       inputContainerRef={inputContainerRef}
+                      sessionId={sessionId}
+                      rootPath={rootPath}
+                      onAutoAcceptToggle={onAutoAcceptToggle}
                     />
                   </div>
                 </div>

@@ -60,6 +60,12 @@ export const HandIcon = (props: IconProps) => (
   </DefaultIcon>
 )
 
+export const ShieldIcon = (props: IconProps) => (
+  <DefaultIcon {...props}>
+    <path d="M12 3l7 3v5c0 5-3.5 8.5-7 10-3.5-1.5-7-5-7-10V6l7-3Z" />
+  </DefaultIcon>
+)
+
 export const KeyboardIcon = (props: IconProps) => (
   <DefaultIcon {...props}>
     <rect width="20" height="16" x="2" y="4" rx="2" ry="2" />

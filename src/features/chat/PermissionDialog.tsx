@@ -3,12 +3,11 @@ import type { ApiPermissionRequest, PermissionReply } from '../../api'
 import { PermissionListIcon, UsersIcon, ReturnIcon, ChevronDownIcon } from '../../components/Icons'
 import { DiffView } from '../../components/DiffView'
 import { ContentBlock } from '../../components'
-import { childSessionStore, autoApproveStore } from '../../store'
+import { childSessionStore } from '../../store'
 
 interface PermissionDialogProps {
   request: ApiPermissionRequest
   onReply: (reply: PermissionReply) => void
-  onAutoApprove?: (sessionId: string, permission: string, patterns: string[]) => void  // 添加本地规则
   queueLength?: number  // 队列中的请求数量
   isReplying?: boolean  // 是否正在回复
   currentSessionId?: string | null  // 当前主 session ID，用于判断是否来自子 agent
@@ -16,7 +15,7 @@ interface PermissionDialogProps {
   onCollapsedChange?: (collapsed: boolean) => void
 }
 
-export function PermissionDialog({ request, onReply, onAutoApprove, queueLength = 1, isReplying = false, currentSessionId, collapsed = false, onCollapsedChange }: PermissionDialogProps) {
+export function PermissionDialog({ request, onReply, queueLength = 1, isReplying = false, currentSessionId, collapsed = false, onCollapsedChange }: PermissionDialogProps) {
 
   // 从 metadata 中提取 diff 信息
   const metadata = request.metadata
@@ -140,32 +139,12 @@ export function PermissionDialog({ request, onReply, onAutoApprove, queueLength 
               
               {/* Secondary: Always allow */}
               <button
-              onClick={() => {
-                  if (autoApproveStore.enabled) {
-                    // 同时存 always + patterns，确保下次不管哪种格式都能命中
-                    const rulePatterns = [
-                      ...(request.always || []),
-                      ...(request.patterns || []),
-                    ]
-                    // 去重
-                    const unique = [...new Set(rulePatterns)]
-                    if (unique.length > 0) {
-                      autoApproveStore.addRules(request.sessionID, request.permission, unique)
-                      onAutoApprove?.(request.sessionID, request.permission, unique)
-                      onReply('once')
-                      return
-                    }
-                  }
-                  // fallback：发送 always 给后端
-                  onReply('always')
-                }}
+                onClick={() => onReply('always')}
                 disabled={isReplying}
                 className="w-full flex items-center justify-between px-3.5 py-2 rounded-lg border border-border-200/50 text-text-100 hover:bg-bg-200 transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <span>Always allow</span>
-                <span className="text-xs text-text-400">
-                  {autoApproveStore.enabled ? 'Browser session' : 'This session'}
-                </span>
+                <span className="text-xs text-text-400">This session</span>
               </button>
 
               {/* Tertiary: Reject */}
@@ -179,9 +158,7 @@ export function PermissionDialog({ request, onReply, onAutoApprove, queueLength 
               </button>
 
               <p className="text-[11px] text-text-500 pt-1 px-1 leading-relaxed">
-                {autoApproveStore.enabled 
-                  ? 'Auto-approve enabled. Refresh browser to reset permissions.'
-                  : 'You can change permission settings at any time.'}
+                You can change permission settings at any time.
               </p>
             </div>
           </div>
@@ -191,4 +168,3 @@ export function PermissionDialog({ request, onReply, onAutoApprove, queueLength 
     </div>
   )
 }
-
