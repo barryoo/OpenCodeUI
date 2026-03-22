@@ -6,16 +6,17 @@ import { get } from './http'
 import { formatPathForApi } from '../utils/directoryUtils'
 
 export interface LSPStatus {
-  running: boolean
-  language?: string
-  capabilities?: string[]
+  id: string
+  name: string
+  root: string
+  status: 'connected' | 'error'
 }
 
 /**
  * 获取 LSP 服务状态
  */
-export async function getLspStatus(directory?: string): Promise<LSPStatus> {
-  return get<LSPStatus>('/lsp', { directory: formatPathForApi(directory) })
+export async function getLspStatus(directory?: string): Promise<LSPStatus[]> {
+  return get<LSPStatus[]>('/lsp', { directory: formatPathForApi(directory) })
 }
 
 export interface FormatterStatus {
