@@ -156,7 +156,8 @@ export const Sidebar = memo(function Sidebar({
     }
   }, [onSelectSession, isMobile, onClose])
 
-  const ActiveSidePanel = sidebarViewMode === 'multi' ? MultiProjectSidePanel : SidePanel
+  const shouldUseMultiProjectSidebar = sidebarViewMode === 'multi' && isOpen
+  const ActiveSidePanel = shouldUseMultiProjectSidebar ? MultiProjectSidePanel : SidePanel
 
   // ============================================
   // 移动端：Sidebar 完全不占位，作为 overlay 显示

@@ -285,6 +285,7 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
   const menuRef = useRef<HTMLDivElement | null>(null)
   const renameInputRef = useRef<HTMLInputElement | null>(null)
   const recentRefreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const selectedSessionReloadKeyRef = useRef<string | null>(null)
   // 移动端长按检测
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const longPressTouchStartRef = useRef<{ x: number; y: number } | null>(null)
@@ -774,7 +775,10 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
     if (!projectPath) return
 
     const currentList = sessionsByProject[projectPath] ?? []
-    if (currentList.some((session) => session.id === selectedSessionId)) return
+    if (currentList.some((session) => session.id === selectedSessionId)) {
+      selectedSessionReloadKeyRef.current = null
+      return
+    }
 
     if (loadingByProject[projectPath]) return
 
@@ -782,6 +786,11 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
       loadedLimitByProject[projectPath] ?? 0,
       visibleCountByProject[projectPath] ?? DEFAULT_VISIBLE_COUNT
     )
+
+    const reloadKey = `${projectPath}:${selectedSessionId}:${currentLimit}`
+    if (selectedSessionReloadKeyRef.current === reloadKey) return
+
+    selectedSessionReloadKeyRef.current = reloadKey
     void loadProjectSessions(projectPath, currentLimit)
   }, [
     selectedSessionId,
