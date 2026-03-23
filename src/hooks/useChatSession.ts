@@ -3,6 +3,7 @@
 // ============================================
 
 import { useState, useCallback, useEffect } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { useMessageStore, messageStore, useSessionFamily, autoApproveStore, childSessionStore, notificationStore } from '../store'
 import { useSessionManager, useGlobalEvents } from '../hooks'
 import { usePermissions, useRouter, usePermissionHandler, useMessageAnimation, useDirectory, useSessionContext } from '../hooks'
@@ -10,7 +11,6 @@ import { useNotification } from './useNotification'
 import { 
   sendMessageAsync, abortSession, 
   getSelectableAgents, 
-  getPendingPermissions, getPendingQuestions,
   getSessionChildren,
   executeCommand,
   summarizeSession,
@@ -22,6 +22,11 @@ import {
 import { getMessageText } from '../types/message'
 import { createErrorHandler } from '../utils'
 import { serverStorage } from '../utils/perServerStorage'
+import {
+  fetchPendingPermissionsQuery,
+  fetchPendingQuestionsQuery,
+  setSessionQueryData,
+} from '../query/session'
 import { 
   PERMISSION_POLL_INTERVAL_MS,
   INITIAL_SCROLL_DELAY_MS,
@@ -40,6 +45,7 @@ interface UseChatSessionOptions {
 }
 
 export function useChatSession({ chatAreaRef, currentModel, refetchModels }: UseChatSessionOptions) {
+  const queryClient = useQueryClient()
   // Store State
   const {
     sessionId: activeStoreSessionId,
@@ -300,8 +306,8 @@ export function useChatSession({ chatAreaRef, currentModel, refetchModels }: Use
       // Step 3: 获取所有待处理请求，然后用 family 过滤
       // GET /permission 和 GET /question 返回全量数据，不传 sessionId 避免 N 次重复请求
       const [allPerms, allQuestions] = await Promise.all([
-        getPendingPermissions(undefined, effectiveDirectory).catch(() => []),
-        getPendingQuestions(undefined, effectiveDirectory).catch(() => []),
+        fetchPendingPermissionsQuery(effectiveDirectory).catch(() => []),
+        fetchPendingQuestionsQuery(effectiveDirectory).catch(() => []),
       ])
 
       if (cancelled) return
@@ -456,6 +462,7 @@ export function useChatSession({ chatAreaRef, currentModel, refetchModels }: Use
 
     try {
       const forked = await forkSession(routeSessionId, userMessageId, effectiveDirectory)
+      setSessionQueryData(forked)
       messageStore.setCurrentSession(forked.id)
       navigateToSession(forked.id, forked.directory || effectiveDirectory)
     } catch (error) {
@@ -490,13 +497,15 @@ export function useChatSession({ chatAreaRef, currentModel, refetchModels }: Use
   const handleArchiveSession = useCallback(async () => {
     if (!routeSessionId) return
     try {
-      await updateSession(routeSessionId, { time: { archived: Date.now() } }, effectiveDirectory)
+      const updatedSession = await updateSession(routeSessionId, { time: { archived: Date.now() } }, effectiveDirectory)
+      setSessionQueryData(updatedSession)
+      void queryClient.invalidateQueries({ queryKey: ['session'] })
       navigateHome()
       handleNewChat()
     } catch (error) {
       handleError('archive session', error)
     }
-  }, [routeSessionId, effectiveDirectory, navigateHome, handleNewChat])
+  }, [routeSessionId, effectiveDirectory, navigateHome, handleNewChat, queryClient])
 
   // Navigate to previous session
   const handlePreviousSession = useCallback(() => {

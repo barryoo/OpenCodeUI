@@ -31,6 +31,18 @@ export type { SessionStats } from './useSessionStats'
 export type { FileTreeNode, UseFileExplorerOptions, UseFileExplorerResult } from './useFileExplorer'
 export { useVcsInfo } from './useVcsInfo'
 export type { UseVcsInfoResult } from './useVcsInfo'
+export {
+  fetchPendingPermissionsQuery,
+  fetchPendingQuestionsQuery,
+  fetchSessionQuery,
+  fetchSessionStatusQuery,
+  removePendingPermissionFromCache,
+  removePendingQuestionFromCache,
+  sessionQueryKeys,
+  setSessionQueryData,
+  setSessionStatusQueryData,
+  useSessionDetailQuery,
+} from '../query/session'
 
 // Re-export from contexts
 export { DirectoryProvider, useDirectory, SessionProvider, useSessionContext } from '../contexts'

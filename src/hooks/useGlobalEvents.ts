@@ -9,10 +9,11 @@
 // 4. 与具体 session 无关，处理所有 session 的事件
 
 import { useEffect, useRef, useCallback } from 'react'
+import { queryClient } from '../query/client'
 import { messageStore, childSessionStore, autoApproveStore } from '../store'
 import { activeSessionStore } from '../store/activeSessionStore'
 import { notificationStore } from '../store/notificationStore'
-import { subscribeToEvents, getSessionStatus, getPendingPermissions, getPendingQuestions, replyPermission } from '../api'
+import { subscribeToEvents, replyPermission } from '../api'
 import { useSavedDirectories, useCurrentDirectory } from '../contexts/DirectoryContext'
 import type { SavedDirectory } from '../contexts/DirectoryContext'
 import type { 
@@ -22,6 +23,14 @@ import type {
   ApiQuestionRequest,
 } from '../api/types'
 import type { SessionStatus } from '../types/api/session'
+import {
+  fetchPendingPermissionsQuery,
+  fetchPendingQuestionsQuery,
+  fetchSessionStatusQuery,
+  sessionQueryKeys,
+  setSessionQueryData,
+  setSessionStatusQueryData,
+} from '../query/session'
 
 type SessionStatusResponse = Record<string, SessionStatus>
 
@@ -64,13 +73,13 @@ async function fetchExpandedDirectoryState(directories: string[]) {
   }
 
   const statusRequests = directories.map((directory: string) =>
-    getSessionStatus(directory).catch(() => ({} as SessionStatusResponse))
+    fetchSessionStatusQuery(directory).catch(() => ({} as SessionStatusResponse))
   )
   const permissionRequests = directories.map((directory: string) =>
-    getPendingPermissions(undefined, directory).catch(() => [])
+    fetchPendingPermissionsQuery(directory).catch(() => [])
   )
   const questionRequests = directories.map((directory: string) =>
-    getPendingQuestions(undefined, directory).catch(() => [])
+    fetchPendingQuestionsQuery(directory).catch(() => [])
   )
 
   const [statusMaps, permissionsList, questionsList] = await Promise.all([
@@ -209,6 +218,9 @@ export function useGlobalEvents(callbacks?: GlobalEventsCallbacks) {
         {} as SessionStatusResponse
       )
 
+      uniqueDirectories.forEach((directory, index) => {
+        setSessionStatusQueryData(directory, statusMaps[index] ?? {})
+      })
       activeSessionStore.mergeStatusMap(mergedStatus)
       activeSessionStore.mergePendingRequests(permissionsList.flat(), questionsList.flat())
     })
@@ -229,6 +241,13 @@ export function useGlobalEvents(callbacks?: GlobalEventsCallbacks) {
         (acc, map) => ({ ...acc, ...map }),
         {} as SessionStatusResponse
       )
+
+      snapshot.directories.forEach((directory, index) => {
+        setSessionStatusQueryData(directory, statusMaps[index] ?? {})
+        queryClient.setQueryData(sessionQueryKeys.pendingPermissions(directory), permissionsList[index] ?? [])
+        queryClient.setQueryData(sessionQueryKeys.pendingQuestions(directory), questionsList[index] ?? [])
+      })
+
       activeSessionStore.initialize(mergedStatus)
 
       const permissions = permissionsList.flat()
@@ -334,6 +353,7 @@ export function useGlobalEvents(callbacks?: GlobalEventsCallbacks) {
         
         // 更新 session meta 供 active tab 使用
         activeSessionStore.setSessionMeta(session.id, session.title, session.directory)
+        setSessionQueryData(session)
         
         // 清理过期缓存
         cleanupExpired(pendingPermissions)
@@ -369,6 +389,7 @@ export function useGlobalEvents(callbacks?: GlobalEventsCallbacks) {
       onSessionUpdated: (session) => {
         // 更新 session meta 供 active tab 使用
         activeSessionStore.setSessionMeta(session.id, session.title, session.directory)
+        setSessionQueryData(session)
         if (session.parentID) {
           childSessionStore.registerChildSession(session)
         }
@@ -381,8 +402,11 @@ export function useGlobalEvents(callbacks?: GlobalEventsCallbacks) {
       // ============================================
       
       onPermissionAsked: (request) => {
+        const requestDirectoryFromCache = Array.from(queryClient.getQueriesData<ApiPermissionRequest[]>({ queryKey: ['pending-permissions'] }))
+          .find(([, permissions]) => permissions?.some((item) => item.id === request.id))?.[0]?.[1]
         const meta = activeSessionStore.getSessionMeta(request.sessionID)
         const requestDirectory = meta?.directory
+          ?? (typeof requestDirectoryFromCache === 'string' && requestDirectoryFromCache.length > 0 ? requestDirectoryFromCache : undefined)
           ?? (belongsToCurrentSession(request.sessionID) ? currentDirectoryRef.current : undefined)
 
         if (autoApproveStore.shouldAutoApprove(request.sessionID, requestDirectory)) {
@@ -404,6 +428,9 @@ export function useGlobalEvents(callbacks?: GlobalEventsCallbacks) {
       onPermissionReplied: (data) => {
         pendingPermissions.delete(data.sessionID)
         activeSessionStore.resolvePendingRequest(data.requestID)
+        Array.from(queryClient.getQueriesData<ApiPermissionRequest[]>({ queryKey: ['pending-permissions'] })).forEach(([queryKey]) => {
+          queryClient.setQueryData<ApiPermissionRequest[]>(queryKey, (prev = []) => prev.filter((item) => item.id !== data.requestID))
+        })
         
         if (belongsToCurrentSession(data.sessionID)) {
           callbacksRef.current?.onPermissionReplied?.(data)
@@ -440,6 +467,9 @@ export function useGlobalEvents(callbacks?: GlobalEventsCallbacks) {
       onQuestionReplied: (data) => {
         pendingQuestions.delete(data.sessionID)
         activeSessionStore.resolvePendingRequest(data.requestID)
+        Array.from(queryClient.getQueriesData<ApiQuestionRequest[]>({ queryKey: ['pending-questions'] })).forEach(([queryKey]) => {
+          queryClient.setQueryData<ApiQuestionRequest[]>(queryKey, (prev = []) => prev.filter((item) => item.id !== data.requestID))
+        })
         
         if (belongsToCurrentSession(data.sessionID)) {
           callbacksRef.current?.onQuestionReplied?.(data)
@@ -449,6 +479,9 @@ export function useGlobalEvents(callbacks?: GlobalEventsCallbacks) {
       onQuestionRejected: (data) => {
         pendingQuestions.delete(data.sessionID)
         activeSessionStore.resolvePendingRequest(data.requestID)
+        Array.from(queryClient.getQueriesData<ApiQuestionRequest[]>({ queryKey: ['pending-questions'] })).forEach(([queryKey]) => {
+          queryClient.setQueryData<ApiQuestionRequest[]>(queryKey, (prev = []) => prev.filter((item) => item.id !== data.requestID))
+        })
         
         if (belongsToCurrentSession(data.sessionID)) {
           callbacksRef.current?.onQuestionRejected?.(data)
@@ -464,10 +497,11 @@ export function useGlobalEvents(callbacks?: GlobalEventsCallbacks) {
         const wasBusy = prevStatus && (prevStatus.type === 'busy' || prevStatus.type === 'retry')
 
         activeSessionStore.updateStatus(data.sessionID, data.status)
+        const meta = activeSessionStore.getSessionMeta(data.sessionID)
+        setSessionStatusQueryData(meta?.directory, { [data.sessionID]: data.status })
 
         // Toast — session 从 busy/retry 变成 idle 时弹 completed 通知
         if (wasBusy && data.status.type === 'idle' && !belongsToCurrentSession(data.sessionID)) {
-          const meta = activeSessionStore.getSessionMeta(data.sessionID)
           const sessionLabel = meta?.title || data.sessionID.slice(0, 8)
           notificationStore.push('completed', sessionLabel, 'Session completed', data.sessionID, meta?.directory)
         }

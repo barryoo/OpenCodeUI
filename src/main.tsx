@@ -1,5 +1,6 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
+import { QueryClientProvider } from '@tanstack/react-query'
 import './index.css'
 import App from './App.tsx'
 import { DirectoryProvider, SessionProvider } from './contexts'
@@ -12,6 +13,7 @@ import { messageCacheStore } from './store/messageCacheStore'
 import { autoApproveStore } from './store/autoApproveStore'
 import { serviceStore } from './store/serviceStore'
 import { reconnectSSE } from './api/events'
+import { queryClient } from './query/client'
 import { resetPathModeCache } from './utils/directoryUtils'
 import { isTauri } from './utils/tauri'
 
@@ -48,6 +50,7 @@ serverStore.onServerChange(() => {
   
   // 2. 清空 IndexedDB 消息缓存
   void messageCacheStore.clearAll()
+  queryClient.clear()
   
   // 3. 重置路径模式缓存（不同服务器可能是不同操作系统）
   resetPathModeCache()
@@ -117,10 +120,12 @@ window.addEventListener('beforeunload', (_event) => {
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <DirectoryProvider>
-      <SessionProvider>
-        <App />
-      </SessionProvider>
-    </DirectoryProvider>
+    <QueryClientProvider client={queryClient}>
+      <DirectoryProvider>
+        <SessionProvider>
+          <App />
+        </SessionProvider>
+      </DirectoryProvider>
+    </QueryClientProvider>
   </StrictMode>,
 )

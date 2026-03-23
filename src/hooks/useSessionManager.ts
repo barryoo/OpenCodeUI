@@ -11,13 +11,13 @@ import { useCallback, useEffect, useRef } from 'react'
 import { messageStore, type RevertState, type SessionState } from '../store'
 import {
   getSessionMessages,
-  getSession,
   revertMessage,
   unrevertSession,
   extractUserMessageContent,
   type ApiUserMessage,
   type ApiMessageWithParts,
 } from '../api'
+import { fetchSessionQuery, setSessionQueryData } from '../query/session'
 import { sessionErrorHandler } from '../utils'
 import { INITIAL_MESSAGE_LIMIT, HISTORY_LOAD_BATCH_SIZE, MAX_HISTORY_MESSAGES } from '../constants'
 import { childSessionStore } from '../store/childSessionStore'
@@ -103,7 +103,7 @@ export function useSessionManager({
       // 异步加载 session 元数据（不阻塞）
       const dir = directoryRef.current
       Promise.all([
-        getSession(sid, dir).catch(() => null),
+        fetchSessionQuery(sid, dir).catch(() => null),
         getSessionMessages(sid, INITIAL_MESSAGE_LIMIT, dir)
           .then((messages) => ({ ok: true as const, messages }))
           .catch(() => ({ ok: false as const, messages: [] as ApiMessageWithParts[] })),
@@ -112,6 +112,10 @@ export function useSessionManager({
 
         if (sessionInfo?.parentID) {
           childSessionStore.registerChildSession(sessionInfo)
+        }
+
+        if (sessionInfo) {
+          setSessionQueryData(sessionInfo)
         }
 
         if (messagesResult.ok) {
@@ -138,7 +142,7 @@ export function useSessionManager({
     try {
       // 并行加载 session 信息和消息（传递 directory）
       const [sessionInfo, apiMessages] = await Promise.all([
-        getSession(sid, dir).catch(() => null),
+        fetchSessionQuery(sid, dir).catch(() => null),
         getSessionMessages(sid, INITIAL_MESSAGE_LIMIT, dir),
       ])
 
@@ -146,6 +150,10 @@ export function useSessionManager({
 
       if (sessionInfo?.parentID) {
         childSessionStore.registerChildSession(sessionInfo)
+      }
+
+      if (sessionInfo) {
+        setSessionQueryData(sessionInfo)
       }
 
       // 再次检查：加载期间 SSE 可能已经推送了更多消息

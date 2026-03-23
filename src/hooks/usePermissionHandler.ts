@@ -7,13 +7,17 @@ import {
   replyPermission,
   replyQuestion,
   rejectQuestion,
-  getPendingPermissions,
-  getPendingQuestions,
   type ApiPermissionRequest,
   type ApiQuestionRequest,
   type PermissionReply,
   type QuestionAnswer,
 } from '../api'
+import {
+  fetchPendingPermissionsQuery,
+  fetchPendingQuestionsQuery,
+  removePendingPermissionFromCache,
+  removePendingQuestionFromCache,
+} from '../query/session'
 import { permissionErrorHandler } from '../utils'
 
 export interface UsePermissionHandlerResult {
@@ -85,6 +89,7 @@ export function usePermissionHandler(): UsePermissionHandlerResult {
     
     try {
       await withRetry(() => replyPermission(requestId, reply, undefined, directory))
+      removePendingPermissionFromCache(requestId, directory)
       
       // 成功后从列表移除
       setPendingPermissionRequests(prev => prev.filter(r => r.id !== requestId))
@@ -117,6 +122,7 @@ export function usePermissionHandler(): UsePermissionHandlerResult {
     
     try {
       await withRetry(() => replyQuestion(requestId, answers, directory))
+      removePendingQuestionFromCache(requestId, directory)
       setPendingQuestionRequests(prev => prev.filter(r => r.id !== requestId))
       return true
     } catch (error) {
@@ -142,6 +148,7 @@ export function usePermissionHandler(): UsePermissionHandlerResult {
     
     try {
       await withRetry(() => rejectQuestion(requestId, directory))
+      removePendingQuestionFromCache(requestId, directory)
       setPendingQuestionRequests(prev => prev.filter(r => r.id !== requestId))
       return true
     } catch (error) {
@@ -170,8 +177,8 @@ export function usePermissionHandler(): UsePermissionHandlerResult {
 
       // 只请求一次全量数据（不按 sessionId 分别请求）
       const [allPermissions, allQuestions] = await Promise.all([
-        getPendingPermissions(undefined, directory).catch(() => []),
-        getPendingQuestions(undefined, directory).catch(() => []),
+        fetchPendingPermissionsQuery(directory).catch(() => []),
+        fetchPendingQuestionsQuery(directory).catch(() => []),
       ])
 
       // 用 sessionFamily 过滤，然后直接替换本地状态（与 session 加载时一致）

@@ -2,8 +2,6 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, typ
 import { createPortal } from 'react-dom'
 import {
   deleteSession as deleteSessionApi,
-  getSession,
-  getSessionStatus,
   getGlobalSessions,
   getSessions,
   subscribeToConnectionState,
@@ -29,7 +27,7 @@ import {
 import { Button, Dialog } from '../../../components/ui'
 import { ConfirmDialog } from '../../../components/ui/ConfirmDialog'
 import { TauriWindowControls } from '../../../components/TauriWindowControls'
-import { useDirectory, useSessionStats } from '../../../hooks'
+import { useDirectory, useSessionStats, fetchSessionQuery, fetchSessionStatusQuery } from '../../../hooks'
 import { useMessageStore } from '../../../store'
 import { activeSessionStore, useBusySessions } from '../../../store/activeSessionStore'
 import { notificationStore, useNotifications } from '../../../store/notificationStore'
@@ -482,7 +480,7 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
     ]
 
     Promise.all(
-      directoriesToFetch.map((directory) => getSessionStatus(directory).catch(() => ({} as SessionStatusMap)))
+      directoriesToFetch.map((directory) => fetchSessionStatusQuery(directory).catch(() => ({} as SessionStatusMap)))
     ).then((maps) => {
       inFlightStatusDirectoriesRef.current = inFlightStatusDirectoriesRef.current.filter(
         (existing) => !directoriesToFetch.some((directory) => isSameDirectory(directory, existing))
@@ -1476,7 +1474,7 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
 
     if (!targetSession) {
       try {
-        targetSession = await getSession(entry.sessionId, entry.directory || targetProjectPath)
+        targetSession = await fetchSessionQuery(entry.sessionId, entry.directory || targetProjectPath)
       } catch {
         targetSession = undefined
       }

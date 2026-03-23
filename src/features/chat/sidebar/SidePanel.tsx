@@ -20,14 +20,14 @@ import {
   MinimizeIcon,
   ShareIcon,
 } from '../../../components/Icons'
-import { useDirectory, useSessionStats, formatTokens, formatCost, useKeybindingLabel } from '../../../hooks'
+import { useDirectory, useSessionStats, formatTokens, formatCost, useKeybindingLabel, fetchSessionQuery } from '../../../hooks'
 import type { ThemeMode } from '../../../hooks'
 import { useSessionContext } from '../../../contexts/SessionContext'
 import { useMessageStore } from '../../../store'
 import { useBusySessions, useBusyCount } from '../../../store/activeSessionStore'
 import { notificationStore, useNotifications, useUnreadNotificationCount } from '../../../store/notificationStore'
 import type { NotificationEntry } from '../../../store/notificationStore'
-import { updateSession, getSession, subscribeToConnectionState, type ApiSession, type ConnectionInfo } from '../../../api'
+import { updateSession, subscribeToConnectionState, type ApiSession, type ConnectionInfo } from '../../../api'
 import { uiErrorHandler } from '../../../utils'
 import type { SessionStats } from '../../../hooks'
 import { TauriWindowControls } from '../../../components/TauriWindowControls'
@@ -173,7 +173,7 @@ export function SidePanel({
       await Promise.allSettled(
         missing.map(async (entry) => {
           try {
-            const session = await getSession(entry.sessionId, entry.directory)
+            const session = await fetchSessionQuery(entry.sessionId, entry.directory)
             if (!cancelled) {
               results[session.id] = session
             }

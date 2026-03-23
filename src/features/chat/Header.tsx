@@ -7,7 +7,8 @@ import { StatusPopover } from './StatusPopover'
 import { useMessageStore, useChildSessionInfo, childSessionStore } from '../../store'
 import { useLayoutStore, layoutStore } from '../../store/layoutStore'
 import { useSessionContext } from '../../contexts/SessionContext'
-import { getSession, updateSession, type ApiSession } from '../../api'
+import { updateSession } from '../../api'
+import { setSessionQueryData, useSessionDetailQuery } from '../../hooks'
 import { uiErrorHandler } from '../../utils'
 import { handleWindowTitlebarMouseDown, isTauriMacOS } from '../../utils/tauri'
 
@@ -24,7 +25,6 @@ export function Header({
   const { rightPanelOpen, bottomPanelOpen } = useLayoutStore()
   const { sessions, refresh } = useSessionContext()
   const childSessionInfo = useChildSessionInfo(sessionId)
-  const [sessionDetail, setSessionDetail] = useState<ApiSession | null>(null)
   
   const [shareDialogOpen, setShareDialogOpen] = useState(false)
   
@@ -42,28 +42,8 @@ export function Header({
     sessions.find(s => s.id === sessionId), 
     [sessions, sessionId]
   )
-
-  useEffect(() => {
-    let cancelled = false
-
-    if (!sessionId) {
-      setSessionDetail(null)
-      return
-    }
-
-    const targetDirectory = sessionDirectory || currentSession?.directory || undefined
-    getSession(sessionId, targetDirectory)
-      .then((session) => {
-        if (!cancelled) setSessionDetail(session)
-      })
-      .catch(() => {
-        if (!cancelled) setSessionDetail(null)
-      })
-
-    return () => {
-      cancelled = true
-    }
-  }, [sessionId, sessionDirectory, currentSession?.directory])
+  const targetDirectory = sessionDirectory || currentSession?.directory || undefined
+  const { data: sessionDetail } = useSessionDetailQuery(sessionId, targetDirectory)
 
   const fallbackAgentName = useMemo(() => {
     for (const message of messages) {
@@ -129,7 +109,7 @@ export function Header({
       const targetDirectory = currentSession?.directory || sessionDirectory || undefined
       const updatedSession = await updateSession(sessionId, { title: editTitle.trim() }, targetDirectory)
       refresh()
-      setSessionDetail(updatedSession)
+      setSessionQueryData(updatedSession)
       childSessionStore.updateChildSession(sessionId, { title: updatedSession.title })
     } catch (e) {
       uiErrorHandler('rename session', e)
