@@ -67,14 +67,16 @@ export function setSessionQueryData(session: ApiSession) {
 }
 
 export function removePendingPermissionFromCache(requestId: string, directory?: string) {
-  queryClient.setQueryData<ApiPermissionRequest[]>(sessionQueryKeys.pendingPermissions(directory), (prev = []) => {
-    return prev.filter((item) => item.id !== requestId)
+  queryClient.setQueryData<ApiPermissionRequest[]>(sessionQueryKeys.pendingPermissions(directory), (prev) => {
+    const items = prev ?? []
+    return items.filter((item) => item.id !== requestId)
   })
 }
 
 export function removePendingQuestionFromCache(requestId: string, directory?: string) {
-  queryClient.setQueryData<ApiQuestionRequest[]>(sessionQueryKeys.pendingQuestions(directory), (prev = []) => {
-    return prev.filter((item) => item.id !== requestId)
+  queryClient.setQueryData<ApiQuestionRequest[]>(sessionQueryKeys.pendingQuestions(directory), (prev) => {
+    const items = prev ?? []
+    return items.filter((item) => item.id !== requestId)
   })
 }
 

@@ -402,8 +402,16 @@ export function useGlobalEvents(callbacks?: GlobalEventsCallbacks) {
       // ============================================
       
       onPermissionAsked: (request) => {
-        const requestDirectoryFromCache = Array.from(queryClient.getQueriesData<ApiPermissionRequest[]>({ queryKey: ['pending-permissions'] }))
-          .find(([, permissions]) => permissions?.some((item) => item.id === request.id))?.[0]?.[1]
+        const permissionQueryEntries = queryClient.getQueriesData<ApiPermissionRequest[]>({ queryKey: ['pending-permissions'] })
+        let requestDirectoryFromCache: string | undefined
+        for (const [queryKey, permissions] of permissionQueryEntries) {
+          if (!permissions?.some((item) => item.id === request.id)) continue
+          const directoryKey = queryKey[1]
+          if (typeof directoryKey === 'string' && directoryKey.length > 0) {
+            requestDirectoryFromCache = directoryKey
+          }
+          break
+        }
         const meta = activeSessionStore.getSessionMeta(request.sessionID)
         const requestDirectory = meta?.directory
           ?? (typeof requestDirectoryFromCache === 'string' && requestDirectoryFromCache.length > 0 ? requestDirectoryFromCache : undefined)
@@ -428,9 +436,13 @@ export function useGlobalEvents(callbacks?: GlobalEventsCallbacks) {
       onPermissionReplied: (data) => {
         pendingPermissions.delete(data.sessionID)
         activeSessionStore.resolvePendingRequest(data.requestID)
-        Array.from(queryClient.getQueriesData<ApiPermissionRequest[]>({ queryKey: ['pending-permissions'] })).forEach(([queryKey]) => {
-          queryClient.setQueryData<ApiPermissionRequest[]>(queryKey, (prev = []) => prev.filter((item) => item.id !== data.requestID))
-        })
+        const permissionQueryEntries = queryClient.getQueriesData<ApiPermissionRequest[]>({ queryKey: ['pending-permissions'] })
+        for (const [queryKey] of permissionQueryEntries) {
+          queryClient.setQueryData<ApiPermissionRequest[]>(queryKey, (prev) => {
+            const items = prev ?? []
+            return items.filter((item) => item.id !== data.requestID)
+          })
+        }
         
         if (belongsToCurrentSession(data.sessionID)) {
           callbacksRef.current?.onPermissionReplied?.(data)
@@ -467,9 +479,13 @@ export function useGlobalEvents(callbacks?: GlobalEventsCallbacks) {
       onQuestionReplied: (data) => {
         pendingQuestions.delete(data.sessionID)
         activeSessionStore.resolvePendingRequest(data.requestID)
-        Array.from(queryClient.getQueriesData<ApiQuestionRequest[]>({ queryKey: ['pending-questions'] })).forEach(([queryKey]) => {
-          queryClient.setQueryData<ApiQuestionRequest[]>(queryKey, (prev = []) => prev.filter((item) => item.id !== data.requestID))
-        })
+        const questionQueryEntries = queryClient.getQueriesData<ApiQuestionRequest[]>({ queryKey: ['pending-questions'] })
+        for (const [queryKey] of questionQueryEntries) {
+          queryClient.setQueryData<ApiQuestionRequest[]>(queryKey, (prev) => {
+            const items = prev ?? []
+            return items.filter((item) => item.id !== data.requestID)
+          })
+        }
         
         if (belongsToCurrentSession(data.sessionID)) {
           callbacksRef.current?.onQuestionReplied?.(data)
@@ -479,9 +495,13 @@ export function useGlobalEvents(callbacks?: GlobalEventsCallbacks) {
       onQuestionRejected: (data) => {
         pendingQuestions.delete(data.sessionID)
         activeSessionStore.resolvePendingRequest(data.requestID)
-        Array.from(queryClient.getQueriesData<ApiQuestionRequest[]>({ queryKey: ['pending-questions'] })).forEach(([queryKey]) => {
-          queryClient.setQueryData<ApiQuestionRequest[]>(queryKey, (prev = []) => prev.filter((item) => item.id !== data.requestID))
-        })
+        const questionQueryEntries = queryClient.getQueriesData<ApiQuestionRequest[]>({ queryKey: ['pending-questions'] })
+        for (const [queryKey] of questionQueryEntries) {
+          queryClient.setQueryData<ApiQuestionRequest[]>(queryKey, (prev) => {
+            const items = prev ?? []
+            return items.filter((item) => item.id !== data.requestID)
+          })
+        }
         
         if (belongsToCurrentSession(data.sessionID)) {
           callbacksRef.current?.onQuestionRejected?.(data)
