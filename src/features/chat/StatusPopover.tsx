@@ -10,14 +10,16 @@ import {
   RetryIcon,
   SettingsIcon,
   SpinnerIcon,
+  TeachIcon,
 } from '../../components/Icons'
 import { DropdownMenu, IconButton } from '../../components/ui'
-import { getConfig, getLspStatus, getMcpStatus, type LSPStatus } from '../../api'
+import { getConfig, getLspStatus, getMcpStatus, getSkills, type LSPStatus } from '../../api'
 import { useDirectory, useServerStore } from '../../hooks'
 import type { Config } from '../../types/api/config'
 import type { MCPStatus } from '../../types/api/mcp'
+import type { Skill } from '../../types/api/skill'
 
-type StatusTab = 'servers' | 'mcp' | 'lsp' | 'plugins'
+type StatusTab = 'servers' | 'mcp' | 'lsp' | 'plugins' | 'skills'
 
 interface LoadState {
   loading: boolean
@@ -26,6 +28,7 @@ interface LoadState {
 
 const TAB_LIST: Array<{ id: StatusTab; label: string }> = [
   { id: 'servers', label: '服务器' },
+  { id: 'skills', label: 'Skills' },
   { id: 'mcp', label: 'MCP' },
   { id: 'lsp', label: 'LSP' },
   { id: 'plugins', label: '插件' },
@@ -125,9 +128,11 @@ export function StatusPopover() {
   const [mcpState, setMcpState] = useState<LoadState>({ loading: false, error: null })
   const [lspState, setLspState] = useState<LoadState>({ loading: false, error: null })
   const [pluginState, setPluginState] = useState<LoadState>({ loading: false, error: null })
+  const [skillState, setSkillState] = useState<LoadState>({ loading: false, error: null })
   const [mcpStatus, setMcpStatus] = useState<Record<string, MCPStatus>>({})
   const [lspItems, setLspItems] = useState<LSPStatus[]>([])
   const [config, setConfig] = useState<Config | null>(null)
+  const [skills, setSkills] = useState<Skill[]>([])
 
   const triggerRef = useRef<HTMLButtonElement>(null)
   const menuRef = useRef<HTMLDivElement>(null)
@@ -145,6 +150,7 @@ export function StatusPopover() {
   }, [mcpStatus])
 
   const pluginItems = config?.plugin ?? []
+  const skillItems = useMemo(() => [...skills].sort((a, b) => a.name.localeCompare(b.name)), [skills])
   const connectedMcpCount = mcpEntries.filter(([, value]) => value.status === 'connected').length
   const hasServerIssue = serverEntries.some((server) => {
     const status = healthMap.get(server.id)?.status
@@ -212,9 +218,20 @@ export function StatusPopover() {
     }
   }, [currentDirectory])
 
+  const loadSkills = useCallback(async () => {
+    setSkillState({ loading: true, error: null })
+    try {
+      const next = await getSkills(currentDirectory)
+      setSkills(next)
+      setSkillState({ loading: false, error: null })
+    } catch (error) {
+      setSkillState({ loading: false, error: error instanceof Error ? error.message : '加载 Skills 失败' })
+    }
+  }, [currentDirectory])
+
   const refreshAll = useCallback(async () => {
-    await Promise.all([loadServers(), loadMcp(), loadLsp(), loadPlugins()])
-  }, [loadLsp, loadMcp, loadPlugins, loadServers])
+    await Promise.all([loadServers(), loadMcp(), loadLsp(), loadPlugins(), loadSkills()])
+  }, [loadLsp, loadMcp, loadPlugins, loadServers, loadSkills])
 
   useEffect(() => {
     if (!isOpen) return
@@ -226,7 +243,8 @@ export function StatusPopover() {
     mcp: connectedMcpCount,
     lsp: lspItems.length,
     plugins: pluginItems.length,
-  }), [connectedMcpCount, lspItems.length, pluginItems.length, serverEntries.length])
+    skills: skillItems.length,
+  }), [connectedMcpCount, lspItems.length, pluginItems.length, serverEntries.length, skillItems.length])
 
   return (
     <div className="relative hidden md:block">
@@ -235,7 +253,7 @@ export function StatusPopover() {
         aria-label="Open system status"
         onClick={() => setIsOpen((value) => !value)}
         className={`relative transition-colors ${isOpen ? 'text-accent-main-100 bg-bg-200/50' : 'text-text-400 hover:text-text-100 hover:bg-bg-200/50'}`}
-        title="服务器 / MCP / LSP / 插件"
+        title="服务器 / MCP / LSP / 插件 / Skills"
       >
         <CpuIcon size={18} />
         <span
@@ -264,7 +282,7 @@ export function StatusPopover() {
                 className="rounded-md p-1 text-text-400 transition-colors hover:bg-bg-200/60 hover:text-text-100"
                 title="刷新"
               >
-                <RetryIcon size={14} className={mcpState.loading || lspState.loading || pluginState.loading ? 'animate-spin' : ''} />
+                <RetryIcon size={14} className={mcpState.loading || lspState.loading || pluginState.loading || skillState.loading ? 'animate-spin' : ''} />
               </button>
               <div className={`flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] ${overallHealthy ? 'bg-success-100/10 text-success-100' : 'bg-warning-bg text-warning-100'}`}>
                 <span className={`h-1.5 w-1.5 rounded-full ${overallHealthy ? 'bg-success-100' : 'bg-warning-100'}`} />
@@ -391,6 +409,25 @@ export function StatusPopover() {
                           <div className="mt-1 text-[11px] text-text-500">已从当前配置加载</div>
                         </div>
                         <SettingsIcon size={14} className="mt-0.5 shrink-0 text-text-500" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </StatusCard>
+            )}
+
+            {activeTab === 'skills' && (
+              <StatusCard loading={skillState.loading} error={skillState.error} emptyLabel="当前目录没有可用 Skills" empty={!skillItems.length}>
+                <div className="space-y-1">
+                  {skillItems.map((skill) => (
+                    <div key={skill.name} className="rounded-lg px-2.5 py-2 transition-colors hover:bg-bg-200/40" title={skill.description}>
+                      <div className="flex items-start gap-2">
+                        <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-success-100" />
+                        <div className="min-w-0 flex-1">
+                          <div className="truncate text-sm font-medium text-text-100">{skill.name}</div>
+                          <div className="mt-1 truncate text-[11px] text-text-500">{skill.location}</div>
+                        </div>
+                        <TeachIcon size={14} className="mt-0.5 shrink-0 text-text-500" />
                       </div>
                     </div>
                   ))}
