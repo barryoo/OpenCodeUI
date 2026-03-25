@@ -132,7 +132,22 @@ function ActionMenuItem({ label, icon, danger = false, onClick }: ActionMenuItem
   return (
     <button
       type="button"
-      onClick={onClick}
+      onMouseDown={(event) => {
+        event.stopPropagation()
+      }}
+      onTouchStart={(event) => {
+        event.stopPropagation()
+      }}
+      onTouchEnd={(event) => {
+        event.preventDefault()
+        event.stopPropagation()
+        onClick()
+      }}
+      onClick={(event) => {
+        event.preventDefault()
+        event.stopPropagation()
+        onClick()
+      }}
       className={`w-full h-7 px-2 rounded-md flex items-center gap-2 text-[11px] transition-colors ${
         danger
           ? 'text-danger-100 hover:bg-danger-100/10'
@@ -860,6 +875,37 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
       onCloseMobile()
     }
   }, [onCloseMobile, onNewSession, updateProjectExpanded])
+
+  const handleOpenProjectFolder = useCallback(async (projectPath: string) => {
+    try {
+      if (!tauriWindowMode) return
+
+      const { invoke } = await import('@tauri-apps/api/core')
+      await invoke('open_path', {
+        path: projectPath,
+        appName: null,
+      })
+    } catch (error) {
+      uiErrorHandler('open project folder', error)
+    } finally {
+      setOpenMenu(null)
+    }
+  }, [tauriWindowMode])
+
+  const handleCopyProjectPath = useCallback(async (projectPath: string) => {
+    if (!projectPath) {
+      setOpenMenu(null)
+      return
+    }
+
+    try {
+      await navigator.clipboard.writeText(projectPath)
+    } catch {
+      // clipboard unavailable in some environments
+    } finally {
+      setOpenMenu(null)
+    }
+  }, [])
 
   const handleToggleProjectMenu = useCallback((projectPath: string, anchorRect: DOMRect) => {
     setOpenMenu((prev) => {
@@ -2135,6 +2181,24 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
 
                     {isProjectMenuOpen && openMenu?.anchorRect && (
                       <ActionMenu menuRef={menuRef} anchorRect={openMenu.anchorRect}>
+                        {tauriWindowMode && (
+                          <ActionMenuItem
+                            label="打开文件夹"
+                            icon={<FolderOpenIcon size={12} />}
+                            onClick={() => {
+                              void handleOpenProjectFolder(project.path)
+                            }}
+                          />
+                        )}
+                        {!tauriWindowMode && (
+                          <ActionMenuItem
+                            label="复制文件夹路径"
+                            icon={<CopyIcon size={12} />}
+                            onClick={() => {
+                              void handleCopyProjectPath(project.path)
+                            }}
+                          />
+                        )}
                         <ActionMenuItem
                           label="隐藏项目"
                           icon={<TrashIcon size={12} />}
