@@ -93,6 +93,30 @@ function normalizeHeaderText(value?: string): string {
   return value.replace(/\s+/g, ' ').trim().toLowerCase()
 }
 
+function normalizeToolToken(value?: string): string {
+  if (!value) return ''
+  return value.toLowerCase().replace(/[^a-z0-9]+/g, '')
+}
+
+function stripRepeatedToolPrefix(value: string, toolName: string): string {
+  const trimmed = value.trim()
+  if (!trimmed) return ''
+
+  const compactTool = normalizeToolToken(toolName)
+  if (!compactTool) return trimmed
+
+  const prefixMatch = trimmed.match(/^([^:：-]+)\s*[:：-]\s*(.+)$/)
+  if (prefixMatch) {
+    const [, rawPrefix, rest] = prefixMatch
+    if (normalizeToolToken(rawPrefix) === compactTool) {
+      return rest.trim()
+    }
+  }
+
+  if (normalizeToolToken(trimmed) === compactTool) return ''
+  return trimmed
+}
+
 function isDuplicateHeaderText(primary?: string, secondary?: string): boolean {
   const left = normalizeHeaderText(primary)
   const right = normalizeHeaderText(secondary)
@@ -268,12 +292,20 @@ export const ToolPartView = memo(function ToolPartView({ part, isFirst = false, 
   const shouldRenderBody = useDelayedRender(expanded)
 
   const { state, tool: toolName } = part
-  const title = state.title || ''
   const data = useMemo(() => extractToolData(part), [part])
   const path = data.filePath || (data.files?.length === 1 ? data.files[0].filePath : undefined)
   const relativePath = path ? toRelativePath(path, cwd) : undefined
   const isPatchTool = isPatchToolName(toolName)
+  const input = state.input as Record<string, unknown> | undefined
   const displayToolName = isPatchTool ? 'Patch' : formatToolName(toolName)
+  const explicitTitle = state.title && !isDuplicateHeaderText(state.title, displayToolName)
+    ? state.title
+    : ''
+  const webfetchUrl = typeof input?.url === 'string' ? input.url.trim() : ''
+  const title = stripRepeatedToolPrefix(
+    explicitTitle || data.subtitle || (toolName.toLowerCase().includes('webfetch') ? webfetchUrl : ''),
+    displayToolName,
+  )
   const rawTitle = isPatchTool ? '' : title
   const displayTitle = useMemo(() => {
     if (!rawTitle) return ''
@@ -298,12 +330,12 @@ export const ToolPartView = memo(function ToolPartView({ part, isFirst = false, 
   const headerMeta = useMemo(() => {
     const parts: string[] = []
     if (relativePath && !titleHasPath) parts.push(relativePath)
-    const subtitle = data.subtitle
+    const subtitle = stripRepeatedToolPrefix(data.subtitle || '', displayToolName)
     if (subtitle && !isDuplicateHeaderText(displayTitle, subtitle)) {
       parts.push(subtitle)
     }
     return parts.join('  ')
-  }, [relativePath, titleHasPath, data.subtitle, displayTitle])
+  }, [relativePath, titleHasPath, data.subtitle, displayTitle, displayToolName])
 
   const toolIcon = (
     <div className={`
