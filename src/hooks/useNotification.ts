@@ -11,7 +11,7 @@
 
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { STORAGE_KEY_NOTIFICATIONS_ENABLED } from '../constants/storage'
-import { isTauri } from '../utils/tauri'
+import { isTauri, isTauriMacOS } from '../utils/tauri'
 
 // ============================================
 // Types
@@ -61,7 +61,11 @@ async function sendTauriNotification(title: string, body: string): Promise<void>
     }
     
     if (permitted) {
-      sendNotification({ title, body })
+      const payload: { title: string; body: string; sound?: string } = { title, body }
+      if (isTauriMacOS()) {
+        payload.sound = 'Ping'
+      }
+      sendNotification(payload)
     }
   } catch (e) {
     if (import.meta.env.DEV) {
