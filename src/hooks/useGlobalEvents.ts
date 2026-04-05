@@ -520,6 +520,12 @@ export function useGlobalEvents(callbacks?: GlobalEventsCallbacks) {
         const meta = activeSessionStore.getSessionMeta(data.sessionID)
         setSessionStatusQueryData(meta?.directory, { [data.sessionID]: data.status })
 
+        // 兼容部分后端/版本仅推送 session.status，而不推送 session.idle/session.error 事件。
+        // 这里在状态迁移时回调 useChatSession，确保系统通知可以触发。
+        if (wasBusy && data.status.type === 'idle') {
+          callbacksRef.current?.onSessionIdle?.(data.sessionID)
+        }
+
         // Toast — session 从 busy/retry 变成 idle 时弹 completed 通知
         if (wasBusy && data.status.type === 'idle' && !belongsToCurrentSession(data.sessionID)) {
           const sessionLabel = meta?.title || data.sessionID.slice(0, 8)
