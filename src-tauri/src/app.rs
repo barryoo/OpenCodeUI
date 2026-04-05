@@ -641,7 +641,7 @@ fn apply_window_chrome(window: &tauri::WebviewWindow) {
     }
 }
 
-#[cfg(not(target_os = "macos"))]
+#[cfg(all(not(target_os = "macos"), not(target_os = "android")))]
 fn apply_window_chrome(window: &tauri::WebviewWindow) {
     if let Err(e) = window.set_decorations(false) {
         log::warn!("Failed to disable window decorations: {}", e);
