@@ -16,6 +16,11 @@ open class BuildTask : DefaultTask() {
 
     @TaskAction
     fun assemble() {
+        if (System.getenv("TAURI_ANDROID_SKIP_RUST_BUILD") == "1") {
+            project.logger.lifecycle("Skipping nested tauri android-studio-script invocation")
+            return
+        }
+
         val executable = """npm""";
         try {
             runTauriCli(executable)

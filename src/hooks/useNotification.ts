@@ -22,6 +22,17 @@ interface NotificationData {
   directory?: string
 }
 
+interface SendNotificationOptions {
+  requireEnabled?: boolean
+}
+
+function navigateFromNotification(data?: NotificationData) {
+  window.focus()
+  if (!data?.sessionId) return
+  const dir = data.directory ? `?dir=${data.directory}` : ''
+  window.location.hash = `#/session/${data.sessionId}${dir}`
+}
+
 // ============================================
 // Service Worker 注册（模块级单例，浏览器环境用）
 // ============================================
@@ -50,7 +61,7 @@ async function ensureServiceWorker(): Promise<ServiceWorkerRegistration | null> 
 // Tauri 通知工具
 // ============================================
 
-async function sendTauriNotification(title: string, body: string): Promise<void> {
+async function sendTauriNotification(title: string, body: string, data?: NotificationData): Promise<void> {
   try {
     const { isPermissionGranted, requestPermission, sendNotification } = await import('@tauri-apps/plugin-notification')
     
@@ -61,7 +72,13 @@ async function sendTauriNotification(title: string, body: string): Promise<void>
     }
     
     if (permitted) {
-      sendNotification({ title, body })
+      const extra = data ? { sessionId: data.sessionId, ...(data.directory ? { directory: data.directory } : {}) } as Record<string, unknown> : undefined
+      sendNotification({
+        title,
+        body,
+        autoCancel: true,
+        extra,
+      })
     }
   } catch (e) {
     if (import.meta.env.DEV) {
@@ -76,7 +93,10 @@ async function checkTauriPermission(): Promise<NotificationPermission> {
     const granted = await isPermissionGranted()
     return granted ? 'granted' : 'default'
   } catch {
-    return 'denied'
+    if (typeof Notification !== 'undefined') {
+      return Notification.permission
+    }
+    return 'default'
   }
 }
 
@@ -86,7 +106,66 @@ async function requestTauriPermission(): Promise<NotificationPermission> {
     const result = await requestPermission()
     return result === 'granted' ? 'granted' : 'denied'
   } catch {
-    return 'denied'
+    if (typeof Notification !== 'undefined') {
+      return Notification.permission
+    }
+    return 'default'
+  }
+}
+
+function isNotificationsEnabledInStorage(): boolean {
+  try {
+    return localStorage.getItem(STORAGE_KEY_NOTIFICATIONS_ENABLED) === 'true'
+  } catch {
+    return false
+  }
+}
+
+export async function sendAppNotification(
+  title: string,
+  body: string,
+  data?: NotificationData,
+  options: SendNotificationOptions = {}
+): Promise<void> {
+  if (options.requireEnabled && !isNotificationsEnabledInStorage()) return
+
+  // Tauri 原生通知
+  if (isTauri()) {
+    await sendTauriNotification(title, body, data)
+    return
+  }
+
+  // 浏览器通知
+  if (typeof Notification === 'undefined') return
+  if (Notification.permission !== 'granted') return
+
+  const notificationOptions: NotificationOptions = {
+    body,
+    icon: '/opencode.svg',
+    tag: data?.sessionId || 'opencode',
+    data,
+  }
+
+  // 优先用 SW showNotification（Android Chrome 必须用这个）
+  try {
+    const reg = await ensureServiceWorker()
+    if (reg) {
+      await reg.showNotification(title, notificationOptions)
+      return
+    }
+  } catch {
+    // SW 不可用，降级到 new Notification
+  }
+
+  // 降级：桌面浏览器直接用 new Notification
+  try {
+    const notification = new Notification(title, notificationOptions)
+    notification.onclick = () => {
+      navigateFromNotification(data)
+      notification.close()
+    }
+  } catch {
+    // 通知 API 可能在某些环境不可用
   }
 }
 
@@ -117,6 +196,32 @@ export function useNotification() {
   useEffect(() => {
     if (isTauri()) {
       checkTauriPermission().then(setPermission)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!isTauri()) return
+
+    let disposed = false
+    let unlisten: { unregister: () => Promise<void> } | null = null
+
+    import('@tauri-apps/plugin-notification')
+      .then(async ({ onAction }) => {
+        if (disposed) return
+        unlisten = await onAction((notification) => {
+          const extra = notification.extra as NotificationData | undefined
+          navigateFromNotification(extra)
+        })
+      })
+      .catch((error) => {
+        if (import.meta.env.DEV) {
+          console.warn('[Notification/Tauri] Failed to register action listener:', error)
+        }
+      })
+
+    return () => {
+      disposed = true
+      void unlisten?.unregister()
     }
   }, [])
 
@@ -153,7 +258,6 @@ export function useNotification() {
       if (isTauri()) {
         const result = await requestTauriPermission()
         setPermission(result)
-        if (result !== 'granted') return
       } else if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
         const result = await Notification.requestPermission()
         setPermission(result)
@@ -180,49 +284,7 @@ export function useNotification() {
   const sendNotification = useCallback(async (title: string, body: string, data?: NotificationData) => {
     if (!enabledRef.current) return
 
-    // Tauri 原生通知
-    if (isTauri()) {
-      await sendTauriNotification(title, body)
-      return
-    }
-
-    // 浏览器通知
-    if (typeof Notification === 'undefined') return
-    if (Notification.permission !== 'granted') return
-
-    const notificationOptions: NotificationOptions = {
-      body,
-      icon: '/opencode.svg',
-      tag: data?.sessionId || 'opencode',
-      data,
-    }
-
-    // 优先用 SW showNotification（Android Chrome 必须用这个）
-    try {
-      const reg = await ensureServiceWorker()
-      if (reg) {
-        await reg.showNotification(title, notificationOptions)
-        return
-      }
-    } catch {
-      // SW 不可用，降级到 new Notification
-    }
-
-    // 降级：桌面浏览器直接用 new Notification
-    try {
-      const notification = new Notification(title, notificationOptions)
-      notification.onclick = () => {
-        window.focus()
-        if (data?.sessionId) {
-          const path = `#/session/${data.sessionId}`
-          const dir = data.directory ? `?dir=${data.directory}` : ''
-          window.location.hash = `${path}${dir}`
-        }
-        notification.close()
-      }
-    } catch {
-      // 通知 API 可能在某些环境不可用
-    }
+    await sendAppNotification(title, body, data)
   }, [])
 
   const supported = isTauri() || typeof Notification !== 'undefined'
