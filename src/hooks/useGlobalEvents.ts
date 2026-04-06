@@ -14,6 +14,8 @@ import { messageStore, childSessionStore, autoApproveStore } from '../store'
 import { activeSessionStore } from '../store/activeSessionStore'
 import { notificationStore } from '../store/notificationStore'
 import { subscribeToEvents, replyPermission } from '../api'
+import { buildNotificationPlan } from './notificationPolicy'
+import { sendAppNotification } from './useNotification'
 import { useSavedDirectories, useCurrentDirectory } from '../contexts/DirectoryContext'
 import type { SavedDirectory } from '../contexts/DirectoryContext'
 import type { 
@@ -114,9 +116,11 @@ interface PendingRequest<T> {
 
 const pendingPermissions = new Map<string, PendingRequest<ApiPermissionRequest>>()
 const pendingQuestions = new Map<string, PendingRequest<ApiQuestionRequest>>()
+const dispatchedNotifications = new Map<string, number>()
 
 // 5秒后过期，防止内存泄漏
 const PENDING_TIMEOUT = 5000
+const SYSTEM_NOTIFICATION_DEDUPE_MS = 1500
 
 function cleanupExpired<T>(map: Map<string, PendingRequest<T>>) {
   const now = Date.now()
@@ -127,11 +131,70 @@ function cleanupExpired<T>(map: Map<string, PendingRequest<T>>) {
   }
 }
 
+function shouldDispatchNotification(key?: string): boolean {
+  if (!key) return true
+
+  const now = Date.now()
+  for (const [existingKey, timestamp] of dispatchedNotifications) {
+    if (now - timestamp > SYSTEM_NOTIFICATION_DEDUPE_MS) {
+      dispatchedNotifications.delete(existingKey)
+    }
+  }
+
+  const lastSentAt = dispatchedNotifications.get(key)
+  if (lastSentAt && now - lastSentAt <= SYSTEM_NOTIFICATION_DEDUPE_MS) {
+    return false
+  }
+
+  dispatchedNotifications.set(key, now)
+  return true
+}
+
+function dispatchNotification(
+  type: 'permission' | 'question' | 'completed' | 'error',
+  sessionId: string,
+  body: string,
+  directory: string | undefined,
+  isCurrentSessionFamily: boolean,
+) {
+  const isAppForeground = typeof document !== 'undefined'
+    ? document.visibilityState === 'visible' && document.hasFocus()
+    : true
+  const meta = activeSessionStore.getSessionMeta(sessionId)
+  const plan = buildNotificationPlan({
+    type,
+    sessionId,
+    sessionTitle: meta?.title,
+    directory: directory ?? meta?.directory,
+    body,
+    isCurrentSessionFamily,
+    isAppForeground,
+  })
+
+  if (!shouldDispatchNotification(plan.dedupeKey)) {
+    return
+  }
+
+  if (plan.sendToast) {
+    notificationStore.push(type, plan.title, body, sessionId, plan.data.directory)
+  }
+
+  if (plan.sendSystem) {
+    void sendAppNotification(plan.title, plan.body, plan.data, { requireEnabled: true })
+  }
+}
+
+function getCurrentRouteSessionId(): string | null {
+  if (typeof window === 'undefined') return null
+  const match = window.location.hash.match(/^#\/session\/([^?]+)/)
+  return match?.[1] ?? null
+}
+
 /**
  * 检查 sessionID 是否属于当前 session 或其子 session
  */
 function belongsToCurrentSession(sessionId: string): boolean {
-  const currentSessionId = messageStore.getCurrentSessionId()
+  const currentSessionId = getCurrentRouteSessionId() || messageStore.getCurrentSessionId()
   if (!currentSessionId) return false
   
   // 是当前 session
@@ -161,14 +224,16 @@ export function useGlobalEvents(callbacks?: GlobalEventsCallbacks) {
 
   const handleManualPermissionRequest = useCallback((request: ApiPermissionRequest, directory?: string) => {
     const meta = activeSessionStore.getSessionMeta(request.sessionID)
-    const sessionLabel = meta?.title || request.sessionID.slice(0, 8)
     const desc = request.patterns?.length
       ? `${request.permission}: ${request.patterns[0]}`
       : request.permission
+    const isCurrentSessionFamily = belongsToCurrentSession(request.sessionID)
 
     activeSessionStore.addPendingRequest(request.id, request.sessionID, 'permission', desc)
 
-    if (!belongsToCurrentSession(request.sessionID)) {
+    dispatchNotification('permission', request.sessionID, desc, directory ?? meta?.directory, isCurrentSessionFamily)
+
+    if (!isCurrentSessionFamily) {
       const metadata = request.metadata as Record<string, unknown> | undefined
       const operation = typeof metadata?.operation === 'string'
         ? metadata.operation
@@ -177,23 +242,20 @@ export function useGlobalEvents(callbacks?: GlobalEventsCallbacks) {
         ? metadata.intent
         : undefined
       const keyDetail = request.patterns?.[0]
-      notificationStore.push(
-        'permission',
-        sessionLabel,
-        desc,
-        request.sessionID,
-        directory ?? meta?.directory,
-        {
+      const notifications = notificationStore.getSnapshot().notifications
+      const latest = notifications[0]
+      if (latest && latest.sessionId === request.sessionID && latest.body === desc && latest.type === 'permission') {
+        notificationStore.attachAction(latest.id, {
           kind: 'permission',
           requestId: request.id,
           operation,
           intent,
           keyDetail,
-        },
-      )
+        })
+      }
     }
 
-    if (belongsToCurrentSession(request.sessionID)) {
+    if (isCurrentSessionFamily) {
       callbacksRef.current?.onPermissionAsked?.(request)
       return
     }
@@ -363,6 +425,7 @@ export function useGlobalEvents(callbacks?: GlobalEventsCallbacks) {
       onSessionIdle: (data) => {
         messageStore.handleSessionIdle(data.sessionID)
         childSessionStore.markIdle(data.sessionID)
+        dispatchNotification('completed', data.sessionID, 'Session completed', undefined, belongsToCurrentSession(data.sessionID))
         callbacksRef.current?.onSessionIdle?.(data.sessionID)
       },
 
@@ -376,12 +439,7 @@ export function useGlobalEvents(callbacks?: GlobalEventsCallbacks) {
         if (!isAbort) {
           // 从 Working 列表移除
           activeSessionStore.updateStatus(error.sessionID, { type: 'idle' })
-          // 通知（跳过当前 session family）
-          if (!belongsToCurrentSession(error.sessionID)) {
-            const meta = activeSessionStore.getSessionMeta(error.sessionID)
-            const sessionLabel = meta?.title || error.sessionID.slice(0, 8)
-            notificationStore.push('error', sessionLabel, 'Session error', error.sessionID, meta?.directory)
-          }
+          dispatchNotification('error', error.sessionID, 'Session error', undefined, belongsToCurrentSession(error.sessionID))
         }
         callbacksRef.current?.onSessionError?.(error.sessionID)
       },
@@ -455,16 +513,12 @@ export function useGlobalEvents(callbacks?: GlobalEventsCallbacks) {
 
       onQuestionAsked: (request) => {
         const meta = activeSessionStore.getSessionMeta(request.sessionID)
-        const sessionLabel = meta?.title || request.sessionID.slice(0, 8)
         const desc = request.questions?.[0]?.header || 'AI is waiting for your input'
 
         // Active 列表：注册 pending request
         activeSessionStore.addPendingRequest(request.id, request.sessionID, 'question', desc)
 
-        // Toast 通知
-        if (!belongsToCurrentSession(request.sessionID)) {
-          notificationStore.push('question', `${sessionLabel} — Question`, desc, request.sessionID, meta?.directory)
-        }
+        dispatchNotification('question', request.sessionID, desc, meta?.directory, belongsToCurrentSession(request.sessionID))
 
         if (belongsToCurrentSession(request.sessionID)) {
           callbacksRef.current?.onQuestionAsked?.(request)
@@ -526,10 +580,8 @@ export function useGlobalEvents(callbacks?: GlobalEventsCallbacks) {
           callbacksRef.current?.onSessionIdle?.(data.sessionID)
         }
 
-        // Toast — session 从 busy/retry 变成 idle 时弹 completed 通知
-        if (wasBusy && data.status.type === 'idle' && !belongsToCurrentSession(data.sessionID)) {
-          const sessionLabel = meta?.title || data.sessionID.slice(0, 8)
-          notificationStore.push('completed', sessionLabel, 'Session completed', data.sessionID, meta?.directory)
+        if (wasBusy && data.status.type === 'idle') {
+          dispatchNotification('completed', data.sessionID, 'Session completed', meta?.directory, belongsToCurrentSession(data.sessionID))
         }
       },
 

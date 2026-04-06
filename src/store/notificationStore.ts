@@ -185,6 +185,32 @@ class NotificationStore {
     this.notify()
   }
 
+  attachAction(id: string, action: NotificationAction) {
+    let changed = false
+    const notifications = this.state.notifications.map((notification) => {
+      if (notification.id !== id) return notification
+      changed = true
+      return { ...notification, action }
+    })
+    const toasts = this.state.toasts.map((toast) => {
+      if (toast.notification.id !== id) return toast
+      changed = true
+      return {
+        ...toast,
+        notification: {
+          ...toast.notification,
+          action,
+        },
+      }
+    })
+
+    if (!changed) return
+
+    this.state = { ...this.state, notifications, toasts }
+    this.persist()
+    this.notify()
+  }
+
   markAllRead() {
     const notifications = this.state.notifications.map(n =>
       n.read ? n : { ...n, read: true }

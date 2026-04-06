@@ -17,23 +17,37 @@ self.addEventListener('notificationclick', (event) => {
     url = `/#/session/${data.sessionId}${dir}`
   }
 
+  const targetUrl = new URL(url, self.location.origin).toString()
+
   // 聚焦已有窗口或打开新窗口
   event.waitUntil(
-    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {
-      // 找到同源的已有窗口
-      for (const client of windowClients) {
-        if (client.url.startsWith(self.location.origin) && 'focus' in client) {
-          // 导航到目标 session
-          client.postMessage({
-            type: 'notification-click',
-            sessionId: data.sessionId,
-            directory: data.directory,
-          })
-          return client.focus()
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then(async (windowClients) => {
+      const sameOriginClients = windowClients.filter((client) => client.url.startsWith(self.location.origin))
+      const targetClient = sameOriginClients.find((client) => client.url.includes('/#/')) || sameOriginClients[0]
+
+      if (targetClient) {
+        if ('navigate' in targetClient) {
+          try {
+            await targetClient.navigate(targetUrl)
+          } catch {
+            // ignore navigate failures and fall back to postMessage-driven navigation
+          }
         }
+
+        targetClient.postMessage({
+          type: 'notification-click',
+          sessionId: data.sessionId,
+          directory: data.directory,
+        })
+
+        if ('focus' in targetClient) {
+          return targetClient.focus()
+        }
+
+        return targetClient
       }
-      // 没有已有窗口，打开新的
-      return clients.openWindow(url)
+
+      return clients.openWindow(targetUrl)
     })
   )
 })

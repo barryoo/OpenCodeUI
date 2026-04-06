@@ -9,17 +9,24 @@
 // Android Chrome 不支持 new Notification()，必须通过
 // ServiceWorkerRegistration.showNotification() 发送
 
-import { useState, useCallback, useEffect, useRef } from 'react'
+import { useState, useCallback, useEffect, useSyncExternalStore } from 'react'
 import { STORAGE_KEY_NOTIFICATIONS_ENABLED } from '../constants/storage'
+import { STORAGE_KEY_LAST_DIRECTORY } from '../constants'
 import { isTauri, isTauriMacOS } from '../utils/tauri'
 
 // ============================================
 // Types
 // ============================================
 
-interface NotificationData {
+export interface NotificationData {
   sessionId: string
   directory?: string
+}
+
+function buildNotificationTargetHash(data?: NotificationData) {
+  if (!data?.sessionId) return '#/'
+  const dir = data.directory ? `?dir=${data.directory}` : ''
+  return `#/session/${data.sessionId}${dir}`
 }
 
 interface SendNotificationOptions {
@@ -28,9 +35,20 @@ interface SendNotificationOptions {
 
 function navigateFromNotification(data?: NotificationData) {
   window.focus()
-  if (!data?.sessionId) return
-  const dir = data.directory ? `?dir=${data.directory}` : ''
-  window.location.hash = `#/session/${data.sessionId}${dir}`
+  if (data?.directory) {
+    try {
+      localStorage.setItem(STORAGE_KEY_LAST_DIRECTORY, data.directory)
+    } catch {
+      // ignore storage failures
+    }
+  }
+  const targetHash = buildNotificationTargetHash(data)
+  if (window.location.hash !== targetHash) {
+    window.location.hash = targetHash
+    return
+  }
+
+  window.dispatchEvent(new HashChangeEvent('hashchange'))
 }
 
 // ============================================
@@ -125,6 +143,33 @@ function isNotificationsEnabledInStorage(): boolean {
   }
 }
 
+type NotificationPreferenceSubscriber = () => void
+
+const notificationPreferenceSubscribers = new Set<NotificationPreferenceSubscriber>()
+
+function subscribeNotificationPreferences(callback: NotificationPreferenceSubscriber) {
+  notificationPreferenceSubscribers.add(callback)
+  return () => notificationPreferenceSubscribers.delete(callback)
+}
+
+function notifyNotificationPreferencesChanged() {
+  notificationPreferenceSubscribers.forEach((callback) => callback())
+}
+
+function setNotificationsEnabledInStorage(value: boolean) {
+  try {
+    if (value) {
+      localStorage.setItem(STORAGE_KEY_NOTIFICATIONS_ENABLED, 'true')
+    } else {
+      localStorage.removeItem(STORAGE_KEY_NOTIFICATIONS_ENABLED)
+    }
+  } catch {
+    // ignore localStorage failures
+  }
+
+  notifyNotificationPreferencesChanged()
+}
+
 export async function sendAppNotification(
   title: string,
   body: string,
@@ -178,23 +223,17 @@ export async function sendAppNotification(
 // ============================================
 
 export function useNotification() {
-  const [enabled, setEnabledState] = useState(() => {
-    try {
-      return localStorage.getItem(STORAGE_KEY_NOTIFICATIONS_ENABLED) === 'true'
-    } catch {
-      return false
-    }
-  })
+  const enabled = useSyncExternalStore(
+    subscribeNotificationPreferences,
+    isNotificationsEnabledInStorage,
+    isNotificationsEnabledInStorage,
+  )
 
   const [permission, setPermission] = useState<NotificationPermission>(() => {
     if (isTauri()) return 'default' // Tauri 异步检查
     if (typeof Notification === 'undefined') return 'denied'
     return Notification.permission
   })
-
-  // 跟踪最新的 enabled 值，供 sendNotification 闭包使用
-  const enabledRef = useRef(enabled)
-  useEffect(() => { enabledRef.current = enabled }, [enabled])
 
   // Tauri: 异步获取初始权限状态
   useEffect(() => {
@@ -243,12 +282,7 @@ export function useNotification() {
 
     const handler = (event: MessageEvent) => {
       if (event.data?.type === 'notification-click') {
-        window.focus()
-        const { sessionId, directory } = event.data
-        if (sessionId) {
-          const dir = directory ? `?dir=${directory}` : ''
-          window.location.hash = `#/session/${sessionId}${dir}`
-        }
+        navigateFromNotification(event.data)
       }
     }
 
@@ -262,6 +296,7 @@ export function useNotification() {
       if (isTauri()) {
         const result = await requestTauriPermission()
         setPermission(result)
+        if (result !== 'granted') return
       } else if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
         const result = await Notification.requestPermission()
         setPermission(result)
@@ -269,14 +304,7 @@ export function useNotification() {
       }
     }
 
-    setEnabledState(value)
-    try {
-      if (value) {
-        localStorage.setItem(STORAGE_KEY_NOTIFICATIONS_ENABLED, 'true')
-      } else {
-        localStorage.removeItem(STORAGE_KEY_NOTIFICATIONS_ENABLED)
-      }
-    } catch { /* ignore */ }
+    setNotificationsEnabledInStorage(value)
 
     // 启用时注册 SW（浏览器环境）
     if (value && !isTauri()) {
@@ -286,9 +314,7 @@ export function useNotification() {
 
   // 发送通知
   const sendNotification = useCallback(async (title: string, body: string, data?: NotificationData) => {
-    if (!enabledRef.current) return
-
-    await sendAppNotification(title, body, data)
+    await sendAppNotification(title, body, data, { requireEnabled: true })
   }, [])
 
   const supported = isTauri() || typeof Notification !== 'undefined'

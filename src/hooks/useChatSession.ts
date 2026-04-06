@@ -7,7 +7,6 @@ import { useQueryClient } from '@tanstack/react-query'
 import { useMessageStore, messageStore, useSessionFamily, autoApproveStore, childSessionStore, notificationStore } from '../store'
 import { useSessionManager, useGlobalEvents } from '../hooks'
 import { usePermissions, useRouter, usePermissionHandler, useMessageAnimation, useDirectory, useSessionContext } from '../hooks'
-import { useNotification } from './useNotification'
 import { 
   sendMessageAsync, abortSession, 
   getSelectableAgents, 
@@ -78,19 +77,6 @@ export function useChatSession({ chatAreaRef, currentModel, refetchModels }: Use
   const { sessionId: routeSessionId, navigateToSession, navigateHome, setDirectory } = useRouter()
   const { currentDirectory, sidebarExpanded, setSidebarExpanded } = useDirectory()
   const { createSession, sessions } = useSessionContext()
-  const { sendNotification } = useNotification()
-
-  const getSessionTitle = useCallback((sessionId?: string) => {
-    const session = sessions.find(s => s.id === sessionId)
-    if (session?.title) return session.title
-    if (sessionId) return `Session ${sessionId.slice(0, 6)}`
-    return 'OpenCode'
-  }, [sessions])
-
-  const buildNotificationTitle = useCallback((sessionId: string | undefined, label: string) => {
-    const base = getSessionTitle(sessionId)
-    return `${base} - ${label}`
-  }, [getSessionTitle])
   
   // Session family for permission polling
   const sessionFamily = useSessionFamily(routeSessionId)
@@ -145,17 +131,6 @@ export function useChatSession({ chatAreaRef, currentModel, refetchModels }: Use
         if (prev.some(r => r.id === request.id)) return prev
         return [...prev, request]
       })
-
-      // 页面不在前台时通知用户有权限请求等待批准
-      const permDesc = request.patterns?.length
-        ? `${request.permission}: ${request.patterns[0]}`
-        : request.permission
-      const title = buildNotificationTitle(request.sessionID, 'Permission Required')
-      sendNotification(title, permDesc, {
-        sessionId: request.sessionID,
-        directory: effectiveDirectory,
-      })
-      // 应用内 toast 已在 useGlobalEvents 中统一处理
     },
     onPermissionReplied: (data) => {
       setPendingPermissionRequests(prev => 
@@ -167,15 +142,6 @@ export function useChatSession({ chatAreaRef, currentModel, refetchModels }: Use
         if (prev.some(r => r.id === request.id)) return prev
         return [...prev, request]
       })
-
-      // 页面不在前台时通知用户有问题等待回答
-      const questionDesc = request.questions?.[0]?.header || 'AI is waiting for your input'
-      const title = buildNotificationTitle(request.sessionID, 'Question')
-      sendNotification(title, questionDesc, {
-        sessionId: request.sessionID,
-        directory: effectiveDirectory,
-      })
-      // 应用内 toast 已在 useGlobalEvents 中统一处理
     },
     onQuestionReplied: (data) => {
       setPendingQuestionRequests(prev => 
@@ -189,24 +155,6 @@ export function useChatSession({ chatAreaRef, currentModel, refetchModels }: Use
     },
     onScrollRequest: () => {
       chatAreaRef.current?.scrollToBottomIfAtBottom()
-    },
-    onSessionIdle: (sessionID) => {
-      // 页面不在前台时发送浏览器通知
-      const title = buildNotificationTitle(sessionID, 'Session completed')
-      sendNotification(title, 'Session completed', {
-        sessionId: sessionID,
-        directory: effectiveDirectory,
-      })
-      // 应用内 toast 已在 useGlobalEvents 中统一处理
-    },
-    onSessionError: (sessionID) => {
-      // 页面不在前台时通知用户 session 出错
-      const title = buildNotificationTitle(sessionID, 'Session error')
-      sendNotification(title, 'Session error', {
-        sessionId: sessionID,
-        directory: effectiveDirectory,
-      })
-      // 应用内 toast 已在 useGlobalEvents 中统一处理
     },
     onReconnected: (_reason) => {
       // SSE 重连后重新加载当前会话，补齐断连期间可能丢失的消息

@@ -73,9 +73,16 @@ export const ReasoningPartView = memo(function ReasoningPartView({ part, isStrea
         </span>
 
         <div className="min-w-0">
-          <button
-            type="button"
+          <div
+            role="button"
+            tabIndex={0}
             onClick={() => setExpanded(!expanded)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault()
+                setExpanded((value) => !value)
+              }
+            }}
             aria-expanded={expanded}
             className="group w-full m-0 p-0 border-0 bg-transparent grid grid-cols-[minmax(0,1fr)_12px] items-start gap-x-2 text-left cursor-pointer text-text-300 hover:text-text-100"
           >
@@ -94,7 +101,7 @@ export const ReasoningPartView = memo(function ReasoningPartView({ part, isStrea
             <span className={`inline-flex h-5 w-3 items-center justify-center shrink-0 text-text-400 group-hover:text-text-200 transition-[transform,color] duration-200 ${expanded ? 'rotate-180' : ''}`}>
               <ChevronDownIcon size={12} />
             </span>
-          </button>
+          </div>
         </div>
       </div>
 

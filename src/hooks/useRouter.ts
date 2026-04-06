@@ -45,7 +45,7 @@ function parseHash(): RouteState {
   if (sessionMatch) {
     return { sessionId: sessionMatch[1], directory }
   }
-  
+
   return { sessionId: null, directory }
 }
 
