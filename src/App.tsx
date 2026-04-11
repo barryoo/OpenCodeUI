@@ -730,93 +730,91 @@ function App() {
 
             {/* 底部交互区：capsule 按钮 + InputBox/PermissionActionBar 在同一容器 */}
             <div ref={inputBoxWrapperRef} className="absolute bottom-0 left-0 right-0 z-10 pointer-events-none">
-              {hasPendingPermission ? (
-                /* PermissionActionBar 模式 */
-                (() => {
-                  const req = pendingPermissionRequests[0]
-                  const handleReply = (reply: Parameters<typeof handlePermissionReply>[1]) =>
-                    handlePermissionReply(req.id, reply, effectiveDirectory)
-                  return (
-                    <div className="mx-auto max-w-3xl px-4 pb-4 pointer-events-auto">
-                      {/* Capsule 按钮 */}
-                      {!isAtBottom && (
-                        <div className="flex items-center justify-center gap-2 mb-2">
-                          <button
-                            onClick={() => chatAreaRef.current?.scrollToBottom()}
-                            className="h-[32px] w-[32px] min-w-[32px] rounded-full bg-accent-main-100/10 border border-accent-main-100/20 backdrop-blur-md flex items-center justify-center text-accent-main-000 hover:bg-accent-main-100/20 transition-colors shrink-0"
-                            aria-label="Scroll to bottom"
-                          >
-                            <span className="text-base">↓</span>
-                          </button>
-                        </div>
-                      )}
-                      {/* PermissionActionBar */}
-                      <PermissionActionBar
-                        request={req}
-                        queueLength={pendingPermissionRequests.length}
-                        isReplying={isReplying}
-                        onReply={handleReply}
-                        toolInfo={pendingToolInfo}
-                      />
-                    </div>
-                  )
-                })()
-              ) : (
-                /* InputBox 模式 */
-                <>
-                  {/* Double-Esc cancel hint - 独立渲染 */}
-                  {showCancelHint && (
-                    <div className="flex justify-center mb-2 pointer-events-none">
-                      <div className="px-3 py-1.5 bg-bg-000/95 border border-border-200 rounded-lg shadow-lg text-xs text-text-300 backdrop-blur-sm animate-in fade-in slide-in-from-bottom-2 duration-150">
-                        Press <kbd className="mx-0.5 px-1.5 py-0.5 bg-bg-200 border border-border-200 rounded text-[11px] font-medium text-text-200">Esc</kbd> again to stop
+              {/* PermissionActionBar 模式 */}
+              {hasPendingPermission && (() => {
+                const req = pendingPermissionRequests[0]
+                const handleReply = (reply: Parameters<typeof handlePermissionReply>[1]) =>
+                  handlePermissionReply(req.id, reply, effectiveDirectory)
+                return (
+                  <div className="mx-auto max-w-3xl px-4 pb-4 pointer-events-auto">
+                    {/* Capsule 按钮 */}
+                    {!isAtBottom && (
+                      <div className="flex items-center justify-center gap-2 mb-2">
+                        <button
+                          onClick={() => chatAreaRef.current?.scrollToBottom()}
+                          className="h-[32px] w-[32px] min-w-[32px] rounded-full bg-accent-main-100/10 border border-accent-main-100/20 backdrop-blur-md flex items-center justify-center text-accent-main-000 hover:bg-accent-main-100/20 transition-colors shrink-0"
+                          aria-label="Scroll to bottom"
+                        >
+                          <span className="text-base">↓</span>
+                        </button>
                       </div>
+                    )}
+                    {/* PermissionActionBar */}
+                    <PermissionActionBar
+                      request={req}
+                      queueLength={pendingPermissionRequests.length}
+                      isReplying={isReplying}
+                      onReply={handleReply}
+                      toolInfo={pendingToolInfo}
+                    />
+                  </div>
+                )
+              })()}
+
+              {/* InputBox 模式（始终挂载，避免授权阶段卸载导致草稿丢失） */}
+              <div className={hasPendingPermission ? 'hidden' : ''}>
+                {/* Double-Esc cancel hint - 独立渲染 */}
+                {showCancelHint && (
+                  <div className="flex justify-center mb-2 pointer-events-none">
+                    <div className="px-3 py-1.5 bg-bg-000/95 border border-border-200 rounded-lg shadow-lg text-xs text-text-300 backdrop-blur-sm animate-in fade-in slide-in-from-bottom-2 duration-150">
+                      Press <kbd className="mx-0.5 px-1.5 py-0.5 bg-bg-200 border border-border-200 rounded text-[11px] font-medium text-text-200">Esc</kbd> again to stop
                     </div>
-                  )}
-                  <InputBox
-                    onSend={handleSend}
-                    onAbort={handleAbort}
-                    onCommand={handleCommand}
-                    onNewChat={handleNewSession}
-                    disabled={false}
-                    isStreaming={isStreaming}
-                    agents={agents}
-                    selectedAgent={selectedAgent}
-                    onAgentChange={handleAgentChange}
-                    variants={currentModel?.variants ?? []}
-                    selectedVariant={selectedVariant}
-                    onVariantChange={handleVariantChange}
-                    supportsImages={currentModel?.supportsImages ?? false}
-                    models={models}
-                    selectedModelKey={selectedModelKey}
-                    onModelChange={handleModelChange}
-                    showRestoreModel={showRestoreSessionModel}
-                    restoreModelLabel={sessionBaselineModel?.modelName}
-                    onRestoreModel={handleRestoreSessionModel}
-                    modelsLoading={modelsLoading}
-                    modelSelectorRef={modelSelectorRef}
-                    rootPath={effectiveDirectory}
-                    sessionId={routeSessionId}
-                    revertedText={revertedMessage?.text}
-                    revertedAttachments={revertedMessage?.attachments}
-                    canRedo={canRedo}
-                    revertSteps={redoSteps}
-                    onRedo={handleRedoWithAnimation}
-                    onRedoAll={handleRedoAll}
-                    onClearRevert={clearRevert}
-                    registerInputBox={registerInputBox}
-                    isAtBottom={isAtBottom}
-                    showScrollToBottom={!isAtBottom}
-                    onScrollToBottom={() => chatAreaRef.current?.scrollToBottom()}
-                    collapsedQuestion={
-                      pendingQuestionRequests.length > 0 && questionCollapsed
-                        ? { label: 'Question', queueLength: pendingQuestionRequests.length, onExpand: () => setQuestionCollapsed(false) }
-                        : undefined
-                    }
-                    hideCapsuleButtons={false}
-                    onAutoAcceptToggle={handleAutoAcceptToggle}
-                  />
-                </>
-              )}
+                  </div>
+                )}
+                <InputBox
+                  onSend={handleSend}
+                  onAbort={handleAbort}
+                  onCommand={handleCommand}
+                  onNewChat={handleNewSession}
+                  disabled={false}
+                  isStreaming={isStreaming}
+                  agents={agents}
+                  selectedAgent={selectedAgent}
+                  onAgentChange={handleAgentChange}
+                  variants={currentModel?.variants ?? []}
+                  selectedVariant={selectedVariant}
+                  onVariantChange={handleVariantChange}
+                  supportsImages={currentModel?.supportsImages ?? false}
+                  models={models}
+                  selectedModelKey={selectedModelKey}
+                  onModelChange={handleModelChange}
+                  showRestoreModel={showRestoreSessionModel}
+                  restoreModelLabel={sessionBaselineModel?.modelName}
+                  onRestoreModel={handleRestoreSessionModel}
+                  modelsLoading={modelsLoading}
+                  modelSelectorRef={modelSelectorRef}
+                  rootPath={effectiveDirectory}
+                  sessionId={routeSessionId}
+                  revertedText={revertedMessage?.text}
+                  revertedAttachments={revertedMessage?.attachments}
+                  canRedo={canRedo}
+                  revertSteps={redoSteps}
+                  onRedo={handleRedoWithAnimation}
+                  onRedoAll={handleRedoAll}
+                  onClearRevert={clearRevert}
+                  registerInputBox={registerInputBox}
+                  isAtBottom={isAtBottom}
+                  showScrollToBottom={!isAtBottom}
+                  onScrollToBottom={() => chatAreaRef.current?.scrollToBottom()}
+                  collapsedQuestion={
+                    pendingQuestionRequests.length > 0 && questionCollapsed
+                      ? { label: 'Question', queueLength: pendingQuestionRequests.length, onExpand: () => setQuestionCollapsed(false) }
+                      : undefined
+                  }
+                  hideCapsuleButtons={false}
+                  onAutoAcceptToggle={handleAutoAcceptToggle}
+                />
+              </div>
             </div>
 
             {/* Question Dialog - 仍然使用弹窗，因为需要聚焦用户注意力 */}
