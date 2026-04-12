@@ -15,5 +15,6 @@ export function formatRelativeTime(timestamp: number): string {
   if (hours < 24) return `${hours}h ago`
   if (days < 7) return `${days}d ago`
   
-  return new Date(timestamp).toLocaleDateString()
+  const date = new Date(timestamp)
+  return `${date.getMonth() + 1}/${date.getDate()}`
 }

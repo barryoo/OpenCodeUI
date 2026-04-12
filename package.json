@@ -9,6 +9,8 @@
     "dev:public": "tailscale funnel --bg --yes 5173 && vite",
     "funnel:off": "tailscale funnel reset",
     "build": "tsc -b && vite build",
+    "server:dev": "bun run server/index.ts",
+    "server:start": "NODE_ENV=production bun run server/index.ts",
     "build:macos": "tauri build --bundles app",
     "lint": "eslint .",
     "preview": "vite preview",
@@ -21,6 +23,7 @@
     "@tauri-apps/plugin-http": "^2.5.7",
     "@tauri-apps/plugin-notification": "^2.3.3",
     "@tauri-apps/plugin-opener": "^2.5.3",
+    "@types/bun": "latest",
     "@types/diff": "^7.0.2",
     "@xterm/addon-fit": "^0.11.0",
     "@xterm/addon-web-links": "^0.12.0",
@@ -35,7 +38,8 @@
     "remark-breaks": "^4.0.0",
     "remark-gfm": "^4.0.1",
     "shiki": "^3.21.0",
-    "tailwind-merge": "^3.4.0"
+    "tailwind-merge": "^3.4.0",
+    "zustand": "^5.0.12"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.1",

@@ -6,6 +6,7 @@
 
 import { API_BASE_URL } from '../constants'
 import { serverStore, makeBasicAuthHeader } from '../store/serverStore'
+import { authStore } from '../store/authStore'
 import { isTauri } from '../utils/tauri'
 
 /**
@@ -45,6 +46,19 @@ export async function unifiedFetch(input: string | URL | Request, init?: Request
  */
 export function getApiBaseUrl(): string {
   return serverStore.getActiveBaseUrl()
+}
+
+async function ensureOpenCodeServerReady(): Promise<void> {
+  const auth = authStore.getSnapshot()
+
+  if (auth.status === 'idle' || auth.status === 'checking') {
+    await authStore.refresh().catch(() => {})
+  }
+
+  const nextAuth = authStore.getSnapshot()
+  if (nextAuth.status === 'authenticated') {
+    await serverStore.initialize().catch(() => {})
+  }
 }
 
 /**
@@ -115,6 +129,8 @@ export async function request<T>(
   params: Record<string, QueryValue> = {},
   options: RequestOptions = {}
 ): Promise<T> {
+  await ensureOpenCodeServerReady()
+
   const { method = 'GET', body, headers = {}, directory } = options
   
   const requestHeaders: Record<string, string> = {

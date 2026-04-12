@@ -22,6 +22,7 @@ import {
 } from '../../../components/Icons'
 import { useDirectory, useSessionStats, formatTokens, formatCost, useKeybindingLabel, fetchSessionQuery } from '../../../hooks'
 import type { ThemeMode } from '../../../hooks'
+import type { ThinItem } from '../../../api/thinServer'
 import { useSessionContext } from '../../../contexts/SessionContext'
 import { useMessageStore } from '../../../store'
 import { useBusySessions, useBusyCount } from '../../../store/activeSessionStore'
@@ -55,8 +56,10 @@ function getParentPath(fullPath: string): string {
 export interface SidePanelProps {
   onNewSession: (directory?: string) => void
   onSelectSession: (session: ApiSession) => void
+  onSelectItem?: (projectId: string, item: ThinItem) => void
   onCloseMobile?: () => void
   selectedSessionId: string | null
+  selectedItemId?: string | null
   onAddProject: () => void
   isMobile?: boolean
   isExpanded?: boolean

@@ -200,7 +200,41 @@ OPENCODE_SERVER_PASSWORD=your-strong-password
 ROUTER_SCAN_INTERVAL=5
 ROUTER_PORT_RANGE=3000-9999
 ROUTER_EXCLUDE_PORTS=4096
+VITE_THIN_SERVER_URL=http://127.0.0.1:4097
+OPENCODEUI_SERVER_PUBLIC_URL=http://127.0.0.1:4097
+OPENCODEUI_FRONTEND_URL=http://127.0.0.1:5173
+OPENCODEUI_SECURE_COOKIES=false
+GITHUB_CLIENT_ID=
+GITHUB_CLIENT_SECRET=
 ```
+
+### Thin Server GitHub Login
+
+The login flow depends on the bundled thin server.
+
+For local development, configure at least:
+
+```env
+VITE_THIN_SERVER_URL=http://127.0.0.1:4097
+OPENCODEUI_SERVER_PUBLIC_URL=http://127.0.0.1:4097
+OPENCODEUI_FRONTEND_URL=http://127.0.0.1:5173
+GITHUB_CLIENT_ID=your-client-id
+GITHUB_CLIENT_SECRET=your-client-secret
+```
+
+GitHub OAuth callback URL:
+
+```text
+http://127.0.0.1:4097/api/auth/github/callback
+```
+
+For HTTPS production deployments, enable:
+
+```env
+OPENCODEUI_SECURE_COOKIES=true
+```
+
+This makes the thin server issue `Secure` cookies and preserve login sessions across service restarts via SQLite.
 
 Persistence notes:
 

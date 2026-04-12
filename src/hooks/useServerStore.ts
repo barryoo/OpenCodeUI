@@ -43,9 +43,17 @@ export function useServerStore() {
   const setActiveServer = useCallback((id: string) => {
     return serverStore.setActiveServer(id)
   }, [])
+
+  const setDefaultServer = useCallback((id: string) => {
+    return serverStore.setDefaultServer(id)
+  }, [])
   
   const checkHealth = useCallback((serverId: string) => {
     return serverStore.checkHealth(serverId)
+  }, [])
+
+  const refreshServers = useCallback(() => {
+    return serverStore.refresh()
   }, [])
   
   const checkAllHealth = useCallback(() => {
@@ -64,6 +72,8 @@ export function useServerStore() {
     updateServer,
     removeServer,
     setActiveServer,
+    setDefaultServer,
+    refreshServers,
     checkHealth,
     checkAllHealth,
     getHealth,

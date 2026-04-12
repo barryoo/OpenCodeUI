@@ -211,7 +211,41 @@ OPENCODE_SERVER_PASSWORD=your-strong-password
 ROUTER_SCAN_INTERVAL=5
 ROUTER_PORT_RANGE=3000-9999
 ROUTER_EXCLUDE_PORTS=4096
+VITE_THIN_SERVER_URL=http://127.0.0.1:4097
+OPENCODEUI_SERVER_PUBLIC_URL=http://127.0.0.1:4097
+OPENCODEUI_FRONTEND_URL=http://127.0.0.1:5173
+OPENCODEUI_SECURE_COOKIES=false
+GITHUB_CLIENT_ID=
+GITHUB_CLIENT_SECRET=
 ```
+
+### Thin Server GitHub 登录
+
+登录功能依赖 OpenCodeUI 附带的薄后端。
+
+本地开发时至少配置：
+
+```env
+VITE_THIN_SERVER_URL=http://127.0.0.1:4097
+OPENCODEUI_SERVER_PUBLIC_URL=http://127.0.0.1:4097
+OPENCODEUI_FRONTEND_URL=http://127.0.0.1:5173
+GITHUB_CLIENT_ID=your-client-id
+GITHUB_CLIENT_SECRET=your-client-secret
+```
+
+GitHub OAuth App callback URL：
+
+```text
+http://127.0.0.1:4097/api/auth/github/callback
+```
+
+生产环境如果走 HTTPS，请启用：
+
+```env
+OPENCODEUI_SECURE_COOKIES=true
+```
+
+这样 thin server 会把登录 cookie 标记为 `Secure`，并在服务重启后继续从 SQLite 恢复登录态。
 
 持久化要点：
 

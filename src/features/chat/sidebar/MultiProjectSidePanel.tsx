@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type DragEvent, type ReactNode, type RefObject } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type DragEvent } from 'react'
 import { createPortal } from 'react-dom'
 import {
   deleteSession as deleteSessionApi,
@@ -8,6 +8,7 @@ import {
   subscribeToEvents,
   type ApiSession,
   type ConnectionInfo,
+  type ThinItem,
   updateSession,
 } from '../../../api'
 import {
@@ -20,6 +21,7 @@ import {
   MoreHorizontalIcon,
   PencilIcon,
   PinIcon,
+  PlusIcon,
   SidebarIcon,
   SpinnerIcon,
   TrashIcon,
@@ -31,18 +33,35 @@ import { useDirectory, useSessionStats, fetchSessionQuery, fetchSessionStatusQue
 import { useMessageStore } from '../../../store'
 import { activeSessionStore, useBusySessions } from '../../../store/activeSessionStore'
 import { notificationStore, useNotifications } from '../../../store/notificationStore'
-import { formatRelativeTime } from '../../../utils/dateUtils'
 import { isSameDirectory, serverStorage, uiErrorHandler } from '../../../utils'
 import type { SessionStatusMap } from '../../../types/api/session'
 import { handleWindowTitlebarMouseDown, isTauri, isTauriMacOS } from '../../../utils/tauri'
+import { getProjectIdByPathMap } from '../../../api/thinServer'
 import { serverStore } from '../../../store/serverStore'
+import { useItemWorkspaceStore } from '../../../store/itemWorkspaceStore'
 import { SidePanel, SidebarFooter, type SidePanelProps } from './SidePanel'
+import { ActionMenu, ActionMenuItem, SessionListItem } from './SessionListItem'
 
 const DEFAULT_VISIBLE_COUNT = 3
 const DEFAULT_RECENT_VISIBLE_COUNT = 10
 const RECENT_WINDOW_MS = 24 * 60 * 60 * 1000
 const PINNED_SESSIONS_STORAGE_KEY = 'opencode-pinned-sessions'
+const PINNED_ITEMS_STORAGE_KEY = 'opencode-pinned-items-sidebar'
 const PROJECT_DRAG_TYPE = 'application/x-opencode-project-path'
+
+function getItemTypeLabel(type: string): string {
+  switch (type) {
+    case 'bug':
+      return 'Bug'
+    case 'research':
+      return '研究'
+    case 'code_review':
+      return '审查'
+    case 'requirement':
+    default:
+      return '需求'
+  }
+}
 
 function getProjectDragPath(dataTransfer: DataTransfer | null): string {
   if (!dataTransfer) return ''
@@ -70,6 +89,14 @@ interface PinnedSessionEntry {
   pinnedAt: number
 }
 
+interface PinnedItemEntry {
+  itemId: string
+  title: string
+  projectPath: string
+  updatedAt: string
+  pinnedAt: number
+}
+
 interface SessionRenameState {
   projectPath: string
   session: ApiSession
@@ -78,104 +105,17 @@ interface SessionRenameState {
 type OpenMenuState =
   | { type: 'project'; projectPath: string; anchorRect: DOMRect }
   | { type: 'session'; projectPath: string; sessionId: string; source: 'pinned' | 'project' | 'recent'; anchorRect: DOMRect }
+  | { type: 'item'; projectPath: string; itemId: string; anchorRect: DOMRect }
   | null
-
-interface ActionMenuProps {
-  menuRef?: RefObject<HTMLDivElement | null>
-  anchorRect: DOMRect
-  children: ReactNode
-}
-
-function ActionMenu({ menuRef, anchorRect, children }: ActionMenuProps) {
-  // 菜单宽度固定 160px，放在按钮右侧对齐，垂直方向从按钮底部展开
-  // 若超出视口右边则向左偏移
-  const menuWidth = 160
-  const viewportWidth = window.innerWidth
-  const viewportHeight = window.innerHeight
-
-  let left = anchorRect.right - menuWidth
-  if (left < 4) left = 4
-
-  let top = anchorRect.bottom + 4
-  // 估算菜单高度（每项 28px + padding 8px），若超出视口则向上展开
-  const estimatedHeight = 8 + 5 * 28
-  if (top + estimatedHeight > viewportHeight - 8) {
-    top = anchorRect.top - estimatedHeight - 4
-    if (top < 8) top = 8
-  }
-
-  // 避免菜单超出右侧视口
-  if (left + menuWidth > viewportWidth - 4) {
-    left = viewportWidth - menuWidth - 4
-  }
-
-  return createPortal(
-    <div
-      ref={menuRef}
-      style={{ top, left, width: menuWidth, position: 'fixed' }}
-      className="rounded-lg border border-border-200/60 bg-bg-000 shadow-xl z-[9999] p-1"
-    >
-      {children}
-    </div>,
-    document.body,
-  )
-}
-
-interface ActionMenuItemProps {
-  label: string
-  icon: ReactNode
-  danger?: boolean
-  onClick: () => void
-}
-
-function ActionMenuItem({ label, icon, danger = false, onClick }: ActionMenuItemProps) {
-  return (
-    <button
-      type="button"
-      onMouseDown={(event) => {
-        event.stopPropagation()
-      }}
-      onTouchStart={(event) => {
-        event.stopPropagation()
-      }}
-      onTouchEnd={(event) => {
-        event.preventDefault()
-        event.stopPropagation()
-        onClick()
-      }}
-      onClick={(event) => {
-        event.preventDefault()
-        event.stopPropagation()
-        onClick()
-      }}
-      className={`w-full h-7 px-2 rounded-md flex items-center gap-2 text-[11px] transition-colors ${
-        danger
-          ? 'text-danger-100 hover:bg-danger-100/10'
-          : 'text-text-200 hover:text-text-100 hover:bg-[var(--sidebar-hover-bg)]'
-      }`}
-    >
-      <span className="text-text-400">{icon}</span>
-      <span>{label}</span>
-    </button>
-  )
-}
-
-function RunningIndicator() {
-  return (
-    <span className="inline-flex items-center gap-[2px]">
-      <span className="w-1 h-1 rounded-full bg-accent-main-100 animate-bounce [animation-delay:-0.3s]" />
-      <span className="w-1 h-1 rounded-full bg-accent-main-100 animate-bounce [animation-delay:-0.15s]" />
-      <span className="w-1 h-1 rounded-full bg-accent-main-100 animate-bounce" />
-    </span>
-  )
-}
 
 export function MultiProjectSidePanel(props: SidePanelProps) {
   const {
     onNewSession,
     onSelectSession,
+    onSelectItem,
     onCloseMobile,
     selectedSessionId,
+    selectedItemId,
     onAddProject,
     isMobile = false,
     isExpanded = true,
@@ -214,6 +154,11 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
     if (!saved || !Array.isArray(saved)) return []
 
     return saved.filter((item) => !!item?.sessionId && !!item?.directory)
+  })
+  const [pinnedItems, setPinnedItems] = useState<PinnedItemEntry[]>(() => {
+    const saved = serverStorage.getJSON<PinnedItemEntry[]>(PINNED_ITEMS_STORAGE_KEY)
+    if (!saved || !Array.isArray(saved)) return []
+    return saved.filter((item) => !!item?.itemId && !!item?.projectPath)
   })
 
   const [connectionState, setConnectionState] = useState<ConnectionInfo | null>(null)
@@ -257,6 +202,7 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
   const [expandedProjects, setExpandedProjects] = useState<Record<string, boolean>>({})
   const [visibleCountByProject, setVisibleCountByProject] = useState<Record<string, number>>({})
   const [sessionsByProject, setSessionsByProject] = useState<Record<string, ApiSession[]>>({})
+  const [projectIdByPath, setProjectIdByPath] = useState<Record<string, string>>({})
   const [loadingByProject, setLoadingByProject] = useState<Record<string, boolean>>({})
   const [hasMoreByProject, setHasMoreByProject] = useState<Record<string, boolean>>({})
   const [loadedLimitByProject, setLoadedLimitByProject] = useState<Record<string, number>>({})
@@ -292,6 +238,7 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
   const pointerUpHandlerRef = useRef<(event?: PointerEvent) => void>(() => {})
   const [projectDeleteConfirm, setProjectDeleteConfirm] = useState<string | null>(null)
   const [sessionDeleteConfirm, setSessionDeleteConfirm] = useState<{ projectPath: string; session: ApiSession } | null>(null)
+  const [itemDeleteConfirm, setItemDeleteConfirm] = useState<{ projectId: string; itemId: string; title: string } | null>(null)
   const [sessionRenameState, setSessionRenameState] = useState<SessionRenameState | null>(null)
   const [sessionRenameInput, setSessionRenameInput] = useState('')
   const [isRenamingSession, setIsRenamingSession] = useState(false)
@@ -315,6 +262,36 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
     }
     return map
   }, [sessionsByProject])
+
+  const loadItemProject = useItemWorkspaceStore((state) => state.loadProject)
+  const ensureProjectSummaryForSessions = useItemWorkspaceStore((state) => state.ensureProjectSummaryForSessions)
+  const getProjectEntries = useItemWorkspaceStore((state) => state.getProjectEntries)
+  const getProjectError = useItemWorkspaceStore((state) => state.getProjectError)
+  const isProjectLoading = useItemWorkspaceStore((state) => state.isProjectLoading)
+  useItemWorkspaceStore((state) => state.projectStates)
+  const setDraftItem = useItemWorkspaceStore((state) => state.setDraftItem)
+  const deleteItem = useItemWorkspaceStore((state) => state.deleteItem)
+  const togglePinnedItem = useItemWorkspaceStore((state) => state.togglePinnedItem)
+  const archiveItem = useItemWorkspaceStore((state) => state.archiveItem)
+
+  useEffect(() => {
+    let cancelled = false
+    void getProjectIdByPathMap()
+      .then((map) => {
+        if (cancelled) return
+        const next: Record<string, string> = {}
+        for (const [path, projectId] of map.entries()) {
+          next[path] = projectId
+        }
+        setProjectIdByPath(next)
+      })
+      .catch(() => {
+        if (!cancelled) setProjectIdByPath({})
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [savedDirectories])
 
   const projectNameByPath = useMemo(() => {
     const map = new Map<string, string>()
@@ -432,6 +409,10 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
   useEffect(() => {
     serverStorage.setJSON(PINNED_SESSIONS_STORAGE_KEY, pinnedSessions)
   }, [pinnedSessions])
+
+  useEffect(() => {
+    serverStorage.setJSON(PINNED_ITEMS_STORAGE_KEY, pinnedItems)
+  }, [pinnedItems])
 
   useEffect(() => {
     return serverStore.onServerChange(() => {
@@ -646,6 +627,11 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
       setHasMoreByProject((prev) => ({ ...prev, [projectPath]: data.length >= limit }))
       setLoadedLimitByProject((prev) => ({ ...prev, [projectPath]: limit }))
       syncPinnedEntriesWithSessions(projectPath, data)
+      const projectId = data[0]?.projectID
+      if (projectId) {
+        void loadItemProject(projectId)
+        void ensureProjectSummaryForSessions(projectId, data)
+      }
     } catch {
       setSessionsByProject((prev) => ({ ...prev, [projectPath]: [] }))
       setHasMoreByProject((prev) => ({ ...prev, [projectPath]: false }))
@@ -653,11 +639,16 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
     } finally {
       setLoadingByProject((prev) => ({ ...prev, [projectPath]: false }))
     }
-  }, [syncPinnedEntriesWithSessions])
+  }, [ensureProjectSummaryForSessions, loadItemProject, syncPinnedEntriesWithSessions])
 
   useEffect(() => {
     for (const project of projects) {
       if (!expandedProjects[project.path]) continue
+
+      const mappedProjectId = projectIdByPath[project.path]
+      if (mappedProjectId) {
+        void loadItemProject(mappedProjectId)
+      }
 
       const targetLimit = visibleCountByProject[project.path] ?? DEFAULT_VISIBLE_COUNT
       const loadedLimit = loadedLimitByProject[project.path] ?? 0
@@ -670,9 +661,11 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
   }, [
     projects,
     expandedProjects,
+    projectIdByPath,
     visibleCountByProject,
     loadedLimitByProject,
     loadingByProject,
+    loadItemProject,
     loadProjectSessions,
   ])
 
@@ -876,6 +869,27 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
     }
   }, [onCloseMobile, onNewSession, updateProjectExpanded])
 
+  const handleCreateItemInProject = useCallback(async (projectPath: string) => {
+    const projectId = projectIdByPath[projectPath]
+    if (!projectId) return
+    setOpenMenu(null)
+    updateProjectExpanded(projectPath, true)
+    setCurrentDirectory(projectPath)
+    const draftItem: ThinItem = {
+      id: '__draft__',
+      projectId,
+      serverProfileId: '',
+      title: '',
+      type: 'requirement',
+      status: 'not_started',
+      description: '',
+      activityAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    }
+    setDraftItem(draftItem)
+    onSelectItem?.(projectId, draftItem)
+  }, [onSelectItem, projectIdByPath, setCurrentDirectory, setDraftItem, updateProjectExpanded])
+
   const handleOpenProjectFolder = useCallback(async (projectPath: string) => {
     try {
       if (!tauriWindowMode) return
@@ -965,6 +979,25 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
         ...prev,
       ]
     })
+  }, [])
+
+  const handleToggleItemPin = useCallback((projectPath: string, item: { id: string; title: string; updatedAt: string }) => {
+    togglePinnedItem(item.id)
+    setPinnedItems((prev) => {
+      const existing = prev.find((entry) => entry.itemId === item.id)
+      if (existing) return prev.filter((entry) => entry.itemId !== item.id)
+      return [{ itemId: item.id, title: item.title, projectPath, updatedAt: item.updatedAt, pinnedAt: Date.now() }, ...prev]
+    })
+  }, [togglePinnedItem])
+
+  const handleCopyItemProjectPath = useCallback(async (projectPath: string) => {
+    try {
+      await navigator.clipboard.writeText(projectPath)
+    } catch {
+      // ignore
+    } finally {
+      setOpenMenu(null)
+    }
   }, [])
 
   const applySessionRename = useCallback(async (projectPath: string, session: ApiSession, nextTitle: string) => {
@@ -1765,124 +1798,66 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
                 } as ApiSession
 
                 return (
-                  <div key={entry.sessionId} className="group/pinned relative">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        void handleSelectPinnedSession(entry)
-                      }}
-                      onTouchStart={(e) => handleSessionLongPressStart(e, pinnedProjectPath, entry.sessionId, 'pinned')}
-                      onTouchMove={handleSessionLongPressMove}
-                      onTouchEnd={handleSessionLongPressEnd}
-                      onContextMenu={(e) => e.preventDefault()}
-                      className={`w-full h-7 px-1.5 pr-12 rounded-md flex items-center gap-1.5 text-left transition-colors ${
-                        isSelected
-                          ? 'bg-[var(--sidebar-hover-bg)] text-text-100'
-                          : 'text-text-200 hover:text-text-100 hover:bg-[var(--sidebar-hover-bg)]'
-                      }`}
-                      title={entry.title}
-                    >
-                      <span className="relative h-4 w-4 shrink-0">
-                        <span
-                          className={`absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 h-1.5 w-1.5 rounded-full transition-opacity ${
-                            hasUnreadNotification
-                              ? 'bg-accent-main-100 opacity-100'
-                              : 'bg-transparent opacity-0'
-                          } group-hover/pinned:opacity-0 group-focus-within/pinned:opacity-0`}
-                        />
-                        <span
-                          role="button"
-                          tabIndex={-1}
-                          onMouseDown={(event) => event.preventDefault()}
-                          onClick={(event) => {
-                            event.stopPropagation()
-                            handleToggleSessionPin(pinnedProjectPath, sessionForPinnedAction)
-                          }}
-                          className="absolute inset-0 rounded flex items-center justify-center text-accent-main-100 opacity-0 transition-opacity duration-150 group-hover/pinned:opacity-100 group-focus-within/pinned:opacity-100"
-                          title="取消置顶"
-                        >
-                          <PinIcon size={11} />
-                        </span>
-                      </span>
-
-                      <span className="truncate text-[12px] font-medium leading-none flex-1 min-w-0">
-                        {entry.title || 'Untitled Chat'}
-                      </span>
-                    </button>
-
-                    {/* 右侧：时间 / 运行动画 / 菜单按钮 三选一 */}
-                    <div className="absolute right-1 top-1/2 -translate-y-1/2 h-5 w-10 flex items-center justify-center">
-                      {/* 默认：时间 or 运行动画，hover 时淡出（桌面端） */}
-                      <span className={`flex items-center justify-center transition-opacity duration-150 ${!isMobile ? (isSessionMenuOpen ? 'opacity-0' : 'group-hover/pinned:opacity-0') : ''}`}>
-                        {isRunning ? (
-                          <RunningIndicator />
-                        ) : (
-                          <span className="text-[9px] text-text-400/90 whitespace-nowrap">
-                            {formatRelativeTime(entry.updatedAt)}
-                          </span>
-                        )}
-                      </span>
-                      {/* 菜单按钮：桌面端 hover 或菜单打开时显示 */}
-                      {!isMobile && (
-                        <button
-                          type="button"
-                          onClick={(event) => {
-                            event.stopPropagation()
-                            handleToggleSessionMenu(pinnedProjectPath, entry.sessionId, 'pinned', event.currentTarget.getBoundingClientRect())
-                          }}
-                          className={`absolute inset-0 rounded-md flex items-center justify-center text-text-400 hover:text-text-100 hover:bg-[var(--sidebar-hover-bg)] transition-all duration-150 ${
-                            isSessionMenuOpen
-                              ? 'opacity-100 pointer-events-auto'
-                              : 'opacity-0 pointer-events-none group-hover/pinned:opacity-100 group-hover/pinned:pointer-events-auto'
-                          }`}
-                          title="会话菜单"
-                        >
-                          <MoreHorizontalIcon size={12} />
-                        </button>
-                      )}
-                    </div>
-
-                    {isSessionMenuOpen && openMenu?.anchorRect && (
-                      <ActionMenu menuRef={menuRef} anchorRect={openMenu.anchorRect}>
-                        <ActionMenuItem
-                          label="取消置顶"
-                          icon={<PinIcon size={12} />}
-                          onClick={() => {
-                            handleToggleSessionPin(pinnedProjectPath, sessionForPinnedAction)
-                          }}
-                        />
-                        <ActionMenuItem
-                          label="重命名"
-                          icon={<PencilIcon size={12} />}
-                          onClick={() => {
-                            handleRequestRenameSession(pinnedProjectPath, sessionForPinnedAction)
-                          }}
-                        />
-                        <ActionMenuItem
-                          label="归档"
-                          icon={<ClockIcon size={12} />}
-                          onClick={() => {
-                            void handleArchiveSession(pinnedProjectPath, sessionForPinnedAction)
-                          }}
-                        />
-                        <ActionMenuItem
-                          label="复制工作目录"
-                          icon={<CopyIcon size={12} />}
-                          onClick={() => {
-                            void handleCopySessionDirectory(sessionForPinnedAction)
-                          }}
-                        />
-                        <ActionMenuItem
-                          label="移除会话"
-                          icon={<TrashIcon size={12} />}
-                          danger
-                          onClick={() => {
-                            handleRequestDeleteSession(pinnedProjectPath, sessionForPinnedAction)
-                          }}
-                        />
-                      </ActionMenu>
-                    )}
-                  </div>
+                  <SessionListItem
+                    key={entry.sessionId}
+                    title={entry.title || 'Untitled Chat'}
+                    selected={isSelected}
+                    pinned
+                    running={isRunning}
+                    hasUnread={hasUnreadNotification}
+                    updatedTime={entry.updatedAt}
+                    menuOpen={isSessionMenuOpen}
+                    menuRef={menuRef}
+                    menuAnchorRect={isSessionMenuOpen ? openMenu?.anchorRect : null}
+                    menuActions={[
+                      {
+                        label: '取消置顶',
+                        icon: <PinIcon size={12} />,
+                        onClick: () => {
+                          handleToggleSessionPin(pinnedProjectPath, sessionForPinnedAction)
+                        },
+                      },
+                      {
+                        label: '重命名',
+                        icon: <PencilIcon size={12} />,
+                        onClick: () => {
+                          handleRequestRenameSession(pinnedProjectPath, sessionForPinnedAction)
+                        },
+                      },
+                      {
+                        label: '归档',
+                        icon: <ClockIcon size={12} />,
+                        onClick: () => {
+                          void handleArchiveSession(pinnedProjectPath, sessionForPinnedAction)
+                        },
+                      },
+                      {
+                        label: '复制工作目录',
+                        icon: <CopyIcon size={12} />,
+                        onClick: () => {
+                          void handleCopySessionDirectory(sessionForPinnedAction)
+                        },
+                      },
+                      {
+                        label: '移除会话',
+                        icon: <TrashIcon size={12} />,
+                        danger: true,
+                        onClick: () => {
+                          handleRequestDeleteSession(pinnedProjectPath, sessionForPinnedAction)
+                        },
+                      },
+                    ]}
+                    onSelect={() => {
+                      void handleSelectPinnedSession(entry)
+                    }}
+                    onTogglePin={() => handleToggleSessionPin(pinnedProjectPath, sessionForPinnedAction)}
+                    onToggleMenu={!isMobile ? (anchorRect) => handleToggleSessionMenu(pinnedProjectPath, entry.sessionId, 'pinned', anchorRect) : undefined}
+                    showMenuButton={!isMobile}
+                    onTouchStart={(e) => handleSessionLongPressStart(e, pinnedProjectPath, entry.sessionId, 'pinned')}
+                    onTouchMove={handleSessionLongPressMove}
+                    onTouchEnd={handleSessionLongPressEnd}
+                    onContextMenu={(e) => e.preventDefault()}
+                  />
                 )
               })}
           </div>
@@ -1920,124 +1895,64 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
                   openMenu.sessionId === session.id
 
                 return (
-                  <div key={session.id} className="group/recent relative">
-                    <button
-                      type="button"
-                      onClick={() => handleSelectRecentSession(session)}
-                      onTouchStart={(e) => handleSessionLongPressStart(e, recentProjectPath, session.id, 'recent')}
-                      onTouchMove={handleSessionLongPressMove}
-                      onTouchEnd={handleSessionLongPressEnd}
-                      onContextMenu={(e) => e.preventDefault()}
-                      className={`w-full h-7 px-1.5 pr-12 rounded-md flex items-center gap-1.5 text-left transition-colors ${
-                        isSelected
-                          ? 'bg-[var(--sidebar-hover-bg)] text-text-100'
-                          : 'text-text-200 hover:text-text-100 hover:bg-[var(--sidebar-hover-bg)]'
-                      }`}
-                      title={session.title || 'Untitled Chat'}
-                    >
-                      <span className="relative h-4 w-4 shrink-0">
-                        <span
-                          className={`absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 h-1.5 w-1.5 rounded-full transition-opacity ${
-                            hasUnreadNotification
-                              ? 'bg-accent-main-100 opacity-100'
-                              : 'bg-transparent opacity-0'
-                          } group-hover/recent:opacity-0 group-focus-within/recent:opacity-0`}
-                        />
-                        <span
-                          role="button"
-                          tabIndex={-1}
-                          onMouseDown={(event) => event.preventDefault()}
-                          onClick={(event) => {
-                            event.stopPropagation()
-                            handleToggleSessionPin(recentProjectPath, session)
-                          }}
-                          className={`absolute inset-0 rounded flex items-center justify-center transition-all duration-150 ${
-                            isPinned
-                              ? 'text-accent-main-100 opacity-0 group-hover/recent:opacity-100 group-focus-within/recent:opacity-100'
-                              : 'text-text-400 opacity-0 group-hover/recent:opacity-100 group-focus-within/recent:opacity-100 hover:text-text-100'
-                          }`}
-                          title={isPinned ? '取消置顶' : '置顶会话'}
-                        >
-                          <PinIcon size={11} />
-                        </span>
-                      </span>
-
-                      <span className="truncate text-[12px] font-medium leading-none flex-1 min-w-0">
-                        {session.title || 'Untitled Chat'}
-                      </span>
-                    </button>
-
-                    <div className="absolute right-1 top-1/2 -translate-y-1/2 h-5 w-10 flex items-center justify-center">
-                      <span className={`flex items-center justify-center transition-opacity duration-150 ${!isMobile ? (isSessionMenuOpen ? 'opacity-0' : 'group-hover/recent:opacity-0') : ''}`}>
-                        {isRunning ? (
-                          <RunningIndicator />
-                        ) : (
-                          <span className="text-[9px] text-text-400/90 whitespace-nowrap">
-                            {formatRelativeTime(updatedTime)}
-                          </span>
-                        )}
-                      </span>
-
-                      {!isMobile && (
-                        <button
-                          type="button"
-                          onClick={(event) => {
-                            event.stopPropagation()
-                            handleToggleSessionMenu(recentProjectPath, session.id, 'recent', event.currentTarget.getBoundingClientRect())
-                          }}
-                          className={`absolute inset-0 rounded-md flex items-center justify-center text-text-400 hover:text-text-100 hover:bg-[var(--sidebar-hover-bg)] transition-all duration-150 ${
-                            isSessionMenuOpen
-                              ? 'opacity-100 pointer-events-auto'
-                              : 'opacity-0 pointer-events-none group-hover/recent:opacity-100 group-hover/recent:pointer-events-auto'
-                          }`}
-                          title="会话菜单"
-                        >
-                          <MoreHorizontalIcon size={12} />
-                        </button>
-                      )}
-                    </div>
-
-                    {isSessionMenuOpen && openMenu?.anchorRect && (
-                      <ActionMenu menuRef={menuRef} anchorRect={openMenu.anchorRect}>
-                        <ActionMenuItem
-                          label={isPinned ? '取消置顶' : '置顶会话'}
-                          icon={<PinIcon size={12} />}
-                          onClick={() => {
-                            handleToggleSessionPin(recentProjectPath, session)
-                          }}
-                        />
-                        <ActionMenuItem
-                          label="重命名"
-                          icon={<PencilIcon size={12} />}
-                          onClick={() => {
-                            handleRequestRenameSession(recentProjectPath, session)
-                          }}
-                        />
-                        <ActionMenuItem
-                          label="归档"
-                          icon={<ClockIcon size={12} />}
-                          onClick={() => {
-                            void handleArchiveSession(recentProjectPath, session)
-                          }}
-                        />
-                        <ActionMenuItem
-                          label="复制工作目录"
-                          icon={<CopyIcon size={12} />}
-                          onClick={() => {
-                            void handleCopySessionDirectory(session)
-                          }}
-                        />
-                        <ActionMenuItem
-                          label="移除会话"
-                          icon={<TrashIcon size={12} />}
-                          danger
-                          onClick={() => {
-                            handleRequestDeleteSession(recentProjectPath, session)
-                          }}
-                        />
-                      </ActionMenu>
-                    )}
-                  </div>
+                  <SessionListItem
+                    key={session.id}
+                    title={session.title || 'Untitled Chat'}
+                    selected={isSelected}
+                    pinned={isPinned}
+                    running={isRunning}
+                    hasUnread={hasUnreadNotification}
+                    updatedTime={updatedTime}
+                    menuOpen={isSessionMenuOpen}
+                    menuRef={menuRef}
+                    menuAnchorRect={isSessionMenuOpen ? openMenu?.anchorRect : null}
+                    menuActions={[
+                      {
+                        label: isPinned ? '取消置顶' : '置顶会话',
+                        icon: <PinIcon size={12} />,
+                        onClick: () => {
+                          handleToggleSessionPin(recentProjectPath, session)
+                        },
+                      },
+                      {
+                        label: '重命名',
+                        icon: <PencilIcon size={12} />,
+                        onClick: () => {
+                          handleRequestRenameSession(recentProjectPath, session)
+                        },
+                      },
+                      {
+                        label: '归档',
+                        icon: <ClockIcon size={12} />,
+                        onClick: () => {
+                          void handleArchiveSession(recentProjectPath, session)
+                        },
+                      },
+                      {
+                        label: '复制工作目录',
+                        icon: <CopyIcon size={12} />,
+                        onClick: () => {
+                          void handleCopySessionDirectory(session)
+                        },
+                      },
+                      {
+                        label: '移除会话',
+                        icon: <TrashIcon size={12} />,
+                        danger: true,
+                        onClick: () => {
+                          handleRequestDeleteSession(recentProjectPath, session)
+                        },
+                      },
+                    ]}
+                    onSelect={() => handleSelectRecentSession(session)}
+                    onTogglePin={() => handleToggleSessionPin(recentProjectPath, session)}
+                    onToggleMenu={!isMobile ? (anchorRect) => handleToggleSessionMenu(recentProjectPath, session.id, 'recent', anchorRect) : undefined}
+                    showMenuButton={!isMobile}
+                    onTouchStart={(e) => handleSessionLongPressStart(e, recentProjectPath, session.id, 'recent')}
+                    onTouchMove={handleSessionLongPressMove}
+                    onTouchEnd={handleSessionLongPressEnd}
+                    onContextMenu={(e) => e.preventDefault()}
+                  />
                 )
               })
             )}
@@ -2087,6 +2002,10 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
 
               const isExpandedProject = expandedProjects[project.path] ?? false
               const sessions = sessionsByProject[project.path] ?? []
+              const projectId = sessions[0]?.projectID ?? projectIdByPath[project.path] ?? null
+              const mixedEntries = projectId ? getProjectEntries(projectId, sessions) : []
+              const itemProjectError = projectId ? getProjectError(projectId) : undefined
+              const itemProjectLoading = projectId ? isProjectLoading(projectId) : false
               const isLoading = loadingByProject[project.path] ?? false
               const hasMore = hasMoreByProject[project.path] ?? false
               const isProjectMenuOpen = openMenu?.type === 'project' && openMenu.projectPath === project.path
@@ -2170,6 +2089,18 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
                         type="button"
                         onClick={(event) => {
                           event.stopPropagation()
+                          void handleCreateItemInProject(project.path)
+                        }}
+                        className="h-5 w-5 rounded-md flex items-center justify-center text-text-400 hover:text-text-100 hover:bg-[var(--sidebar-hover-bg)] transition-colors"
+                        title="在此项目中创建事项"
+                      >
+                        <PlusIcon size={12} />
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={(event) => {
+                          event.stopPropagation()
                           handleCreateSessionInProject(project.path)
                         }}
                         className="h-5 w-5 rounded-md flex items-center justify-center text-text-400 hover:text-text-100 hover:bg-[var(--sidebar-hover-bg)] transition-colors"
@@ -2218,17 +2149,164 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
                   >
                     <div className="overflow-hidden">
                       <div className="ml-0 space-y-0.5">
-                        {isLoading && sessions.length === 0 ? (
+                        {isLoading && mixedEntries.length === 0 && sessions.length === 0 ? (
                           <div className="h-7 flex items-center text-text-400 text-[11px]">
                             <SpinnerIcon size={12} className="animate-spin mr-2" />
                             加载中...
                           </div>
-                        ) : sessions.length === 0 ? (
-                          <div className="ml-5 h-7 px-1.5 flex items-center text-[11px] text-text-500">
-                            暂无会话
+                        ) : itemProjectLoading && mixedEntries.length === 0 ? (
+                          <div className="h-7 flex items-center text-text-400 text-[11px]">
+                            <SpinnerIcon size={12} className="animate-spin mr-2" />
+                            正在加载事项...
+                          </div>
+                        ) : itemProjectError ? (
+                          <div className="ml-5 px-1.5 py-2 text-[11px] text-rose-300 space-y-2">
+                            <div>事项加载失败</div>
+                            <div className="text-text-500 break-all">{itemProjectError}</div>
+                            {projectId && (
+                              <button
+                                type="button"
+                                onClick={() => void loadItemProject(projectId)}
+                                className="inline-flex items-center rounded-md bg-bg-200 px-2 py-1 text-[11px] text-text-200 hover:text-text-100"
+                              >
+                                重试
+                              </button>
+                            )}
+                          </div>
+                        ) : mixedEntries.length === 0 ? (
+                          <div className="ml-5 px-1.5 py-2 text-[11px] text-text-500 space-y-2">
+                            <div>暂无事项或未绑定会话</div>
+                            {projectId && (
+                              <button
+                                type="button"
+                                onClick={() => void handleCreateItemInProject(project.path)}
+                                className="inline-flex items-center rounded-md bg-bg-200 px-2 py-1 text-[11px] text-text-200 hover:text-text-100"
+                              >
+                                新建事项
+                              </button>
+                            )}
                           </div>
                         ) : (
-                          sessions.map((session) => {
+                          mixedEntries.map((entry) => {
+                            if (entry.kind === 'item' && entry.item && projectId) {
+                              const isSelected = entry.item.id === selectedItemId
+                              const isPinnedItem = pinnedItems.some((candidate) => candidate.itemId === entry.item!.id)
+                              const isItemMenuOpen = openMenu?.type === 'item' && openMenu.projectPath === project.path && openMenu.itemId === entry.item.id
+                              return (
+                                <div key={`item-${entry.item.id}`} className="group/session relative">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setCurrentDirectory(project.path)
+                                      onSelectItem?.(projectId, entry.item!)
+                                    }}
+                                    className={`w-full h-7 px-1.5 pr-12 rounded-md flex items-center gap-1.5 text-left transition-colors ${
+                                      isSelected
+                                        ? 'bg-[var(--sidebar-hover-bg)] text-text-100'
+                                        : 'text-text-200 hover:text-text-100 hover:bg-[var(--sidebar-hover-bg)]'
+                                    }`}
+                                    title={entry.item.title}
+                                  >
+                                    <span className="relative h-4 w-4 shrink-0">
+                                      <span
+                                        role="button"
+                                        tabIndex={-1}
+                                        onMouseDown={(event) => event.preventDefault()}
+                                        onClick={(event) => {
+                                          event.stopPropagation()
+                                          handleToggleItemPin(project.path, {
+                                            id: entry.item!.id,
+                                            title: entry.item!.title,
+                                            updatedAt: entry.item!.updatedAt || entry.item!.activityAt,
+                                          })
+                                        }}
+                                        className={`absolute inset-0 rounded flex items-center justify-center transition-all duration-150 ${
+                                          isPinnedItem
+                                            ? 'text-accent-main-100 opacity-0 group-hover/session:opacity-100 group-focus-within/session:opacity-100'
+                                            : 'text-text-400 opacity-0 group-hover/session:opacity-100 group-focus-within/session:opacity-100 hover:text-text-100'
+                                        }`}
+                                        title={isPinnedItem ? '取消置顶' : '置顶事项'}
+                                      >
+                                        <PinIcon size={11} />
+                                      </span>
+                                    </span>
+                                    <span className="min-w-0 flex-1 flex items-center gap-1.5 overflow-hidden">
+                                      <span className="shrink-0 rounded bg-accent-main-100/15 px-1.5 py-0.5 text-[9px] leading-none text-accent-main-100">
+                                        {getItemTypeLabel(entry.item.type)}
+                                      </span>
+                                      <span className="truncate text-[12px] font-medium leading-none">
+                                        {entry.item.title}
+                                      </span>
+                                    </span>
+                                  </button>
+                                  <div className="absolute right-1 top-1/2 -translate-y-1/2 h-5 w-10 flex items-center justify-center">
+                                    <button
+                                      type="button"
+                                      onClick={(event) => {
+                                        event.stopPropagation()
+                                        const rect = event.currentTarget.getBoundingClientRect()
+                                        setOpenMenu((prev) => prev?.type === 'item' && prev.itemId === entry.item!.id ? null : { type: 'item', projectPath: project.path, itemId: entry.item!.id, anchorRect: rect })
+                                      }}
+                                      className={`absolute inset-0 rounded-md flex items-center justify-center text-text-400 hover:text-text-100 hover:bg-[var(--sidebar-hover-bg)] transition-all duration-150 ${
+                                        isItemMenuOpen
+                                          ? 'opacity-100 pointer-events-auto'
+                                          : 'opacity-0 pointer-events-none group-hover/session:opacity-100 group-hover/session:pointer-events-auto'
+                                      }`}
+                                      title="事项菜单"
+                                    >
+                                      <MoreHorizontalIcon size={12} />
+                                    </button>
+                                  </div>
+                                  {isItemMenuOpen && openMenu?.anchorRect && (
+                                    <ActionMenu menuRef={menuRef} anchorRect={openMenu.anchorRect}>
+                                      <ActionMenuItem
+                                        label={isPinnedItem ? '取消置顶' : '置顶事项'}
+                                        icon={<PinIcon size={12} />}
+                                        onClick={() => {
+                                          handleToggleItemPin(project.path, { id: entry.item!.id, title: entry.item!.title, updatedAt: entry.item!.updatedAt || entry.item!.activityAt })
+                                          setOpenMenu(null)
+                                        }}
+                                      />
+                                      <ActionMenuItem
+                                        label="重命名"
+                                        icon={<PencilIcon size={12} />}
+                                        onClick={() => {
+                                          onSelectItem?.(projectId, entry.item!)
+                                          setOpenMenu(null)
+                                        }}
+                                      />
+                                      <ActionMenuItem
+                                        label="归档"
+                                        icon={<ClockIcon size={12} />}
+                                        onClick={() => {
+                                          void archiveItem(projectId, entry.item!.id)
+                                          setOpenMenu(null)
+                                        }}
+                                      />
+                                      <ActionMenuItem
+                                        label="复制工作目录"
+                                        icon={<CopyIcon size={12} />}
+                                        onClick={() => {
+                                          void handleCopyItemProjectPath(project.path)
+                                        }}
+                                      />
+                                      <ActionMenuItem
+                                        label="删除事项"
+                                        icon={<TrashIcon size={12} />}
+                                        danger
+                                        onClick={() => {
+                                          setItemDeleteConfirm({ projectId, itemId: entry.item!.id, title: entry.item!.title })
+                                          setOpenMenu(null)
+                                        }}
+                                      />
+                                    </ActionMenu>
+                                  )}
+                                </div>
+                              )
+                            }
+
+                            const session = sessions.find((candidate) => candidate.id === entry.id)
+                            if (!session) return null
                             const updatedTime = session.time.updated ?? session.time.created
                             const isSelected = session.id === selectedSessionId
                             const isPinned = pinnedSessionIds.has(session.id)
@@ -2243,125 +2321,61 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
                               openMenu.sessionId === session.id
 
                             return (
-                              <div key={session.id} className="group/session relative">
-                                <button
-                                  type="button"
-                                  onClick={() => handleSelect(session)}
-                                  onTouchStart={(e) => handleSessionLongPressStart(e, project.path, session.id, 'project')}
-                                  onTouchMove={handleSessionLongPressMove}
-                                  onTouchEnd={handleSessionLongPressEnd}
-                                  onContextMenu={(e) => e.preventDefault()}
-                                  className={`w-full h-7 px-1.5 pr-12 rounded-md flex items-center gap-1.5 text-left transition-colors ${
-                                    isSelected
-                                      ? 'bg-[var(--sidebar-hover-bg)] text-text-100'
-                                      : 'text-text-200 hover:text-text-100 hover:bg-[var(--sidebar-hover-bg)]'
-                                  }`}
-                                  title={session.title || 'Untitled Chat'}
-                                >
-                                  <span className="relative h-4 w-4 shrink-0">
-                                    <span
-                                      className={`absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 h-1.5 w-1.5 rounded-full transition-opacity ${
-                                        hasUnreadNotification
-                                          ? 'bg-accent-main-100 opacity-100'
-                                          : 'bg-transparent opacity-0'
-                                      } group-hover/session:opacity-0 group-focus-within/session:opacity-0`}
-                                    />
-                                    <span
-                                      role="button"
-                                      tabIndex={-1}
-                                      onMouseDown={(event) => event.preventDefault()}
-                                      onClick={(event) => {
-                                        event.stopPropagation()
-                                        handleToggleSessionPin(project.path, session)
-                                      }}
-                                      className={`absolute inset-0 rounded flex items-center justify-center transition-all duration-150 ${
-                                        isPinned
-                                          ? 'text-accent-main-100 opacity-0 group-hover/session:opacity-100 group-focus-within/session:opacity-100'
-                                          : 'text-text-400 opacity-0 group-hover/session:opacity-100 group-focus-within/session:opacity-100 hover:text-text-100'
-                                      }`}
-                                      title={isPinned ? '取消置顶' : '置顶会话'}
-                                    >
-                                      <PinIcon size={11} />
-                                    </span>
-                                  </span>
-                                  <span className="truncate text-[12px] font-medium leading-none flex-1 min-w-0">
-                                    {session.title || 'Untitled Chat'}
-                                  </span>
-                                </button>
-
-                                {/* 右侧：时间 / 运行动画 / 菜单按钮 三选一 */}
-                                <div className="absolute right-1 top-1/2 -translate-y-1/2 h-5 w-10 flex items-center justify-center">
-                                  {/* 默认：时间 or 运行动画，hover 时淡出（桌面端） */}
-                                  <span className={`flex items-center justify-center transition-opacity duration-150 ${!isMobile ? (isSessionMenuOpen ? 'opacity-0' : 'group-hover/session:opacity-0') : ''}`}>
-                                    {isRunning ? (
-                                      <RunningIndicator />
-                                    ) : (
-                                      <span className="text-[9px] text-text-400/90 whitespace-nowrap">
-                                        {formatRelativeTime(updatedTime)}
-                                      </span>
-                                    )}
-                                  </span>
-                                  {/* 菜单按钮：桌面端 hover 或菜单打开时显示 */}
-                                  {!isMobile && (
-                                    <button
-                                      type="button"
-                                      onClick={(event) => {
-                                        event.stopPropagation()
-                                        handleToggleSessionMenu(project.path, session.id, 'project', event.currentTarget.getBoundingClientRect())
-                                      }}
-                                      className={`absolute inset-0 rounded-md flex items-center justify-center text-text-400 hover:text-text-100 hover:bg-[var(--sidebar-hover-bg)] transition-all duration-150 ${
-                                        isSessionMenuOpen
-                                          ? 'opacity-100 pointer-events-auto'
-                                          : 'opacity-0 pointer-events-none group-hover/session:opacity-100 group-hover/session:pointer-events-auto'
-                                      }`}
-                                      title="会话菜单"
-                                    >
-                                      <MoreHorizontalIcon size={12} />
-                                    </button>
-                                  )}
-                                </div>
-
-                                {isSessionMenuOpen && openMenu?.anchorRect && (
-                                  <ActionMenu menuRef={menuRef} anchorRect={openMenu.anchorRect}>
-                                    <ActionMenuItem
-                                      label={isPinned ? '取消置顶' : '置顶会话'}
-                                      icon={<PinIcon size={12} />}
-                                      onClick={() => {
-                                        handleToggleSessionPin(project.path, session)
-                                      }}
-                                    />
-                                    <ActionMenuItem
-                                      label="重命名"
-                                      icon={<PencilIcon size={12} />}
-                                      onClick={() => {
-                                        handleRequestRenameSession(project.path, session)
-                                      }}
-                                    />
-                                    <ActionMenuItem
-                                      label="归档"
-                                      icon={<ClockIcon size={12} />}
-                                      onClick={() => {
-                                        void handleArchiveSession(project.path, session)
-                                      }}
-                                    />
-                                    <ActionMenuItem
-                                      label="复制工作目录"
-                                      icon={<CopyIcon size={12} />}
-                                      onClick={() => {
-                                        void handleCopySessionDirectory(session)
-                                      }}
-                                    />
-                                    <ActionMenuItem
-                                      label="移除会话"
-                                      icon={<TrashIcon size={12} />}
-                                      danger
-                                      onClick={() => {
-                                        handleRequestDeleteSession(project.path, session)
-                                      }}
-                                    />
-                                  </ActionMenu>
-                                )}
-                              </div>
+                              <SessionListItem
+                                key={session.id}
+                                title={session.title || 'Untitled Chat'}
+                                selected={isSelected}
+                                pinned={isPinned}
+                                running={isRunning}
+                                hasUnread={hasUnreadNotification}
+                                updatedTime={updatedTime}
+                                menuOpen={isSessionMenuOpen}
+                                tagLabel="会话"
+                                menuRef={menuRef}
+                                menuAnchorRect={isSessionMenuOpen ? openMenu?.anchorRect : null}
+                                menuActions={[
+                                  {
+                                    label: isPinned ? '取消置顶' : '置顶会话',
+                                    icon: <PinIcon size={12} />,
+                                    onClick: () => {
+                                      handleToggleSessionPin(project.path, session)
+                                    },
+                                  },
+                                  {
+                                    label: '重命名',
+                                    icon: <PencilIcon size={12} />,
+                                    onClick: () => {
+                                      handleRequestRenameSession(project.path, session)
+                                    },
+                                  },
+                                  {
+                                    label: '归档',
+                                    icon: <ClockIcon size={12} />,
+                                    onClick: () => {
+                                      void handleArchiveSession(project.path, session)
+                                    },
+                                  },
+                                  {
+                                    label: '复制工作目录',
+                                    icon: <CopyIcon size={12} />,
+                                    onClick: () => {
+                                      void handleCopySessionDirectory(session)
+                                    },
+                                  },
+                                  {
+                                    label: '移除会话',
+                                    icon: <TrashIcon size={12} />,
+                                    danger: true,
+                                    onClick: () => {
+                                      handleRequestDeleteSession(project.path, session)
+                                    },
+                                  },
+                                ]}
+                                onSelect={() => handleSelect(session)}
+                                onTogglePin={() => handleToggleSessionPin(project.path, session)}
+                                onToggleMenu={!isMobile ? (anchorRect) => handleToggleSessionMenu(project.path, session.id, 'project', anchorRect) : undefined}
+                                showMenuButton={!isMobile}
+                              />
                             )
                           })
                         )}
@@ -2482,6 +2496,21 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
         title="移除会话"
         description="确认要移除这个会话吗？该操作不可撤销。"
         confirmText="移除"
+        variant="danger"
+      />
+
+      <ConfirmDialog
+        isOpen={itemDeleteConfirm !== null}
+        onClose={() => setItemDeleteConfirm(null)}
+        onConfirm={() => {
+          if (itemDeleteConfirm) {
+            void deleteItem(itemDeleteConfirm.projectId, itemDeleteConfirm.itemId).then(() => setItemDeleteConfirm(null))
+          }
+        }}
+        title="删除事项"
+        description={itemDeleteConfirm ? `确认删除事项「${itemDeleteConfirm.title || '未命名事项'}」吗？` : undefined}
+        confirmText="删除"
+        cancelText="取消"
         variant="danger"
       />
     </div>
