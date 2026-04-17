@@ -317,9 +317,11 @@ function App() {
   }, [effectiveDirectory, handleSelectSession])
 
   const handleSidebarSelectSession = useCallback((session: Parameters<typeof handleSelectSession>[0]) => {
-    selectItem(selectedItemProjectId ?? '', null)
+    // 先清掉路由中的事项上下文，避免后续 selectedItem 清空时的同步 effect
+    // 用旧 sessionId 回写 hash，覆盖掉这次真正的会话切换。
     setItemContext(undefined, undefined)
-    handleSelectSession(session)
+    selectItem(selectedItemProjectId ?? '', null)
+    handleSelectSession(session, { clearItemContext: true })
   }, [handleSelectSession, selectItem, selectedItemProjectId, setItemContext])
 
   useEffect(() => {
