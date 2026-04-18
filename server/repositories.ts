@@ -15,7 +15,7 @@ import type {
   UserRecord,
   WorkflowStatus,
 } from './domain'
-import { createId, isOlderThanDays, normalizeWorkflowStatus, nowIsoString } from './utils'
+import { createId, normalizeWorkflowStatus, nowIsoString } from './utils'
 
 type RowValue = string | number | null
 
@@ -296,6 +296,24 @@ export class ThinServerRepository {
       CREATE INDEX IF NOT EXISTS idx_session_summaries_item_id ON session_summaries(item_id);
       CREATE INDEX IF NOT EXISTS idx_session_summaries_external_session_id ON session_summaries(external_session_id);
     `)
+
+    this.database.db.exec(`
+      DELETE FROM session_summaries
+      WHERE id IN (
+        SELECT duplicate.id
+        FROM session_summaries duplicate
+        INNER JOIN server_profiles dsp ON dsp.id = duplicate.server_profile_id
+        INNER JOIN session_summaries keeper ON keeper.user_id = duplicate.user_id
+          AND keeper.external_session_id = duplicate.external_session_id
+          AND keeper.id != duplicate.id
+        INNER JOIN server_profiles ksp ON ksp.id = keeper.server_profile_id
+        WHERE dsp.base_url = ksp.base_url
+          AND (
+            keeper.updated_at > duplicate.updated_at
+            OR (keeper.updated_at = duplicate.updated_at AND keeper.activity_at >= duplicate.activity_at)
+          )
+      );
+    `)
   }
 
   upsertUserByGithubProfile(input: { githubId: string; login: string; name?: string | null; avatarUrl?: string | null }): UserRecord {
@@ -553,32 +571,42 @@ export class ThinServerRepository {
   }
 
   listSessionSummaries(userId: string, projectId: string): SessionSummaryRecord[] {
-    this.autoCompleteStaleSessionSummaries(userId)
+    this.dedupeSessionSummariesByBaseUrl(userId)
     const rows = this.database.db.query('SELECT * FROM session_summaries WHERE user_id = ? AND project_id = ? ORDER BY activity_at DESC, updated_at DESC').all(userId, projectId) as SessionSummaryRow[]
     return rows.map(mapSessionSummary)
   }
 
   listSessionSummariesByUser(userId: string): SessionSummaryRecord[] {
-    this.autoCompleteStaleSessionSummaries(userId)
+    this.dedupeSessionSummariesByBaseUrl(userId)
     const rows = this.database.db.query('SELECT * FROM session_summaries WHERE user_id = ? ORDER BY activity_at DESC, updated_at DESC').all(userId) as SessionSummaryRow[]
     return rows.map(mapSessionSummary)
   }
 
   getSessionSummary(id: string, userId: string): SessionSummaryRecord | null {
-    this.autoCompleteStaleSessionSummaries(userId)
+    this.dedupeSessionSummariesByBaseUrl(userId)
     const row = this.database.db.query('SELECT * FROM session_summaries WHERE id = ? AND user_id = ?').get(id, userId) as SessionSummaryRow | null
     return row ? mapSessionSummary(row) : null
   }
 
   listItemSessionSummaries(userId: string, itemId: string): SessionSummaryRecord[] {
-    this.autoCompleteStaleSessionSummaries(userId)
+    this.dedupeSessionSummariesByBaseUrl(userId)
     const rows = this.database.db.query('SELECT * FROM session_summaries WHERE user_id = ? AND item_id = ? ORDER BY activity_at DESC, updated_at DESC').all(userId, itemId) as SessionSummaryRow[]
     return rows.map(mapSessionSummary)
   }
 
   upsertSessionSummary(input: UpsertSessionSummaryInput): SessionSummaryRecord {
-    const existing = this.database.db.query('SELECT * FROM session_summaries WHERE user_id = ? AND server_profile_id = ? AND external_session_id = ?').get(input.userId, input.serverProfileId, input.externalSessionId) as SessionSummaryRow | null
-    const nextStatus = isOlderThanDays(input.activityAt, 14) ? 'completed' : input.statusSnapshot
+    this.dedupeSessionSummariesByBaseUrl(input.userId)
+    const existing = this.database.db.query(`
+      SELECT s.*
+      FROM session_summaries s
+      INNER JOIN server_profiles sp ON sp.id = s.server_profile_id
+      WHERE s.user_id = ?
+        AND s.external_session_id = ?
+        AND sp.base_url = (SELECT base_url FROM server_profiles WHERE id = ?)
+      ORDER BY s.updated_at DESC
+      LIMIT 1
+    `).get(input.userId, input.externalSessionId, input.serverProfileId) as SessionSummaryRow | null
+    const nextStatus = input.statusSnapshot
     const now = nowIsoString()
 
     if (existing) {
@@ -688,21 +716,6 @@ export class ThinServerRepository {
     }))
   }
 
-  private autoCompleteStaleSessionSummaries(userId: string) {
-    const rows = this.database.db.query(`
-      SELECT * FROM session_summaries
-      WHERE user_id = ?
-        AND status_snapshot NOT IN ('completed', 'abandoned')
-    `).all(userId) as SessionSummaryRow[]
-
-    for (const row of rows) {
-      if (!isOlderThanDays(row.activity_at, 14)) continue
-      const updatedAt = nowIsoString()
-      this.database.db.query('UPDATE session_summaries SET status_snapshot = ?, updated_at = ? WHERE id = ?').run('completed', updatedAt, row.id)
-      this.syncItemStatusFromSession(row.item_id, userId)
-    }
-  }
-
   private syncItemStatusFromSession(itemId: string | null, userId: string) {
     if (!itemId) return
     const sessions = this.database.db.query('SELECT status_snapshot FROM session_summaries WHERE item_id = ? AND user_id = ?').all(itemId, userId) as Array<{ status_snapshot: string }>
@@ -711,5 +724,50 @@ export class ThinServerRepository {
     const nextStatus: WorkflowStatus = sessions.some((row) => row.status_snapshot === 'in_progress') ? 'in_progress' : 'not_started'
     const updatedAt = nowIsoString()
     this.database.db.query('UPDATE items SET status = ?, updated_at = ?, activity_at = ? WHERE id = ? AND user_id = ?').run(nextStatus, updatedAt, updatedAt, itemId, userId)
+  }
+
+  private dedupeSessionSummariesByBaseUrl(userId: string) {
+    const duplicateGroups = this.database.db.query(`
+      SELECT s.external_session_id AS external_session_id, sp.base_url AS base_url, COUNT(*) AS count
+      FROM session_summaries s
+      INNER JOIN server_profiles sp ON sp.id = s.server_profile_id
+      WHERE s.user_id = ?
+      GROUP BY s.external_session_id, sp.base_url
+      HAVING COUNT(*) > 1
+    `).all(userId) as Array<{ external_session_id: string; base_url: string; count: number }>
+
+    for (const group of duplicateGroups) {
+      const rows = this.database.db.query(`
+        SELECT s.*
+        FROM session_summaries s
+        INNER JOIN server_profiles sp ON sp.id = s.server_profile_id
+        WHERE s.user_id = ?
+          AND s.external_session_id = ?
+          AND sp.base_url = ?
+        ORDER BY s.updated_at DESC, s.activity_at DESC, s.created_at DESC
+      `).all(userId, group.external_session_id, group.base_url) as SessionSummaryRow[]
+
+      const sorted = [...rows].sort((a, b) => {
+        const aBound = a.item_id ? 1 : 0
+        const bBound = b.item_id ? 1 : 0
+        if (aBound !== bBound) return bBound - aBound
+
+        const activityDiff = Date.parse(b.activity_at) - Date.parse(a.activity_at)
+        if (!Number.isNaN(activityDiff) && activityDiff !== 0) return activityDiff
+
+        const updatedDiff = Date.parse(b.updated_at) - Date.parse(a.updated_at)
+        if (!Number.isNaN(updatedDiff) && updatedDiff !== 0) return updatedDiff
+
+        return b.created_at.localeCompare(a.created_at)
+      })
+
+      const keeper = sorted[0]
+      const duplicates = sorted.slice(1)
+      if (!keeper || duplicates.length === 0) continue
+
+      for (const row of duplicates) {
+        this.database.db.query('DELETE FROM session_summaries WHERE id = ?').run(row.id)
+      }
+    }
   }
 }

@@ -150,6 +150,7 @@ export function ItemDetailPanel({
   const [sessionMenuAnchor, setSessionMenuAnchor] = useState<DOMRect | null>(null)
   const [bindMenuOpen, setBindMenuOpen] = useState(false)
   const [bindableSessions, setBindableSessions] = useState<ApiSession[]>([])
+  const [existingLinkedSessionIds, setExistingLinkedSessionIds] = useState<Set<string> | null>(null)
   const bindMenuRef = useRef<HTMLDivElement | null>(null)
   const itemMenuRef = useRef<HTMLDivElement | null>(null)
   const sessionMenuRef = useRef<HTMLDivElement | null>(null)
@@ -253,6 +254,42 @@ export function ItemDetailPanel({
       cancelled = true
     }
   }, [bindMenuOpen, isCreateMode, linkedSessions, projectDirectory, unboundSessions])
+
+  useEffect(() => {
+    if (isCreateMode) return
+
+    const directory = formatPathForApi(projectDirectory)
+    if (!directory) {
+      setExistingLinkedSessionIds(null)
+      return
+    }
+
+    let cancelled = false
+    void getSessions({ directory, roots: true, limit: 200 }).then(async (sessions) => {
+      if (cancelled) return
+
+      const nextIds = new Set(sessions.map((session) => session.id))
+      setExistingLinkedSessionIds(nextIds)
+
+      const staleSummaries = linkedSessions.filter((session) => !nextIds.has(session.externalSessionId))
+      if (staleSummaries.length === 0) return
+
+      await Promise.allSettled(staleSummaries.map(async (session) => {
+        await onUnbindSession(session.id)
+      }))
+    }).catch(() => {
+      if (!cancelled) setExistingLinkedSessionIds(null)
+    })
+
+    return () => {
+      cancelled = true
+    }
+  }, [isCreateMode, linkedSessions, onUnbindSession, projectDirectory])
+
+  const visibleLinkedSessions = useMemo(() => {
+    if (!existingLinkedSessionIds) return linkedSessions
+    return linkedSessions.filter((session) => existingLinkedSessionIds.has(session.externalSessionId))
+  }, [existingLinkedSessionIds, linkedSessions])
 
   const markSaved = (message = '已保存') => {
     setSaveState('saved')
@@ -499,9 +536,9 @@ export function ItemDetailPanel({
               <Button type="button" variant="ghost" size="sm" onClick={() => void onCreateSession(item.id)}>新建会话</Button>
             )}
           </div>
-          {linkedSessions.length === 0 ? (
+          {visibleLinkedSessions.length === 0 ? (
             <div className="text-sm text-text-500">当前事项暂无关联会话。</div>
-          ) : linkedSessions.map((session) => {
+          ) : visibleLinkedSessions.map((session) => {
             const isPinned = !!isLinkedSessionPinned?.(session.externalSessionId)
             const isMenuOpen = sessionMenuId === session.id
             return (
@@ -513,6 +550,7 @@ export function ItemDetailPanel({
                 menuOpen={isMenuOpen}
                 updatedTime={Date.parse(session.updatedAt || session.activityAt)}
                 tagLabel="会话"
+                tagStatus={session.statusSnapshot}
                 menuAnchorRect={isMenuOpen ? sessionMenuAnchor : null}
                 menuRef={sessionMenuRef}
                 menuActions={[

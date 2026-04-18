@@ -449,8 +449,8 @@ export function useChatSession({ chatAreaRef, currentModel, refetchModels }: Use
   }, [animateRedo, handleRedo])
 
   // Session selection
-  const handleSelectSession = useCallback((session: ApiSession) => {
-    navigateToSession(session.id, session.directory)
+  const handleSelectSession = useCallback((session: ApiSession, options?: { clearItemContext?: boolean }) => {
+    navigateToSession(session.id, session.directory, options)
   }, [navigateToSession])
 
   // New session

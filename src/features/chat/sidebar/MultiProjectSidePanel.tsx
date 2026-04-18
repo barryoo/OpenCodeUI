@@ -12,10 +12,12 @@ import {
   updateSession,
 } from '../../../api'
 import {
+  CheckIcon,
   ChevronDownIcon,
   ClockIcon,
   ComposeIcon,
   CopyIcon,
+  FilterIcon,
   FolderIcon,
   FolderOpenIcon,
   MoreHorizontalIcon,
@@ -26,7 +28,7 @@ import {
   SpinnerIcon,
   TrashIcon,
 } from '../../../components/Icons'
-import { Button, Dialog } from '../../../components/ui'
+import { Button, Dialog, DropdownMenu } from '../../../components/ui'
 import { ConfirmDialog } from '../../../components/ui/ConfirmDialog'
 import { TauriWindowControls } from '../../../components/TauriWindowControls'
 import { useDirectory, useSessionStats, fetchSessionQuery, fetchSessionStatusQuery } from '../../../hooks'
@@ -41,6 +43,26 @@ import { serverStore } from '../../../store/serverStore'
 import { useItemWorkspaceStore } from '../../../store/itemWorkspaceStore'
 import { SidePanel, SidebarFooter, type SidePanelProps } from './SidePanel'
 import { ActionMenu, ActionMenuItem, SessionListItem } from './SessionListItem'
+import type { ThinSessionSummary, ThinWorkflowStatus } from '../../../api/thinServer'
+
+const THREAD_TYPE_FILTER_OPTIONS = [
+  { value: 'all', label: '所有' },
+  { value: 'item', label: '事项' },
+  { value: 'session', label: '会话' },
+] as const
+
+const THREAD_STATUS_FILTER_OPTIONS: Array<{ value: 'all' | ThinWorkflowStatus; label: string }> = [
+  { value: 'all', label: '所有' },
+  { value: 'not_started', label: '未开始' },
+  { value: 'in_progress', label: '进行中' },
+  { value: 'completed', label: '完成' },
+  { value: 'abandoned', label: '放弃' },
+]
+
+const THREAD_STATUS_VALUES: ThinWorkflowStatus[] = ['not_started', 'in_progress', 'completed', 'abandoned']
+const DEFAULT_THREAD_STATUS_FILTERS: ThinWorkflowStatus[] = ['not_started', 'in_progress']
+
+type ThreadTypeFilter = (typeof THREAD_TYPE_FILTER_OPTIONS)[number]['value']
 
 const DEFAULT_VISIBLE_COUNT = 3
 const DEFAULT_RECENT_VISIBLE_COUNT = 10
@@ -72,6 +94,43 @@ function isInternalProjectDrag(dataTransfer: DataTransfer | null): boolean {
   if (!dataTransfer) return false
   const types = Array.from(dataTransfer.types || [])
   return types.includes(PROJECT_DRAG_TYPE)
+}
+
+function toTimestamp(value?: string | null): number {
+  if (!value) return 0
+  const parsed = Date.parse(value)
+  return Number.isNaN(parsed) ? 0 : parsed
+}
+
+function compareSummaryPriority(a: ThinSessionSummary, b: ThinSessionSummary): number {
+  const aBound = a.itemId ? 1 : 0
+  const bBound = b.itemId ? 1 : 0
+  if (aBound !== bBound) return bBound - aBound
+
+  const activityDiff = toTimestamp(b.activityAt) - toTimestamp(a.activityAt)
+  if (activityDiff !== 0) return activityDiff
+
+  const updatedDiff = toTimestamp(b.updatedAt) - toTimestamp(a.updatedAt)
+  if (updatedDiff !== 0) return updatedDiff
+
+  return b.id.localeCompare(a.id)
+}
+
+function dedupeSummariesByExternalSessionId(summaries: ThinSessionSummary[]): ThinSessionSummary[] {
+  const byExternalId = new Map<string, ThinSessionSummary>()
+
+  for (const summary of summaries) {
+    const existing = byExternalId.get(summary.externalSessionId)
+    if (!existing || compareSummaryPriority(summary, existing) < 0) {
+      byExternalId.set(summary.externalSessionId, summary)
+    }
+  }
+
+  return Array.from(byExternalId.values())
+}
+
+function hasSameStatusSelection(current: ThinWorkflowStatus[], target: ThinWorkflowStatus[]): boolean {
+  return current.length === target.length && target.every((value) => current.includes(value))
 }
 
 interface ProjectNode {
@@ -207,6 +266,9 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
   const [hasMoreByProject, setHasMoreByProject] = useState<Record<string, boolean>>({})
   const [loadedLimitByProject, setLoadedLimitByProject] = useState<Record<string, number>>({})
   const [openMenu, setOpenMenu] = useState<OpenMenuState>(null)
+  const [isThreadFilterOpen, setIsThreadFilterOpen] = useState(false)
+  const [threadTypeFilter, setThreadTypeFilter] = useState<ThreadTypeFilter>('all')
+  const [threadStatusFilters, setThreadStatusFilters] = useState<ThinWorkflowStatus[]>(DEFAULT_THREAD_STATUS_FILTERS)
   // 移动端：记录最近被点击的项目，用于控制该项目操作按钮的显示
   const [tappedProjectPath, setTappedProjectPath] = useState<string | null>(null)
   const [draggingProjectPath, setDraggingProjectPath] = useState<string | null>(null)
@@ -243,6 +305,8 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
   const [sessionRenameInput, setSessionRenameInput] = useState('')
   const [isRenamingSession, setIsRenamingSession] = useState(false)
   const menuRef = useRef<HTMLDivElement | null>(null)
+  const threadFilterTriggerRef = useRef<HTMLButtonElement | null>(null)
+  const threadFilterMenuRef = useRef<HTMLDivElement | null>(null)
   const renameInputRef = useRef<HTMLInputElement | null>(null)
   const recentRefreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const selectedSessionReloadKeyRef = useRef<string | null>(null)
@@ -268,6 +332,7 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
   const getProjectEntries = useItemWorkspaceStore((state) => state.getProjectEntries)
   const getProjectError = useItemWorkspaceStore((state) => state.getProjectError)
   const isProjectLoading = useItemWorkspaceStore((state) => state.isProjectLoading)
+  const allSummaries = useItemWorkspaceStore((state) => state.allSummaries)
   useItemWorkspaceStore((state) => state.projectStates)
   const setDraftItem = useItemWorkspaceStore((state) => state.setDraftItem)
   const deleteItem = useItemWorkspaceStore((state) => state.deleteItem)
@@ -359,6 +424,39 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
 
   const getSessionUpdatedAt = useCallback((session: ApiSession): number => {
     return session.time.updated ?? session.time.created ?? 0
+  }, [])
+
+  const sortSessionsByRecent = useCallback((sessions: ApiSession[]) => {
+    return [...sessions].sort((a, b) => getSessionUpdatedAt(b) - getSessionUpdatedAt(a))
+  }, [getSessionUpdatedAt])
+
+  const allSummaryByExternalId = useMemo(() => {
+    return new Map(
+      dedupeSummariesByExternalSessionId(allSummaries).map((summary) => [summary.externalSessionId, summary])
+    )
+  }, [allSummaries])
+
+  const threadStatusFilterSet = useMemo(() => new Set(threadStatusFilters), [threadStatusFilters])
+  const isThreadStatusAllSelected = hasSameStatusSelection(threadStatusFilters, THREAD_STATUS_VALUES)
+  const matchesThreadFilters = useCallback((entry: { kind: 'item' | 'session'; status: ThinWorkflowStatus }) => {
+    if (threadTypeFilter !== 'all' && entry.kind !== threadTypeFilter) return false
+    return threadStatusFilterSet.has(entry.status)
+  }, [threadStatusFilterSet, threadTypeFilter])
+
+  const handleThreadStatusToggle = useCallback((value: 'all' | ThinWorkflowStatus) => {
+    if (value === 'all') {
+      setThreadStatusFilters(THREAD_STATUS_VALUES)
+      return
+    }
+
+    setThreadStatusFilters((prev) => {
+      const exists = prev.includes(value)
+      if (exists) {
+        if (prev.length === 1) return prev
+        return prev.filter((item) => item !== value)
+      }
+      return [...prev, value]
+    })
   }, [])
 
   const loadRecentSessions = useCallback(async (limit: number) => {
@@ -623,7 +721,7 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
         limit,
       })
 
-      setSessionsByProject((prev) => ({ ...prev, [projectPath]: data }))
+      setSessionsByProject((prev) => ({ ...prev, [projectPath]: sortSessionsByRecent(data) }))
       setHasMoreByProject((prev) => ({ ...prev, [projectPath]: data.length >= limit }))
       setLoadedLimitByProject((prev) => ({ ...prev, [projectPath]: limit }))
       syncPinnedEntriesWithSessions(projectPath, data)
@@ -639,7 +737,7 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
     } finally {
       setLoadingByProject((prev) => ({ ...prev, [projectPath]: false }))
     }
-  }, [ensureProjectSummaryForSessions, loadItemProject, syncPinnedEntriesWithSessions])
+  }, [ensureProjectSummaryForSessions, loadItemProject, sortSessionsByRecent, syncPinnedEntriesWithSessions])
 
   useEffect(() => {
     for (const project of projects) {
@@ -689,6 +787,24 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
   }, [openMenu])
 
   useEffect(() => {
+    if (!isThreadFilterOpen) return
+
+    const handleOutside = (event: MouseEvent | TouchEvent) => {
+      const target = event.target as Node
+      if (threadFilterMenuRef.current?.contains(target)) return
+      if (threadFilterTriggerRef.current?.contains(target)) return
+      setIsThreadFilterOpen(false)
+    }
+
+    document.addEventListener('mousedown', handleOutside)
+    document.addEventListener('touchstart', handleOutside)
+    return () => {
+      document.removeEventListener('mousedown', handleOutside)
+      document.removeEventListener('touchstart', handleOutside)
+    }
+  }, [isThreadFilterOpen])
+
+  useEffect(() => {
     const unsubscribe = subscribeToEvents({
       onSessionCreated: (session) => {
         if (session.parentID) return
@@ -705,7 +821,7 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
 
           return {
             ...prev,
-            [matchPath]: [session, ...currentList],
+            [matchPath]: sortSessionsByRecent([session, ...currentList]),
           }
         })
 
@@ -746,7 +862,7 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
           if (!changed) return prev
           return {
             ...prev,
-            [matchPath]: nextList,
+            [matchPath]: sortSessionsByRecent(nextList),
           }
         })
 
@@ -803,7 +919,7 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
     })
 
     return unsubscribe
-  }, [projects, expandedProjects, loadedLimitByProject, visibleCountByProject, loadProjectSessions, scheduleRecentRefresh])
+  }, [projects, expandedProjects, loadedLimitByProject, visibleCountByProject, loadProjectSessions, scheduleRecentRefresh, sortSessionsByRecent])
 
   useEffect(() => {
     if (!selectedSessionId || !currentDirectory) return
@@ -1809,6 +1925,7 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
                     menuOpen={isSessionMenuOpen}
                     menuRef={menuRef}
                     menuAnchorRect={isSessionMenuOpen ? openMenu?.anchorRect : null}
+                    tagStatus={entry.session?.projectID ? (allSummaryByExternalId.get(entry.sessionId)?.statusSnapshot ?? 'in_progress') : 'in_progress'}
                     menuActions={[
                       {
                         label: '取消置顶',
@@ -1906,6 +2023,7 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
                     menuOpen={isSessionMenuOpen}
                     menuRef={menuRef}
                     menuAnchorRect={isSessionMenuOpen ? openMenu?.anchorRect : null}
+                    tagStatus={session.projectID ? (allSummaryByExternalId.get(session.id)?.statusSnapshot ?? 'in_progress') : 'in_progress'}
                     menuActions={[
                       {
                         label: isPinned ? '取消置顶' : '置顶会话',
@@ -1972,6 +2090,86 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
 
         <div className="flex items-center justify-between px-1.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-text-400/80">
           <span>线程</span>
+          <div className="relative">
+            <button
+              ref={threadFilterTriggerRef}
+              type="button"
+              onClick={() => setIsThreadFilterOpen((prev) => !prev)}
+              className={`relative h-5 w-5 rounded-md flex items-center justify-center transition-colors ${
+                isThreadFilterOpen
+                  ? 'text-text-100 bg-[var(--sidebar-hover-bg)]'
+                  : 'text-text-400 hover:text-text-100 hover:bg-[var(--sidebar-hover-bg)]'
+              }`}
+              title="过滤线程"
+              aria-label="过滤线程"
+              aria-expanded={isThreadFilterOpen}
+            >
+              <FilterIcon size={12} />
+            </button>
+
+            <DropdownMenu
+              triggerRef={threadFilterTriggerRef}
+              isOpen={isThreadFilterOpen}
+              align="right"
+              minWidth="180px"
+              maxWidth="min(220px, calc(100vw - 24px))"
+              className="!p-0 overflow-hidden"
+            >
+              <div ref={threadFilterMenuRef} className="w-[180px] max-w-[calc(100vw-24px)] bg-bg-000/98 px-1 py-1">
+                <div className="px-2 py-1 text-[10px] font-semibold tracking-wider text-text-400/80">类型</div>
+                <div className="space-y-0.5">
+                  {THREAD_TYPE_FILTER_OPTIONS.map((option) => {
+                    const selected = threadTypeFilter === option.value
+                    return (
+                      <button
+                        key={option.value}
+                        type="button"
+                        onClick={() => setThreadTypeFilter(option.value)}
+                        className={`flex h-7 w-full items-center justify-between rounded-md px-2 text-[12px] transition-colors ${
+                          selected
+                            ? 'bg-[var(--sidebar-hover-bg)] text-text-100'
+                            : 'text-text-200 hover:bg-[var(--sidebar-hover-bg)] hover:text-text-100'
+                        }`}
+                      >
+                        <span>{option.label}</span>
+                        <span className={`text-text-400 transition-opacity ${selected ? 'opacity-100' : 'opacity-0'}`}>
+                          <CheckIcon size={12} />
+                        </span>
+                      </button>
+                    )
+                  })}
+                </div>
+
+                <div className="my-1 border-t border-border-200/50" />
+
+                <div className="px-2 py-1 text-[10px] font-semibold tracking-wider text-text-400/80">状态</div>
+                <div className="space-y-0.5">
+                  {THREAD_STATUS_FILTER_OPTIONS.map((option) => {
+                    const selected = option.value === 'all'
+                      ? isThreadStatusAllSelected
+                      : threadStatusFilterSet.has(option.value)
+                    return (
+                      <button
+                        key={option.value}
+                        type="button"
+                        onClick={() => handleThreadStatusToggle(option.value)}
+                        className={`flex h-7 w-full items-center justify-between rounded-md px-2 text-[12px] transition-colors ${
+                          selected
+                            ? 'bg-[var(--sidebar-hover-bg)] text-text-100'
+                            : 'text-text-200 hover:bg-[var(--sidebar-hover-bg)] hover:text-text-100'
+                        }`}
+                      >
+                        <span>{option.label}</span>
+                        <span className={`text-text-400 transition-opacity ${selected ? 'opacity-100' : 'opacity-0'}`}>
+                          <CheckIcon size={12} />
+                        </span>
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            </DropdownMenu>
+          </div>
         </div>
 
         {projects.length === 0 ? (
@@ -2004,6 +2202,7 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
               const sessions = sessionsByProject[project.path] ?? []
               const projectId = sessions[0]?.projectID ?? projectIdByPath[project.path] ?? null
               const mixedEntries = projectId ? getProjectEntries(projectId, sessions) : []
+              const filteredEntries = mixedEntries.filter(matchesThreadFilters)
               const itemProjectError = projectId ? getProjectError(projectId) : undefined
               const itemProjectLoading = projectId ? isProjectLoading(projectId) : false
               const isLoading = loadingByProject[project.path] ?? false
@@ -2186,8 +2385,12 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
                               </button>
                             )}
                           </div>
+                        ) : filteredEntries.length === 0 ? (
+                          <div className="ml-5 px-1.5 py-2 text-[11px] text-text-500">
+                            暂无匹配线程
+                          </div>
                         ) : (
-                          mixedEntries.map((entry) => {
+                          filteredEntries.map((entry) => {
                             if (entry.kind === 'item' && entry.item && projectId) {
                               const isSelected = entry.item.id === selectedItemId
                               const isPinnedItem = pinnedItems.some((candidate) => candidate.itemId === entry.item!.id)
@@ -2231,7 +2434,7 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
                                       </span>
                                     </span>
                                     <span className="min-w-0 flex-1 flex items-center gap-1.5 overflow-hidden">
-                                      <span className="shrink-0 rounded bg-accent-main-100/15 px-1.5 py-0.5 text-[9px] leading-none text-accent-main-100">
+                                      <span className={`shrink-0 rounded px-1.5 py-0.5 text-[9px] leading-none ${entry.status === 'in_progress' ? 'bg-sky-500/15 text-sky-300' : entry.status === 'not_started' ? 'bg-violet-500/15 text-violet-300' : entry.status === 'completed' ? 'bg-emerald-500/15 text-emerald-300' : 'bg-zinc-500/15 text-zinc-400'}`}>
                                         {getItemTypeLabel(entry.item.type)}
                                       </span>
                                       <span className="truncate text-[12px] font-medium leading-none">
@@ -2331,6 +2534,7 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
                                 updatedTime={updatedTime}
                                 menuOpen={isSessionMenuOpen}
                                 tagLabel="会话"
+                                tagStatus={entry.status}
                                 menuRef={menuRef}
                                 menuAnchorRect={isSessionMenuOpen ? openMenu?.anchorRect : null}
                                 menuActions={[

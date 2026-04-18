@@ -19,6 +19,7 @@ dist-ssr
 
 # Docker
 workspace/
+data/
 
 # Rust
 src-tauri/target/

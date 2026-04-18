@@ -192,6 +192,11 @@ export async function listThinSessionSummaries(projectId: string): Promise<ThinS
   return response.sessions ?? response.data ?? []
 }
 
+export async function listAllThinSessionSummaries(): Promise<ThinSessionSummary[]> {
+  const response = await thinRequest<ThinResponse<ThinSessionSummary[]>>('/api/session-summaries')
+  return response.sessions ?? response.data ?? []
+}
+
 export async function listThinItemSessionSummaries(itemId: string): Promise<ThinSessionSummary[]> {
   const response = await thinRequest<ThinResponse<ThinSessionSummary[]>>(`/api/items/${encodeURIComponent(itemId)}/session-summaries`)
   return response.sessions ?? response.data ?? []

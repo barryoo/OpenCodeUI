@@ -78,6 +78,16 @@ function buildHash(
 export function useRouter() {
   const [route, setRoute] = useState<RouteState>(parseHash)
 
+  const updateRoute = useCallback((next: RouteState, replace = false) => {
+    const newHash = buildHash(next.sessionId, next.directory, next.itemProjectId, next.itemId)
+    if (replace) {
+      window.history.replaceState(null, '', newHash)
+      setRoute(next)
+      return
+    }
+    window.location.hash = newHash
+  }, [])
+
   // 监听 hash 变化
   useEffect(() => {
     const handleHashChange = () => {
@@ -89,27 +99,35 @@ export function useRouter() {
   }, [])
 
   // 导航到 session（默认保留当前 directory，可选传入目标 directory）
-  const navigateToSession = useCallback((sessionId: string, directory?: string) => {
+  const navigateToSession = useCallback((sessionId: string, directory?: string, options?: { clearItemContext?: boolean }) => {
     const dir = directory !== undefined ? (normalizeToForwardSlash(directory) || undefined) : route.directory
-    window.location.hash = buildHash(sessionId, dir, route.itemProjectId, route.itemId)
-  }, [route.directory, route.itemId, route.itemProjectId])
+    updateRoute({
+      sessionId,
+      directory: dir,
+      itemProjectId: options?.clearItemContext ? undefined : route.itemProjectId,
+      itemId: options?.clearItemContext ? undefined : route.itemId,
+    })
+  }, [route.directory, route.itemId, route.itemProjectId, updateRoute])
 
   // 导航到首页（保留当前 directory）
   const navigateHome = useCallback(() => {
-    window.location.hash = buildHash(null, route.directory, route.itemProjectId, route.itemId)
-  }, [route.directory, route.itemId, route.itemProjectId])
-
-  // 替换当前路由（不产生历史记录）
-  const replaceSession = useCallback((sessionId: string | null) => {
-    const newHash = buildHash(sessionId, route.directory, route.itemProjectId, route.itemId)
-    window.history.replaceState(null, '', newHash)
-    setRoute({
-      sessionId,
+    updateRoute({
+      sessionId: null,
       directory: route.directory,
       itemProjectId: route.itemProjectId,
       itemId: route.itemId,
     })
-  }, [route.directory, route.itemId, route.itemProjectId])
+  }, [route.directory, route.itemId, route.itemProjectId, updateRoute])
+
+  // 替换当前路由（不产生历史记录）
+  const replaceSession = useCallback((sessionId: string | null) => {
+    updateRoute({
+      sessionId,
+      directory: route.directory,
+      itemProjectId: route.itemProjectId,
+      itemId: route.itemId,
+    }, true)
+  }, [route.directory, route.itemId, route.itemProjectId, updateRoute])
 
   // 设置 directory（切换目录时清除当前 session，避免 session 与目录不匹配）
   const setDirectory = useCallback((directory: string | undefined) => {
@@ -150,21 +168,13 @@ export function useRouter() {
   const setItemContext = useCallback((projectId: string | undefined, itemId: string | undefined, replace = true) => {
     const normalizedProjectId = projectId || undefined
     const normalizedItemId = itemId || undefined
-    const newHash = buildHash(route.sessionId, route.directory, normalizedProjectId, normalizedItemId)
-
-    if (replace) {
-      window.history.replaceState(null, '', newHash)
-      setRoute({
-        sessionId: route.sessionId,
-        directory: route.directory,
-        itemProjectId: normalizedProjectId,
-        itemId: normalizedItemId,
-      })
-      return
-    }
-
-    window.location.hash = newHash
-  }, [route.directory, route.sessionId])
+    updateRoute({
+      sessionId: route.sessionId,
+      directory: route.directory,
+      itemProjectId: normalizedProjectId,
+      itemId: normalizedItemId,
+    }, replace)
+  }, [route.directory, route.sessionId, updateRoute])
 
   return {
     sessionId: route.sessionId,

@@ -346,22 +346,44 @@ function App() {
 
   useEffect(() => {
     if (selectedItem && selectedItemProjectId) {
+      if (routeItemProjectId === selectedItemProjectId && routeItemId === selectedItem.id) return
       setItemContext(selectedItemProjectId, selectedItem.id)
       return
     }
+
+    if (!routeItemProjectId && !routeItemId) return
     setItemContext(undefined, undefined)
-  }, [selectedItem?.id, selectedItemProjectId, setItemContext, selectedItem])
+  }, [
+    routeItemId,
+    routeItemProjectId,
+    selectedItem?.id,
+    selectedItemProjectId,
+    setItemContext,
+    selectedItem,
+  ])
 
   useEffect(() => {
+    if (!routeItemProjectId || !routeItemId) return
     if (!selectedItem || linkedSummaries.length === 0) return
     if (pendingItemSessionBinding && pendingItemSessionBinding.itemId === selectedItem.id) return
     if (!routeSessionId) return
+    if (linkedSummaries.some((summary) => summary.externalSessionId === routeSessionId)) return
+    if (activeStoreSessionId && linkedSummaries.some((summary) => summary.externalSessionId === activeStoreSessionId)) return
     const firstLinked = linkedSummaries[0]
     if (!firstLinked?.externalSessionId) return
     if (routeSessionId === firstLinked.externalSessionId) return
     if (activeStoreSessionId === firstLinked.externalSessionId) return
     void handleSelectSessionFromItem(firstLinked.externalSessionId)
-  }, [selectedItem?.id, linkedSummaries, routeSessionId, activeStoreSessionId, handleSelectSessionFromItem, pendingItemSessionBinding])
+  }, [
+    routeItemProjectId,
+    routeItemId,
+    selectedItem?.id,
+    linkedSummaries,
+    routeSessionId,
+    activeStoreSessionId,
+    handleSelectSessionFromItem,
+    pendingItemSessionBinding,
+  ])
 
   // ============================================
   // Agent Change with Model Sync
