@@ -12,6 +12,7 @@ import { todoStore } from './store/todoStore'
 import { messageCacheStore } from './store/messageCacheStore'
 import { autoApproveStore } from './store/autoApproveStore'
 import { serviceStore } from './store/serviceStore'
+import { authStore } from './store/authStore'
 import { reconnectSSE } from './api/events'
 import { queryClient } from './query/client'
 import { resetPathModeCache } from './utils/directoryUtils'
@@ -40,6 +41,8 @@ ensureRandomUUID()
 
 // 初始化主题系统（在 React 渲染前注入 CSS 变量，避免闪烁）
 themeStore.init()
+
+void authStore.refresh()
 
 // 注册 server 切换 → 清理所有 server-specific 状态 + SSE 重连
 serverStore.onServerChange(() => {

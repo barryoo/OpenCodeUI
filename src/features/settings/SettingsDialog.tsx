@@ -8,8 +8,9 @@ import {
   SettingsIcon, KeyboardIcon, CloseIcon, BellIcon, CompactIcon, PlugIcon, StopIcon, EyeIcon
 } from '../../components/Icons'
 import { usePathMode, useServerStore, useIsMobile, useNotification, useRouter } from '../../hooks'
+import { loginWithGithub } from '../../api'
 import { layoutStore, useLayoutStore, type SidebarViewMode } from '../../store/layoutStore'
-import { messageStore, notificationStore } from '../../store'
+import { authStore, messageStore, notificationStore, useAuthStore } from '../../store'
 import { serviceStore, useServiceStore } from '../../store/serviceStore'
 import { themeStore, type ToolOutputExpansionLevel } from '../../store/themeStore'
 import { isTauri } from '../../utils/tauri'
@@ -985,13 +986,14 @@ function GeneralSettings({ mode }: { mode: 'chat' | 'notifications' | 'service' 
 // Tab: Servers
 // ============================================
 
-function ServerItem({ server, health, isActive, onSelect, onDelete, onCheckHealth }: {
+function ServerItem({ server, health, isActive, onSelect, onDelete, onCheckHealth, onSetDefault }: {
   server: ServerConfig
   health: ServerHealth | null
   isActive: boolean
   onSelect: () => void
   onDelete: () => void
   onCheckHealth: () => void
+  onSetDefault: () => void
 }) {
   const statusIcon = () => {
     if (!health || health.status === 'checking') return <SpinnerIcon size={12} className="animate-spin text-text-400" />
@@ -1044,6 +1046,15 @@ function ServerItem({ server, health, isActive, onSelect, onDelete, onCheckHealt
       >
         {statusIcon()}
       </button>
+      {!server.isDefault && (
+        <button
+          className="p-2 rounded text-text-400 hover:text-accent-main-100 hover:bg-accent-main-100/10 transition-all"
+          onClick={(e) => { e.stopPropagation(); onSetDefault() }}
+          title="Set as default"
+        >
+          <CheckIcon size={12} />
+        </button>
+      )}
       {!server.isDefault && (
         <button 
           className="p-2 rounded text-text-400 hover:text-danger-100 hover:bg-danger-100/10 
@@ -1149,9 +1160,74 @@ function AddServerForm({ onAdd, onCancel }: {
   )
 }
 
+function EditServerForm({
+  server,
+  onSave,
+  onCancel,
+}: {
+  server: ServerConfig
+  onSave: (name: string, url: string, username?: string, password?: string) => void
+  onCancel: () => void
+}) {
+  const [name, setName] = useState(server.name)
+  const [url, setUrl] = useState(server.url)
+  const [username, setUsername] = useState(server.auth?.username ?? '')
+  const [password, setPassword] = useState(server.auth?.password ?? '')
+  const [showAuth, setShowAuth] = useState(!!server.auth?.password)
+  const [error, setError] = useState('')
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!name.trim()) { setError('Name required'); return }
+    if (!url.trim()) { setError('URL required'); return }
+    try { new URL(url) } catch { setError('Invalid URL'); return }
+    onSave(name.trim(), url.trim(), password.trim() ? (username.trim() || 'opencode') : undefined, password.trim() || undefined)
+  }
+
+  const inputCls = "w-full h-8 px-3 text-[13px] bg-bg-000 border border-border-200 rounded-md focus:outline-none focus:border-accent-main-100/50 text-text-100 placeholder:text-text-400"
+
+  return (
+    <form onSubmit={handleSubmit} className="p-3 rounded-lg border border-accent-main-100/20 bg-accent-main-100/5 space-y-2.5">
+      <div>
+        <label className="block text-[11px] font-medium text-text-300 mb-1">Name</label>
+        <input type="text" value={name} onChange={e => { setName(e.target.value); setError('') }} className={inputCls} autoFocus />
+      </div>
+      <div>
+        <label className="block text-[11px] font-medium text-text-300 mb-1">URL</label>
+        <input type="text" value={url} onChange={e => { setUrl(e.target.value); setError('') }} className={inputCls} />
+      </div>
+      <button type="button" onClick={() => setShowAuth(!showAuth)} className="flex items-center gap-1.5 text-[11px] text-accent-main-100 hover:text-accent-main-200 transition-colors">
+        <KeyIcon size={10} />
+        {showAuth ? 'Hide authentication' : 'Edit authentication'}
+      </button>
+      {showAuth && (
+        <>
+          <div>
+            <label className="block text-[11px] font-medium text-text-300 mb-1">Username</label>
+            <input type="text" value={username} onChange={e => { setUsername(e.target.value); setError('') }} className={inputCls} />
+          </div>
+          <div>
+            <label className="block text-[11px] font-medium text-text-300 mb-1">Password</label>
+            <input type="password" value={password} onChange={e => { setPassword(e.target.value); setError('') }} className={inputCls} />
+          </div>
+        </>
+      )}
+      {error && <p className="text-[11px] text-danger-100">{error}</p>}
+      <div className="flex justify-end gap-2 pt-1">
+        <Button type="button" variant="ghost" size="sm" onClick={onCancel}>Cancel</Button>
+        <Button type="submit" size="sm">Save</Button>
+      </div>
+    </form>
+  )
+}
+
 function ServersSettings() {
   const [addingServer, setAddingServer] = useState(false)
-  const { servers, activeServer, addServer, removeServer, setActiveServer, checkHealth, checkAllHealth, getHealth } = useServerStore()
+  const [editingServerId, setEditingServerId] = useState<string | null>(null)
+  const [busyServerId, setBusyServerId] = useState<string | null>(null)
+  const [busyAction, setBusyAction] = useState<string | null>(null)
+  const authState = useAuthStore()
+  const { servers, activeServer, addServer, updateServer, removeServer, setActiveServer, setDefaultServer, refreshServers, checkHealth, checkAllHealth, getHealth } = useServerStore()
   const { navigateHome, sessionId: routeSessionId } = useRouter()
   const orderedServers = useMemo(() => {
     if (!activeServer) return servers
@@ -1160,23 +1236,116 @@ function ServersSettings() {
     return [active, ...servers.filter(s => s.id !== active.id)]
   }, [servers, activeServer?.id])
   
-  useEffect(() => { checkAllHealth() }, [checkAllHealth])
+  useEffect(() => { void checkAllHealth() }, [checkAllHealth])
+  const authUser = authState.user
+  const authMode = authState.mode
+  const authBusy = authState.status === 'checking' || authState.status === 'redirecting'
 
   // 切换服务器：设置 active + 清理当前 session + 导航回首页
-  const handleSelectServer = useCallback((id: string) => {
+  const handleSelectServer = useCallback(async (id: string) => {
     if (activeServer?.id === id) return // 没变，不做事
-    
+    setBusyServerId(id)
+    setBusyAction('select')
     // 清理当前 session 的 store 状态
     if (routeSessionId) {
       messageStore.clearSession(routeSessionId)
     }
-    
-    setActiveServer(id) // 内部触发 serverChangeListeners → reconnectSSE()
-    navigateHome()
+
+    try {
+      await setActiveServer(id)
+      navigateHome()
+    } finally {
+      setBusyServerId(null)
+      setBusyAction(null)
+    }
   }, [activeServer?.id, routeSessionId, setActiveServer, navigateHome])
+
+  const handleDeleteServer = useCallback(async (id: string) => {
+    setBusyServerId(id)
+    setBusyAction('delete')
+    try {
+      await removeServer(id)
+    } finally {
+      setBusyServerId(null)
+      setBusyAction(null)
+    }
+  }, [removeServer])
+
+  const handleSetDefault = useCallback(async (id: string) => {
+    setBusyServerId(id)
+    setBusyAction('default')
+    try {
+      await setDefaultServer(id)
+    } finally {
+      setBusyServerId(null)
+      setBusyAction(null)
+    }
+  }, [setDefaultServer])
+
+  const handleUpdateServer = useCallback(async (id: string, name: string, url: string, username?: string, password?: string) => {
+    setBusyServerId(id)
+    setBusyAction('edit')
+    try {
+      const auth = password ? { username: username || 'opencode', password } : undefined
+      await updateServer(id, { name, url, auth })
+      setEditingServerId(null)
+    } finally {
+      setBusyServerId(null)
+      setBusyAction(null)
+    }
+  }, [updateServer])
 
   return (
     <div className="space-y-4">
+      <SettingsCard
+        title="Account"
+        description="Thin server login state used for multi-user server and item sync"
+      >
+        <div className="flex items-center justify-between gap-3 rounded-lg border border-border-200/40 p-3">
+          <div className="min-w-0">
+            <div className="text-[13px] font-medium text-text-100">
+              {authBusy ? 'Checking sign-in status…' : authUser ? (authUser.name || authUser.login) : 'Not signed in'}
+            </div>
+            <div className="text-[11px] text-text-400 mt-0.5">
+              {authState.error
+                ? authState.error
+                : authUser
+                  ? `@${authUser.login}${authMode ? ` · ${authMode}` : ''}`
+                  : 'Login with GitHub to sync multi-user thin-server data'}
+            </div>
+          </div>
+          {authUser ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              disabled={authBusy}
+              onClick={() => {
+                void authStore.logout().then(() => refreshServers())
+              }}
+            >
+              {authBusy ? <SpinnerIcon size={12} className="animate-spin" /> : 'Logout'}
+            </Button>
+          ) : (
+            <Button
+              type="button"
+              size="sm"
+              disabled={authBusy}
+              onClick={() => {
+                void authStore.beginLogin()
+                  .then(() => refreshServers())
+                  .catch(() => {
+                    void loginWithGithub()
+                  })
+              }}
+            >
+              {authBusy ? <SpinnerIcon size={12} className="animate-spin" /> : 'Login'}
+            </Button>
+          )}
+        </div>
+        {authState.error && <p className="text-[11px] text-danger-100 mt-2">{authState.error}</p>}
+      </SettingsCard>
+
       <SettingsCard
         title="Connections"
         description="Manage backend endpoints and choose which server this session uses"
@@ -1201,27 +1370,53 @@ function ServersSettings() {
       >
         <div className="space-y-1.5">
           {orderedServers.map(s => (
-            <ServerItem
-              key={s.id}
-              server={s}
-              health={getHealth(s.id)}
-              isActive={activeServer?.id === s.id}
-              onSelect={() => handleSelectServer(s.id)}
-              onDelete={() => removeServer(s.id)}
-              onCheckHealth={() => checkHealth(s.id)}
-            />
+            <div key={s.id} className="space-y-1.5">
+              <ServerItem
+                server={s}
+                health={getHealth(s.id)}
+                isActive={activeServer?.id === s.id}
+                onSelect={() => handleSelectServer(s.id)}
+                onDelete={() => { void handleDeleteServer(s.id) }}
+                onCheckHealth={() => { void checkHealth(s.id) }}
+                onSetDefault={() => { void handleSetDefault(s.id) }}
+              />
+              <div className="flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => setEditingServerId((prev) => prev === s.id ? null : s.id)}
+                  className="text-[11px] px-2 py-1 rounded-md border border-border-200/60 text-text-300 hover:text-text-100 hover:border-border-300/70 hover:bg-bg-100/60 transition-colors"
+                >
+                  编辑
+                </button>
+              </div>
+              {editingServerId === s.id && (
+                <EditServerForm
+                  server={s}
+                  onSave={(name, url, user, pass) => { void handleUpdateServer(s.id, name, url, user, pass) }}
+                  onCancel={() => setEditingServerId(null)}
+                />
+              )}
+            </div>
           ))}
 
           {addingServer && (
             <AddServerForm
               onAdd={(n, u, user, pass) => {
-                const auth = pass ? { username: user || 'opencode', password: pass } : undefined
-                const s = addServer({ name: n, url: u, auth })
-                setAddingServer(false)
-                checkHealth(s.id)
+                void (async () => {
+                  const auth = pass ? { username: user || 'opencode', password: pass } : undefined
+                  const s = await addServer({ name: n, url: u, auth })
+                  setAddingServer(false)
+                  void checkHealth(s.id)
+                })()
               }}
               onCancel={() => setAddingServer(false)}
             />
+          )}
+
+          {busyServerId && (
+            <div className="text-[11px] text-text-400 px-1 py-1">
+              正在处理服务器操作：{busyAction}
+            </div>
           )}
 
           {servers.length === 0 && !addingServer && (

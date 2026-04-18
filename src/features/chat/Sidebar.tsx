@@ -4,8 +4,8 @@ import { MultiProjectSidePanel } from './sidebar/MultiProjectSidePanel'
 import { ProjectDialog } from './ProjectDialog'
 import { useDirectory } from '../../hooks'
 import { type ApiSession } from '../../api'
+import type { ThinItem } from '../../api/thinServer'
 import type { ThemeMode } from '../../hooks'
-import { useLayoutStore } from '../../store/layoutStore'
 
 const MIN_WIDTH = 240
 const MAX_WIDTH = 480
@@ -15,7 +15,9 @@ const RAIL_WIDTH = 49      // 3.05rem ≈ 49px
 interface SidebarProps {
   isOpen: boolean
   selectedSessionId: string | null
+  selectedItemId?: string | null
   onSelectSession: (session: ApiSession) => void
+  onSelectItem?: (projectId: string, item: ThinItem) => void
   onNewSession: (directory?: string) => void
   onOpen: () => void
   onClose: () => void
@@ -32,7 +34,9 @@ interface SidebarProps {
 export const Sidebar = memo(function Sidebar({
   isOpen,
   selectedSessionId,
+  selectedItemId,
   onSelectSession,
+  onSelectItem,
   onNewSession,
   onOpen,
   onClose,
@@ -48,8 +52,6 @@ export const Sidebar = memo(function Sidebar({
   const [isProjectDialogOpen, setIsProjectDialogOpen] = useState(false)
   const { addDirectory, pathInfo } = useDirectory()
   const [isMobile, setIsMobile] = useState(false)
-  const { sidebarViewMode } = useLayoutStore()
-
   // 外部触发打开 ProjectDialog（快捷键 / CommandPalette）
   useEffect(() => {
     if (projectDialogOpen) {
@@ -156,7 +158,7 @@ export const Sidebar = memo(function Sidebar({
     }
   }, [onSelectSession, isMobile, onClose])
 
-  const shouldUseMultiProjectSidebar = sidebarViewMode === 'multi' && isOpen
+  const shouldUseMultiProjectSidebar = isOpen
   const ActiveSidePanel = shouldUseMultiProjectSidebar ? MultiProjectSidePanel : SidePanel
 
   // ============================================
@@ -234,8 +236,10 @@ export const Sidebar = memo(function Sidebar({
           <ActiveSidePanel
             onNewSession={onNewSession}
             onSelectSession={handleSelectSession}
+            onSelectItem={onSelectItem}
             onCloseMobile={onClose}
             selectedSessionId={selectedSessionId}
+            selectedItemId={selectedItemId}
             onAddProject={openProjectDialog}
             isMobile={true}
             isExpanded={true}  // 移动端展开时始终是 expanded 状态
@@ -276,8 +280,10 @@ export const Sidebar = memo(function Sidebar({
         <ActiveSidePanel
           onNewSession={onNewSession}
           onSelectSession={onSelectSession}
+          onSelectItem={onSelectItem}
           onCloseMobile={onClose}
           selectedSessionId={selectedSessionId}
+          selectedItemId={selectedItemId}
           onAddProject={openProjectDialog}
           isMobile={false}
           isExpanded={isOpen}

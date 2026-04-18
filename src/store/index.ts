@@ -37,3 +37,7 @@ export { activeSessionStore, useActiveSessionStore, useBusySessions, useBusyCoun
 export type { ActiveSessionEntry } from './activeSessionStore'
 
 export { serviceStore, useServiceStore } from './serviceStore'
+
+export { useItemWorkspaceStore } from './itemWorkspaceStore'
+
+export { authStore, useAuthStore } from './authStore'

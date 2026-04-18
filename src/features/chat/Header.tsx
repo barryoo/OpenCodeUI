@@ -11,6 +11,68 @@ import { updateSession } from '../../api'
 import { setSessionQueryData, useSessionDetailQuery } from '../../hooks'
 import { uiErrorHandler } from '../../utils'
 import { handleWindowTitlebarMouseDown, isTauriMacOS } from '../../utils/tauri'
+import { useItemWorkspaceStore } from '../../store/itemWorkspaceStore'
+import type { ThinWorkflowStatus } from '../../api/thinServer'
+
+const SESSION_STATUS_OPTIONS: Array<{ value: ThinWorkflowStatus; label: string }> = [
+  { value: 'in_progress', label: '进行中' },
+  { value: 'completed', label: '完成' },
+  { value: 'abandoned', label: '放弃' },
+]
+
+function getStatusLabel(status: ThinWorkflowStatus): string {
+  return SESSION_STATUS_OPTIONS.find((option) => option.value === status)?.label ?? '进行中'
+}
+
+function SessionStatusTag({
+  status,
+  onChange,
+}: {
+  status: ThinWorkflowStatus
+  onChange: (status: ThinWorkflowStatus) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const menuRef = useRef<HTMLDivElement | null>(null)
+
+  useEffect(() => {
+    if (!open) return
+    const onDown = (event: MouseEvent) => {
+      if (!menuRef.current?.contains(event.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', onDown)
+    return () => document.removeEventListener('mousedown', onDown)
+  }, [open])
+
+  return (
+    <div className="relative" ref={menuRef}>
+      <button
+        type="button"
+        className="inline-flex items-center gap-1 rounded-full bg-bg-200 px-2.5 py-1 text-[11px] font-medium text-text-200 hover:bg-bg-300"
+        onClick={() => setOpen((prev) => !prev)}
+      >
+        <span>{getStatusLabel(status)}</span>
+        <ChevronDownIcon size={12} />
+      </button>
+      {open && (
+        <div className="absolute left-0 top-full z-[60] mt-1 min-w-[120px] rounded-lg border border-border-200 bg-bg-000 p-1 shadow-xl">
+          {SESSION_STATUS_OPTIONS.map((option) => (
+            <button
+              key={option.value}
+              type="button"
+              className={`flex w-full items-center rounded-md px-2 py-1.5 text-left text-[12px] ${option.value === status ? 'bg-bg-200 text-text-100' : 'text-text-300 hover:bg-bg-100 hover:text-text-100'}`}
+              onClick={() => {
+                setOpen(false)
+                onChange(option.value)
+              }}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
 
 interface HeaderProps {
   onOpenSidebar?: () => void
@@ -25,6 +87,8 @@ export function Header({
   const { rightPanelOpen, bottomPanelOpen } = useLayoutStore()
   const { sessions, refresh } = useSessionContext()
   const childSessionInfo = useChildSessionInfo(sessionId)
+  const sessionSummary = useItemWorkspaceStore((state) => sessionId ? state.getSessionSummaryByExternalId(sessionId) : null)
+  const updateSessionStatus = useItemWorkspaceStore((state) => state.updateSessionStatus)
   
   const [shareDialogOpen, setShareDialogOpen] = useState(false)
   
@@ -66,6 +130,7 @@ export function Header({
     ? (resolvedTitle || (currentSession ? 'New Chat' : `Session ${sessionId.slice(0, 6)}`))
     : 'New Chat'
   const hasNamedTitle = Boolean(resolvedTitle)
+  const sessionStatus: ThinWorkflowStatus = sessionSummary?.statusSnapshot ?? 'in_progress'
 
   // 同步 document.title - 有 session 标题时显示 "标题 - OpenCode"，否则只显示 "OpenCode"
   useEffect(() => {
@@ -122,6 +187,21 @@ export function Header({
     void handleWindowTitlebarMouseDown(event.target, event.button, event.detail)
   }, [])
 
+  const handleSessionStatusChange = useCallback(async (status: ThinWorkflowStatus) => {
+    if (!sessionId || !currentSession?.projectID) return
+    try {
+      await updateSessionStatus({
+        projectId: currentSession.projectID,
+        externalSessionId: sessionId,
+        titleSnapshot: currentSession.title || sessionTitle,
+        activityAt: new Date((currentSession.time.updated ?? currentSession.time.created ?? Date.now())).toISOString(),
+        status,
+      })
+    } catch (error) {
+      uiErrorHandler('update session status', error)
+    }
+  }, [currentSession?.projectID, currentSession?.time.created, currentSession?.time.updated, currentSession?.title, sessionId, sessionTitle, updateSessionStatus])
+
   return (
     <div
       className={`${headerContainerClass} flex justify-between px-4 z-20 bg-bg-000/95 border-b border-border-200/55 backdrop-blur-md transition-colors duration-200 relative select-none`}
@@ -139,6 +219,11 @@ export function Header({
           >
             <SidebarIcon size={18} />
           </IconButton>
+        )}
+        {sessionId && (
+          <div className="hidden md:flex items-center">
+            <SessionStatusTag status={sessionStatus} onChange={(status) => { void handleSessionStatusChange(status) }} />
+          </div>
         )}
         {/* 移动端：Session Title */}
         <div className="md:hidden min-w-0">

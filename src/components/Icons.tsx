@@ -87,6 +87,14 @@ export const CheckIcon = (props: IconProps) => (
   </DefaultIcon>
 )
 
+export const FilterIcon = (props: IconProps) => (
+  <DefaultIcon {...props}>
+    <path d="M3 5h18" />
+    <path d="M6 12h12" />
+    <path d="M10 19h4" />
+  </DefaultIcon>
+)
+
 export const SendIcon = (props: IconProps) => (
   <DefaultIcon {...props}>
     <path d="m22 2-7 20-4-9-9-4Z" />

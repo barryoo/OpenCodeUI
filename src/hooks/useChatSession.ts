@@ -21,6 +21,10 @@ import {
 import { getMessageText } from '../types/message'
 import { createErrorHandler } from '../utils'
 import { serverStorage } from '../utils/perServerStorage'
+import { useItemWorkspaceStore } from '../store/itemWorkspaceStore'
+import { getProjects } from '../api'
+import { ensureDefaultThinServerProfile, upsertThinSessionSummary } from '../api/thinServer'
+import { serverStore } from '../store/serverStore'
 import {
   fetchPendingPermissionsQuery,
   fetchPendingQuestionsQuery,
@@ -304,6 +308,25 @@ export function useChatSession({ chatAreaRef, currentModel, refetchModels }: Use
         messageStore.setCurrentSession(createdSessionId)
         messageStore.setStreaming(createdSessionId, true)
         navigateToSession(createdSessionId)
+
+        const pendingItemBinding = useItemWorkspaceStore.getState().consumePendingItemSessionBinding()
+        if (pendingItemBinding && effectiveDirectory) {
+          const activeServer = serverStore.getActiveServer()
+          const profile = await ensureDefaultThinServerProfile(serverStore.getActiveBaseUrl(), activeServer?.name ?? 'Active OpenCode Server')
+          const projects = await getProjects()
+          const project = projects.find((entry) => entry.id === pendingItemBinding.projectId)
+          if (project) {
+            await upsertThinSessionSummary({
+              serverProfileId: profile.id,
+              projectId: pendingItemBinding.projectId,
+              externalSessionId: createdSessionId,
+              itemId: pendingItemBinding.itemId,
+              titleSnapshot: newSession.title,
+              statusSnapshot: 'in_progress',
+              activityAt: new Date(newSession.time.updated ?? newSession.time.created).toISOString(),
+            })
+          }
+        }
       }
 
       await sendMessageAsync({
@@ -426,8 +449,8 @@ export function useChatSession({ chatAreaRef, currentModel, refetchModels }: Use
   }, [animateRedo, handleRedo])
 
   // Session selection
-  const handleSelectSession = useCallback((session: ApiSession) => {
-    navigateToSession(session.id, session.directory)
+  const handleSelectSession = useCallback((session: ApiSession, options?: { clearItemContext?: boolean }) => {
+    navigateToSession(session.id, session.directory, options)
   }, [navigateToSession])
 
   // New session

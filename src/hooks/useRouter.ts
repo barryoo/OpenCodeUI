@@ -12,6 +12,8 @@ import { STORAGE_KEY_LAST_DIRECTORY } from '../constants/storage'
 interface RouteState {
   sessionId: string | null
   directory: string | undefined
+  itemProjectId: string | undefined
+  itemId: string | undefined
 }
 
 function parseHash(): RouteState {
@@ -20,19 +22,13 @@ function parseHash(): RouteState {
   // 分离路径和查询参数
   const [path, queryString] = hash.split('?')
   
-  // 解析 directory 参数
-  let directory: string | undefined
-  if (queryString) {
-    // 手动解析 dir 参数
-    const dirMatch = queryString.match(/(?:^|&)dir=([^&]*)/)
-    if (dirMatch && dirMatch[1]) {
-      // 浏览器读取 window.location.hash 时会对中文等非 ASCII 字符做 percent-encoding，需要 decode
-      let raw = dirMatch[1]
-      try { raw = decodeURIComponent(raw) } catch { /* 解码失败保留原值 */ }
-      // 入口标准化：统一转为正斜杠
-      directory = normalizeToForwardSlash(raw) || undefined
-    }
-  }
+  // 解析查询参数
+  const params = new URLSearchParams(queryString || '')
+  const rawDir = params.get('dir')
+  let directory: string | undefined = rawDir ? (normalizeToForwardSlash(rawDir) || undefined) : undefined
+  const itemProjectId = params.get('itemProject') || undefined
+  const itemId = params.get('item') || undefined
+  const hasValidItemContext = Boolean(itemProjectId && itemId)
   
   // URL 没有 dir 参数时，从 per-server storage 恢复上次目录
   if (!directory) {
@@ -43,23 +39,54 @@ function parseHash(): RouteState {
   // 匹配 #/session/{id}
   const sessionMatch = path.match(/^#\/session\/(.+)$/)
   if (sessionMatch) {
-    return { sessionId: sessionMatch[1], directory }
+    return {
+      sessionId: sessionMatch[1],
+      directory,
+      itemProjectId: hasValidItemContext ? itemProjectId : undefined,
+      itemId: hasValidItemContext ? itemId : undefined,
+    }
   }
 
-  return { sessionId: null, directory }
+  return {
+    sessionId: null,
+    directory,
+    itemProjectId: hasValidItemContext ? itemProjectId : undefined,
+    itemId: hasValidItemContext ? itemId : undefined,
+  }
 }
 
-function buildHash(sessionId: string | null, directory: string | undefined): string {
+function buildHash(
+  sessionId: string | null,
+  directory: string | undefined,
+  itemProjectId: string | undefined,
+  itemId: string | undefined,
+): string {
   const path = sessionId ? `#/session/${sessionId}` : '#/'
+  const params = new URLSearchParams()
   if (directory) {
-    // 不需要 URL 编码，直接使用原始路径
-    return `${path}?dir=${directory}`
+    params.set('dir', directory)
   }
-  return path
+  if (itemProjectId && itemId) {
+    params.set('itemProject', itemProjectId)
+    params.set('item', itemId)
+  }
+
+  const query = params.toString()
+  return query ? `${path}?${query}` : path
 }
 
 export function useRouter() {
   const [route, setRoute] = useState<RouteState>(parseHash)
+
+  const updateRoute = useCallback((next: RouteState, replace = false) => {
+    const newHash = buildHash(next.sessionId, next.directory, next.itemProjectId, next.itemId)
+    if (replace) {
+      window.history.replaceState(null, '', newHash)
+      setRoute(next)
+      return
+    }
+    window.location.hash = newHash
+  }, [])
 
   // 监听 hash 变化
   useEffect(() => {
@@ -72,22 +99,35 @@ export function useRouter() {
   }, [])
 
   // 导航到 session（默认保留当前 directory，可选传入目标 directory）
-  const navigateToSession = useCallback((sessionId: string, directory?: string) => {
+  const navigateToSession = useCallback((sessionId: string, directory?: string, options?: { clearItemContext?: boolean }) => {
     const dir = directory !== undefined ? (normalizeToForwardSlash(directory) || undefined) : route.directory
-    window.location.hash = buildHash(sessionId, dir)
-  }, [route.directory])
+    updateRoute({
+      sessionId,
+      directory: dir,
+      itemProjectId: options?.clearItemContext ? undefined : route.itemProjectId,
+      itemId: options?.clearItemContext ? undefined : route.itemId,
+    })
+  }, [route.directory, route.itemId, route.itemProjectId, updateRoute])
 
   // 导航到首页（保留当前 directory）
   const navigateHome = useCallback(() => {
-    window.location.hash = buildHash(null, route.directory)
-  }, [route.directory])
+    updateRoute({
+      sessionId: null,
+      directory: route.directory,
+      itemProjectId: route.itemProjectId,
+      itemId: route.itemId,
+    })
+  }, [route.directory, route.itemId, route.itemProjectId, updateRoute])
 
   // 替换当前路由（不产生历史记录）
   const replaceSession = useCallback((sessionId: string | null) => {
-    const newHash = buildHash(sessionId, route.directory)
-    window.history.replaceState(null, '', newHash)
-    setRoute({ sessionId, directory: route.directory })
-  }, [route.directory])
+    updateRoute({
+      sessionId,
+      directory: route.directory,
+      itemProjectId: route.itemProjectId,
+      itemId: route.itemId,
+    }, true)
+  }, [route.directory, route.itemId, route.itemProjectId, updateRoute])
 
   // 设置 directory（切换目录时清除当前 session，避免 session 与目录不匹配）
   const setDirectory = useCallback((directory: string | undefined) => {
@@ -95,7 +135,7 @@ export function useRouter() {
     const normalized = directory ? normalizeToForwardSlash(directory) : undefined
     // 切换目录时清除 sessionId，回到首页
     // 否则 URL 会变成 #/session/OLD_SESSION?dir=NEW_DIR，导致请求路径错乱
-    const newHash = buildHash(null, normalized || undefined)
+    const newHash = buildHash(null, normalized || undefined, route.itemProjectId, route.itemId)
     // 持久化到 per-server storage
     if (normalized) {
       serverStorage.set(STORAGE_KEY_LAST_DIRECTORY, normalized)
@@ -103,13 +143,13 @@ export function useRouter() {
       serverStorage.remove(STORAGE_KEY_LAST_DIRECTORY)
     }
     window.location.hash = newHash
-  }, [])
+  }, [route.itemId, route.itemProjectId])
 
   // 替换 directory（不产生历史记录）
   const replaceDirectory = useCallback((directory: string | undefined) => {
     // 入口标准化：统一转为正斜杠
     const normalized = directory ? normalizeToForwardSlash(directory) : undefined
-    const newHash = buildHash(route.sessionId, normalized || undefined)
+    const newHash = buildHash(route.sessionId, normalized || undefined, route.itemProjectId, route.itemId)
     // 持久化到 per-server storage
     if (normalized) {
       serverStorage.set(STORAGE_KEY_LAST_DIRECTORY, normalized)
@@ -117,16 +157,35 @@ export function useRouter() {
       serverStorage.remove(STORAGE_KEY_LAST_DIRECTORY)
     }
     window.history.replaceState(null, '', newHash)
-    setRoute({ sessionId: route.sessionId, directory: normalized || undefined })
-  }, [route.sessionId])
+    setRoute({
+      sessionId: route.sessionId,
+      directory: normalized || undefined,
+      itemProjectId: route.itemProjectId,
+      itemId: route.itemId,
+    })
+  }, [route.itemId, route.itemProjectId, route.sessionId])
+
+  const setItemContext = useCallback((projectId: string | undefined, itemId: string | undefined, replace = true) => {
+    const normalizedProjectId = projectId || undefined
+    const normalizedItemId = itemId || undefined
+    updateRoute({
+      sessionId: route.sessionId,
+      directory: route.directory,
+      itemProjectId: normalizedProjectId,
+      itemId: normalizedItemId,
+    }, replace)
+  }, [route.directory, route.sessionId, updateRoute])
 
   return {
     sessionId: route.sessionId,
     directory: route.directory,
+    itemProjectId: route.itemProjectId,
+    itemId: route.itemId,
     navigateToSession,
     navigateHome,
     replaceSession,
     setDirectory,
     replaceDirectory,
+    setItemContext,
   }
 }
