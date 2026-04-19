@@ -111,6 +111,23 @@ function withCors(response: Response, request?: Request): Response {
   })
 }
 
+function getRequestOrigin(request: Request): string {
+  const forwardedProto = request.headers.get('x-forwarded-proto')
+  const forwardedHost = request.headers.get('x-forwarded-host')
+  const host = forwardedHost || request.headers.get('host')
+  const url = new URL(request.url)
+  const protocol = forwardedProto || url.protocol.replace(/:$/, '')
+  return host ? `${protocol}://${host}` : url.origin
+}
+
+function getPublicBaseUrl(request: Request, configuredBaseUrl?: string): string {
+  return configuredBaseUrl || getRequestOrigin(request)
+}
+
+function getFrontendBaseUrl(request: Request, configuredBaseUrl?: string): string {
+  return configuredBaseUrl || getRequestOrigin(request)
+}
+
 export async function handleRequest(request: Request, context: AppContext): Promise<Response> {
   const url = new URL(request.url)
   const pathname = url.pathname
@@ -136,7 +153,7 @@ export async function handleRequest(request: Request, context: AppContext): Prom
   if (pathname === '/api/auth/github/login' && method === 'GET') {
     if (context.config.githubClientId && context.config.githubClientSecret) {
       const state = createGithubState(context.repository, context.config)
-      const redirectUri = `${context.config.publicBaseUrl}/api/auth/github/callback`
+      const redirectUri = `${getPublicBaseUrl(request, context.config.publicBaseUrl)}/api/auth/github/callback`
       const authorizeUrl = new URL('https://github.com/login/oauth/authorize')
       authorizeUrl.searchParams.set('client_id', context.config.githubClientId)
       authorizeUrl.searchParams.set('redirect_uri', redirectUri)
@@ -161,7 +178,7 @@ export async function handleRequest(request: Request, context: AppContext): Prom
     }
 
     const user = context.repository.upsertUserByGithubProfile(githubUser)
-    const headers = new Headers({ location: context.config.frontendBaseUrl })
+    const headers = new Headers({ location: getFrontendBaseUrl(request, context.config.frontendBaseUrl) })
     createAuthSessionForUser(headers, context.repository, context.config, user)
     return withCors(new Response(null, { status: 302, headers }), request)
   }

@@ -1,4 +1,4 @@
-const THIN_SERVER_BASE_URL = import.meta.env.VITE_THIN_SERVER_URL || 'http://127.0.0.1:4201'
+const THIN_SERVER_BASE_URL = (import.meta.env.VITE_THIN_SERVER_URL || '').replace(/\/$/, '')
 
 export class ThinAuthError extends Error {
   status: number

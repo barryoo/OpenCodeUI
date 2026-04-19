@@ -44,7 +44,7 @@ interface ThinResponse<T> {
   sessions?: T
 }
 
-const THIN_SERVER_BASE_URL = import.meta.env.VITE_THIN_SERVER_URL || 'http://127.0.0.1:4201'
+const THIN_SERVER_BASE_URL = (import.meta.env.VITE_THIN_SERVER_URL || '').replace(/\/$/, '')
 
 async function thinRequest<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${THIN_SERVER_BASE_URL}${path}`, {

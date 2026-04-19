@@ -2,8 +2,8 @@ export interface ServerConfig {
   host: string
   port: number
   databasePath: string
-  publicBaseUrl: string
-  frontendBaseUrl: string
+  publicBaseUrl?: string
+  frontendBaseUrl?: string
   sessionCookieName: string
   sessionTtlSeconds: number
   oauthStateTtlSeconds: number
@@ -21,18 +21,19 @@ function parsePort(value: string | undefined, fallback: number): number {
 export function getServerConfig(): ServerConfig {
   const host = process.env.OPENCODEUI_SERVER_HOST || '127.0.0.1'
   const port = parsePort(process.env.OPENCODEUI_SERVER_PORT, 4097)
-  const publicBaseUrl = process.env.OPENCODEUI_SERVER_PUBLIC_URL || `http://${host}:${port}`
+  const publicBaseUrl = process.env.OPENCODEUI_SERVER_PUBLIC_URL
+  const frontendBaseUrl = process.env.OPENCODEUI_FRONTEND_URL || process.env.VITE_APP_URL
 
   return {
     host,
     port,
     databasePath: process.env.OPENCODEUI_SERVER_DB || './data/opencodeui.sqlite',
     publicBaseUrl,
-    frontendBaseUrl: process.env.OPENCODEUI_FRONTEND_URL || process.env.VITE_APP_URL || 'http://127.0.0.1:5173',
+    frontendBaseUrl,
     sessionCookieName: process.env.OPENCODEUI_SESSION_COOKIE_NAME || 'opencodeui_session',
     sessionTtlSeconds: parsePort(process.env.OPENCODEUI_SESSION_TTL_SECONDS, 60 * 60 * 24 * 30),
     oauthStateTtlSeconds: parsePort(process.env.OPENCODEUI_OAUTH_STATE_TTL_SECONDS, 60 * 10),
-    secureCookies: process.env.OPENCODEUI_SECURE_COOKIES === 'true' || publicBaseUrl.startsWith('https://'),
+    secureCookies: process.env.OPENCODEUI_SECURE_COOKIES === 'true' || publicBaseUrl?.startsWith('https://') === true,
     githubClientId: process.env.GITHUB_CLIENT_ID,
     githubClientSecret: process.env.GITHUB_CLIENT_SECRET,
   }

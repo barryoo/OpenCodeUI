@@ -34,3 +34,5 @@ http://127.0.0.1:4097/api/auth/github/callback
 2. 将 `OPENCODEUI_FRONTEND_URL` 改为线上前端地址
 3. 设置 `OPENCODEUI_SECURE_COOKIES=true`
 4. 在 GitHub OAuth App 中增加对应生产 callback URL
+
+如果未显式配置 `OPENCODEUI_SERVER_PUBLIC_URL` / `OPENCODEUI_FRONTEND_URL`，服务端会按当前请求的域名与协议推断，不再默认回退到 `127.0.0.1`。
