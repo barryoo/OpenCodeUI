@@ -190,7 +190,7 @@ export async function sendAppNotification(
 
   const notificationOptions: NotificationOptions = {
     body,
-    icon: '/opencode.svg',
+    icon: '/opencode.png',
     tag: data?.sessionId || 'opencode',
     data,
   }
