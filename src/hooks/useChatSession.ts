@@ -24,6 +24,7 @@ import { serverStorage } from '../utils/perServerStorage'
 import { useItemWorkspaceStore } from '../store/itemWorkspaceStore'
 import { getProjects } from '../api'
 import { ensureDefaultThinServerProfile, upsertThinSessionSummary } from '../api/thinServer'
+import { ThinAuthError } from '../api/auth'
 import { serverStore } from '../store/serverStore'
 import {
   fetchPendingPermissionsQuery,
@@ -40,6 +41,10 @@ import {
 import type { ChatAreaHandle } from '../features/chat'
 
 const handleError = createErrorHandler('session')
+
+function isThinUnauthorized(error: unknown): boolean {
+  return error instanceof ThinAuthError && (error.status === 401 || error.code === 'UNAUTHORIZED')
+}
 
 interface UseChatSessionOptions {
   chatAreaRef: React.RefObject<ChatAreaHandle | null>
@@ -122,6 +127,37 @@ export function useChatSession({ chatAreaRef, currentModel, refetchModels }: Use
 
   // Effective directory (used in multiple places)
   const effectiveDirectory = sessionDirectory || currentDirectory
+
+  const syncThinSessionVariant = useCallback(async (
+    session: Pick<ApiSession, 'id' | 'title' | 'time' | 'directory'>,
+    variant: string | undefined,
+    itemBinding?: { projectPath: string; itemId: string } | null,
+  ) => {
+    const projectPath = itemBinding?.projectPath ?? session.directory ?? effectiveDirectory
+    if (!projectPath) return
+
+    try {
+      const activeServer = serverStore.getActiveServer()
+      const profile = await ensureDefaultThinServerProfile(serverStore.getActiveBaseUrl(), activeServer?.name ?? 'Active OpenCode Server')
+      const projects = await getProjects()
+      const project = projects.find((entry) => entry.worktree === projectPath)
+      const existing = useItemWorkspaceStore.getState().getSessionSummaryByExternalId(session.id)
+      await upsertThinSessionSummary({
+        serverProfileId: profile.id,
+        projectPath,
+        legacyProjectId: project?.id ?? null,
+        externalSessionId: session.id,
+        itemId: itemBinding?.itemId ?? existing?.itemId ?? null,
+        variant: variant ?? existing?.variant ?? null,
+        titleSnapshot: session.title,
+        statusSnapshot: existing?.statusSnapshot ?? 'in_progress',
+        activityAt: new Date(session.time.updated ?? session.time.created).toISOString(),
+        lastMessageAt: new Date().toISOString(),
+      })
+    } catch (error) {
+      if (!isThinUnauthorized(error)) throw error
+    }
+  }, [effectiveDirectory])
 
   // Global Events (SSE)
   useGlobalEvents({
@@ -298,6 +334,8 @@ export function useChatSession({ chatAreaRef, currentModel, refetchModels }: Use
     let sessionId = routeSessionId
 
     try {
+      let pendingItemBinding: { projectPath: string; itemId: string } | null = null
+
       if (!sessionId) {
         const newSession = await createSession()
         const createdSessionId = newSession.id
@@ -309,24 +347,8 @@ export function useChatSession({ chatAreaRef, currentModel, refetchModels }: Use
         messageStore.setStreaming(createdSessionId, true)
         navigateToSession(createdSessionId)
 
-        const pendingItemBinding = useItemWorkspaceStore.getState().consumePendingItemSessionBinding()
-        if (pendingItemBinding && effectiveDirectory) {
-          const activeServer = serverStore.getActiveServer()
-          const profile = await ensureDefaultThinServerProfile(serverStore.getActiveBaseUrl(), activeServer?.name ?? 'Active OpenCode Server')
-          const projects = await getProjects()
-          const project = projects.find((entry) => entry.id === pendingItemBinding.projectId)
-          if (project) {
-            await upsertThinSessionSummary({
-              serverProfileId: profile.id,
-              projectId: pendingItemBinding.projectId,
-              externalSessionId: createdSessionId,
-              itemId: pendingItemBinding.itemId,
-              titleSnapshot: newSession.title,
-              statusSnapshot: 'in_progress',
-              activityAt: new Date(newSession.time.updated ?? newSession.time.created).toISOString(),
-            })
-          }
-        }
+        pendingItemBinding = useItemWorkspaceStore.getState().consumePendingItemSessionBinding()
+        await syncThinSessionVariant(newSession, options?.variant, pendingItemBinding)
       }
 
       await sendMessageAsync({
@@ -341,13 +363,20 @@ export function useChatSession({ chatAreaRef, currentModel, refetchModels }: Use
         variant: options?.variant,
         directory: effectiveDirectory,
       })
+
+      if (sessionId === routeSessionId) {
+        const currentSession = sessions.find((session) => session.id === sessionId)
+        if (currentSession) {
+          await syncThinSessionVariant(currentSession, options?.variant)
+        }
+      }
     } catch (error) {
       handleError('send message', error)
       if (sessionId) {
         messageStore.setStreaming(sessionId, false)
       }
     }
-  }, [currentModel, routeSessionId, effectiveDirectory, navigateToSession, createSession])
+  }, [currentModel, routeSessionId, effectiveDirectory, navigateToSession, createSession, sessions, syncThinSessionVariant])
 
   // New chat handler
   const handleNewChat = useCallback(() => {

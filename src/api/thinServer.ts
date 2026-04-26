@@ -17,7 +17,7 @@ export interface ThinServerProfile {
 
 export interface ThinItem {
   id: string
-  projectId: string
+  projectPath: string
   serverProfileId: string
   title: string
   type: ThinItemType
@@ -29,9 +29,10 @@ export interface ThinItem {
 
 export interface ThinSessionSummary {
   id: string
-  projectId: string
+  projectPath: string
   externalSessionId: string
   itemId: string | null
+  variant: string | null
   titleSnapshot: string
   statusSnapshot: ThinWorkflowStatus
   activityAt: string
@@ -44,7 +45,7 @@ interface ThinResponse<T> {
   sessions?: T
 }
 
-const THIN_SERVER_BASE_URL = (import.meta.env.VITE_THIN_SERVER_URL || '').replace(/\/$/, '')
+const THIN_SERVER_BASE_URL = (import.meta.env.VITE_THIN_SERVER_URL || '/admin').replace(/\/$/, '')
 
 async function thinRequest<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${THIN_SERVER_BASE_URL}${path}`, {
@@ -77,12 +78,12 @@ async function thinRequest<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export async function ensureDefaultThinServerProfile(baseUrl: string, name = 'Active OpenCode Server'): Promise<ThinServerProfile> {
-  const profilesResponse = await thinRequest<ThinResponse<ThinServerProfile[]>>('/api/server-profiles')
+  const profilesResponse = await thinRequest<ThinResponse<ThinServerProfile[]>>('/server-profiles')
   const profiles = profilesResponse.data ?? []
   const matched = profiles.find((profile) => profile.baseUrl === baseUrl)
   if (matched) return matched
 
-  const created = await thinRequest<ThinResponse<ThinServerProfile>>('/api/server-profiles', {
+  const created = await thinRequest<ThinResponse<ThinServerProfile>>('/server-profiles', {
     method: 'POST',
     body: JSON.stringify({ name, baseUrl, isDefault: profiles.length === 0 }),
   })
@@ -92,7 +93,7 @@ export async function ensureDefaultThinServerProfile(baseUrl: string, name = 'Ac
 }
 
 export async function listThinServerProfiles(): Promise<ThinServerProfile[]> {
-  const profilesResponse = await thinRequest<ThinResponse<ThinServerProfile[]>>('/api/server-profiles')
+  const profilesResponse = await thinRequest<ThinResponse<ThinServerProfile[]>>('/server-profiles')
   return profilesResponse.data ?? []
 }
 
@@ -103,7 +104,7 @@ export async function createThinServerProfile(input: {
   authSecretEncrypted?: string | null
   isDefault?: boolean
 }): Promise<ThinServerProfile> {
-  const response = await thinRequest<ThinResponse<ThinServerProfile>>('/api/server-profiles', {
+  const response = await thinRequest<ThinResponse<ThinServerProfile>>('/server-profiles', {
     method: 'POST',
     body: JSON.stringify(input),
   })
@@ -118,7 +119,7 @@ export async function updateThinServerProfile(id: string, input: {
   authSecretEncrypted?: string | null
   isDefault?: boolean
 }): Promise<ThinServerProfile> {
-  const response = await thinRequest<ThinResponse<ThinServerProfile>>(`/api/server-profiles/${encodeURIComponent(id)}`, {
+  const response = await thinRequest<ThinResponse<ThinServerProfile>>(`/server-profiles/${encodeURIComponent(id)}`, {
     method: 'PATCH',
     body: JSON.stringify(input),
   })
@@ -127,13 +128,13 @@ export async function updateThinServerProfile(id: string, input: {
 }
 
 export async function deleteThinServerProfile(id: string): Promise<void> {
-  await thinRequest<{ ok: boolean }>(`/api/server-profiles/${encodeURIComponent(id)}`, {
+  await thinRequest<{ ok: boolean }>(`/server-profiles/${encodeURIComponent(id)}`, {
     method: 'DELETE',
   })
 }
 
 export async function setDefaultThinServerProfile(id: string): Promise<ThinServerProfile> {
-  const response = await thinRequest<ThinResponse<ThinServerProfile>>(`/api/server-profiles/${encodeURIComponent(id)}/default`, {
+  const response = await thinRequest<ThinResponse<ThinServerProfile>>(`/server-profiles/${encodeURIComponent(id)}/default`, {
     method: 'POST',
     body: JSON.stringify({}),
   })
@@ -141,7 +142,11 @@ export async function setDefaultThinServerProfile(id: string): Promise<ThinServe
   return response.data
 }
 
-export async function getProjectIdByPathMap(): Promise<Map<string, string>> {
+export function normalizePath(value: string): string {
+  return value.replace(/\\/g, '/')
+}
+
+export async function getLegacyProjectIdByPathMap(): Promise<Map<string, string>> {
   const projects = await getProjects()
   const map = new Map<string, string>()
   for (const project of projects) {
@@ -150,21 +155,24 @@ export async function getProjectIdByPathMap(): Promise<Map<string, string>> {
   return map
 }
 
-function normalizePath(value: string): string {
-  return value.replace(/\\/g, '/')
-}
-
-export function getProjectIdForPath(projects: Map<string, string>, path: string): string | null {
+export function getLegacyProjectIdForPath(projects: Map<string, string>, path: string): string | null {
   return projects.get(normalizePath(path)) ?? null
 }
 
-export async function listThinItems(projectId: string): Promise<ThinItem[]> {
-  const response = await thinRequest<ThinResponse<ThinItem[]>>(`/api/projects/${encodeURIComponent(projectId)}/items`)
+export async function findProjectByPath(projectPath: string): Promise<ApiProject | null> {
+  const projects = await getProjects()
+  const normalizedProjectPath = normalizePath(projectPath)
+  return projects.find((project) => normalizePath(project.worktree || '') === normalizedProjectPath) ?? null
+}
+
+export async function listThinItems(projectPath: string, legacyProjectId?: string | null): Promise<ThinItem[]> {
+  const suffix = legacyProjectId ? `?legacyProjectId=${encodeURIComponent(legacyProjectId)}` : ''
+  const response = await thinRequest<ThinResponse<ThinItem[]>>(`/projects/${encodeURIComponent(projectPath)}/items${suffix}`)
   return response.items ?? response.data ?? []
 }
 
-export async function createThinItem(input: { serverProfileId: string; projectId: string; title: string; type: ThinItemType; description?: string }): Promise<ThinItem> {
-  const response = await thinRequest<ThinResponse<ThinItem>>('/api/items', {
+export async function createThinItem(input: { serverProfileId: string; projectPath: string; legacyProjectId?: string | null; title: string; type: ThinItemType; description?: string }): Promise<ThinItem> {
+  const response = await thinRequest<ThinResponse<ThinItem>>('/items', {
     method: 'POST',
     body: JSON.stringify(input),
   })
@@ -173,7 +181,7 @@ export async function createThinItem(input: { serverProfileId: string; projectId
 }
 
 export async function updateThinItem(itemId: string, input: Partial<Pick<ThinItem, 'title' | 'type' | 'description' | 'status'>>): Promise<ThinItem> {
-  const response = await thinRequest<ThinResponse<ThinItem>>(`/api/items/${encodeURIComponent(itemId)}`, {
+  const response = await thinRequest<ThinResponse<ThinItem>>(`/items/${encodeURIComponent(itemId)}`, {
     method: 'PATCH',
     body: JSON.stringify(input),
   })
@@ -182,36 +190,40 @@ export async function updateThinItem(itemId: string, input: Partial<Pick<ThinIte
 }
 
 export async function deleteThinItem(itemId: string): Promise<void> {
-  await thinRequest<{ ok: boolean }>(`/api/items/${encodeURIComponent(itemId)}`, {
+  await thinRequest<{ ok: boolean }>(`/items/${encodeURIComponent(itemId)}`, {
     method: 'DELETE',
   })
 }
 
-export async function listThinSessionSummaries(projectId: string): Promise<ThinSessionSummary[]> {
-  const response = await thinRequest<ThinResponse<ThinSessionSummary[]>>(`/api/projects/${encodeURIComponent(projectId)}/session-summaries`)
+export async function listThinSessionSummaries(projectPath: string, legacyProjectId?: string | null): Promise<ThinSessionSummary[]> {
+  const suffix = legacyProjectId ? `?legacyProjectId=${encodeURIComponent(legacyProjectId)}` : ''
+  const response = await thinRequest<ThinResponse<ThinSessionSummary[]>>(`/projects/${encodeURIComponent(projectPath)}/session-summaries${suffix}`)
   return response.sessions ?? response.data ?? []
 }
 
 export async function listAllThinSessionSummaries(): Promise<ThinSessionSummary[]> {
-  const response = await thinRequest<ThinResponse<ThinSessionSummary[]>>('/api/session-summaries')
+  const response = await thinRequest<ThinResponse<ThinSessionSummary[]>>('/session-summaries')
   return response.sessions ?? response.data ?? []
 }
 
 export async function listThinItemSessionSummaries(itemId: string): Promise<ThinSessionSummary[]> {
-  const response = await thinRequest<ThinResponse<ThinSessionSummary[]>>(`/api/items/${encodeURIComponent(itemId)}/session-summaries`)
+  const response = await thinRequest<ThinResponse<ThinSessionSummary[]>>(`/items/${encodeURIComponent(itemId)}/session-summaries`)
   return response.sessions ?? response.data ?? []
 }
 
 export async function upsertThinSessionSummary(input: {
   serverProfileId: string
-  projectId: string
+  projectPath: string
+  legacyProjectId?: string | null
   externalSessionId: string
   itemId?: string | null
+  variant?: string | null
   titleSnapshot: string
   statusSnapshot: ThinWorkflowStatus
+  lastMessageAt?: string | null
   activityAt: string
 }): Promise<ThinSessionSummary> {
-  const response = await thinRequest<ThinResponse<ThinSessionSummary>>('/api/session-summaries', {
+  const response = await thinRequest<ThinResponse<ThinSessionSummary>>('/session-summaries', {
     method: 'POST',
     body: JSON.stringify(input),
   })
@@ -220,7 +232,7 @@ export async function upsertThinSessionSummary(input: {
 }
 
 export async function bindThinSessionSummary(summaryId: string, itemId: string): Promise<ThinSessionSummary> {
-  const response = await thinRequest<ThinResponse<ThinSessionSummary>>(`/api/session-summaries/${encodeURIComponent(summaryId)}/bind-item`, {
+  const response = await thinRequest<ThinResponse<ThinSessionSummary>>(`/session-summaries/${encodeURIComponent(summaryId)}/bind-item`, {
     method: 'POST',
     body: JSON.stringify({ itemId }),
   })
@@ -229,7 +241,7 @@ export async function bindThinSessionSummary(summaryId: string, itemId: string):
 }
 
 export async function unbindThinSessionSummary(summaryId: string): Promise<ThinSessionSummary> {
-  const response = await thinRequest<ThinResponse<ThinSessionSummary>>(`/api/session-summaries/${encodeURIComponent(summaryId)}/unbind-item`, {
+  const response = await thinRequest<ThinResponse<ThinSessionSummary>>(`/session-summaries/${encodeURIComponent(summaryId)}/unbind-item`, {
     method: 'POST',
     body: JSON.stringify({}),
   })
@@ -237,18 +249,21 @@ export async function unbindThinSessionSummary(summaryId: string): Promise<ThinS
   return response.data
 }
 
-export async function searchThinProjectFiles(projectId: string, query: string): Promise<string[]> {
-  const response = await thinRequest<{ data?: string[] }>(`/api/projects/${encodeURIComponent(projectId)}/files/search?q=${encodeURIComponent(query)}`)
+export async function searchThinProjectFiles(projectPath: string, query: string, legacyProjectId?: string | null): Promise<string[]> {
+  const legacyQuery = legacyProjectId ? `&legacyProjectId=${encodeURIComponent(legacyProjectId)}` : ''
+  const response = await thinRequest<{ data?: string[] }>(`/projects/${encodeURIComponent(projectPath)}/files/search?q=${encodeURIComponent(query)}${legacyQuery}`)
   return response.data ?? []
 }
 
-export async function createBoundSession(input: { project: ApiProject; serverProfileId: string; itemId: string; title?: string }) {
-  const session = await createSession({ directory: input.project.worktree, title: input.title })
+export async function createBoundSession(input: { projectPath: string; legacyProjectId?: string | null; serverProfileId: string; itemId: string; title?: string }) {
+  const session = await createSession({ directory: input.projectPath, title: input.title })
   await upsertThinSessionSummary({
     serverProfileId: input.serverProfileId,
-    projectId: input.project.id,
+    projectPath: input.projectPath,
+    legacyProjectId: input.legacyProjectId,
     externalSessionId: session.id,
     itemId: input.itemId,
+    variant: null,
     titleSnapshot: session.title,
     statusSnapshot: 'in_progress',
     activityAt: new Date(session.time.updated ?? session.time.created).toISOString(),

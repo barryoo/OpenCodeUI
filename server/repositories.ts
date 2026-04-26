@@ -64,6 +64,8 @@ interface ItemRow {
   user_id: string
   server_profile_id: string
   project_id: string
+  project_path?: string | null
+  legacy_project_id?: string | null
   title: string
   type: string
   status: string
@@ -78,8 +80,11 @@ interface SessionSummaryRow {
   user_id: string
   server_profile_id: string
   project_id: string
+  project_path?: string | null
+  legacy_project_id?: string | null
   external_session_id: string
   item_id: string | null
+  variant: string | null
   title_snapshot: string
   status_snapshot: string
   last_message_at: string | null
@@ -149,7 +154,7 @@ function mapItem(row: ItemRow): ItemRecord {
     id: row.id,
     userId: row.user_id,
     serverProfileId: row.server_profile_id,
-    projectId: row.project_id,
+    projectPath: row.project_path ?? row.project_id,
     title: row.title,
     type: row.type as ItemRecord['type'],
     status: normalizeWorkflowStatus(row.status),
@@ -165,9 +170,10 @@ function mapSessionSummary(row: SessionSummaryRow): SessionSummaryRecord {
     id: row.id,
     userId: row.user_id,
     serverProfileId: row.server_profile_id,
-    projectId: row.project_id,
+    projectPath: row.project_path ?? row.project_id,
     externalSessionId: row.external_session_id,
     itemId: row.item_id,
+    variant: row.variant,
     titleSnapshot: row.title_snapshot,
     statusSnapshot: normalizeWorkflowStatus(row.status_snapshot),
     lastMessageAt: row.last_message_at,
@@ -196,6 +202,12 @@ export class ThinServerRepository {
 
   constructor(database: DatabaseContext) {
     this.database = database
+  }
+
+  private ensureColumn(table: 'items' | 'session_summaries', column: string, definition: string) {
+    const columns = this.database.db.query(`PRAGMA table_info(${table})`).all() as Array<{ name: string }>
+    if (columns.some((entry) => entry.name === column)) return
+    this.database.db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`)
   }
 
   migrate() {
@@ -247,6 +259,8 @@ export class ThinServerRepository {
         user_id TEXT NOT NULL,
         server_profile_id TEXT NOT NULL,
         project_id TEXT NOT NULL,
+        project_path TEXT,
+        legacy_project_id TEXT,
         title TEXT NOT NULL,
         type TEXT NOT NULL,
         status TEXT NOT NULL,
@@ -263,8 +277,11 @@ export class ThinServerRepository {
         user_id TEXT NOT NULL,
         server_profile_id TEXT NOT NULL,
         project_id TEXT NOT NULL,
+        project_path TEXT,
+        legacy_project_id TEXT,
         external_session_id TEXT NOT NULL,
         item_id TEXT,
+        variant TEXT,
         title_snapshot TEXT NOT NULL,
         status_snapshot TEXT NOT NULL,
         last_message_at TEXT,
@@ -295,6 +312,35 @@ export class ThinServerRepository {
       CREATE INDEX IF NOT EXISTS idx_session_summaries_project_id ON session_summaries(project_id);
       CREATE INDEX IF NOT EXISTS idx_session_summaries_item_id ON session_summaries(item_id);
       CREATE INDEX IF NOT EXISTS idx_session_summaries_external_session_id ON session_summaries(external_session_id);
+    `)
+
+    this.ensureColumn('items', 'project_path', 'TEXT')
+    this.ensureColumn('items', 'legacy_project_id', 'TEXT')
+    this.ensureColumn('session_summaries', 'project_path', 'TEXT')
+    this.ensureColumn('session_summaries', 'legacy_project_id', 'TEXT')
+    this.ensureColumn('session_summaries', 'variant', 'TEXT')
+
+    this.database.db.exec(`
+      CREATE INDEX IF NOT EXISTS idx_items_project_path ON items(project_path);
+      CREATE INDEX IF NOT EXISTS idx_session_summaries_project_path ON session_summaries(project_path);
+    `)
+
+    this.database.db.exec(`
+      UPDATE items
+      SET project_path = COALESCE(project_path, project_id)
+      WHERE project_path IS NULL OR project_path = '';
+
+      UPDATE items
+      SET legacy_project_id = COALESCE(legacy_project_id, project_id)
+      WHERE legacy_project_id IS NULL OR legacy_project_id = '';
+
+      UPDATE session_summaries
+      SET project_path = COALESCE(project_path, project_id)
+      WHERE project_path IS NULL OR project_path = '';
+
+      UPDATE session_summaries
+      SET legacy_project_id = COALESCE(legacy_project_id, project_id)
+      WHERE legacy_project_id IS NULL OR legacy_project_id = '';
     `)
 
     this.database.db.exec(`
@@ -505,8 +551,22 @@ export class ThinServerRepository {
     this.database.db.query('UPDATE server_profiles SET is_default = 0 WHERE user_id = ?').run(userId)
   }
 
-  listItems(userId: string, projectId: string): ItemRecord[] {
-    const rows = this.database.db.query('SELECT * FROM items WHERE user_id = ? AND project_id = ? ORDER BY activity_at DESC, updated_at DESC').all(userId, projectId) as ItemRow[]
+  listItems(userId: string, projectPath: string, legacyProjectId?: string | null): ItemRecord[] {
+    const rows = legacyProjectId
+      ? this.database.db.query(`
+          SELECT *
+          FROM items
+          WHERE user_id = ?
+            AND (project_path = ? OR legacy_project_id = ? OR project_id = ?)
+          ORDER BY activity_at DESC, updated_at DESC
+        `).all(userId, projectPath, legacyProjectId, legacyProjectId) as ItemRow[]
+      : this.database.db.query(`
+          SELECT *
+          FROM items
+          WHERE user_id = ?
+            AND project_path = ?
+          ORDER BY activity_at DESC, updated_at DESC
+        `).all(userId, projectPath) as ItemRow[]
     return rows.map(mapItem)
   }
 
@@ -526,7 +586,9 @@ export class ThinServerRepository {
       id: createId('itm'),
       user_id: input.userId,
       server_profile_id: input.serverProfileId,
-      project_id: input.projectId,
+      project_id: input.legacyProjectId ?? input.projectPath,
+      project_path: input.projectPath,
+      legacy_project_id: input.legacyProjectId ?? input.projectPath,
       title: input.title,
       type: input.type,
       status: 'not_started',
@@ -536,10 +598,10 @@ export class ThinServerRepository {
       updated_at: now,
     }
     const statement = this.database.db.query(`
-      INSERT INTO items (id, user_id, server_profile_id, project_id, title, type, status, description, activity_at, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO items (id, user_id, server_profile_id, project_id, project_path, legacy_project_id, title, type, status, description, activity_at, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `)
-    runStatement(statement, [row.id, row.user_id, row.server_profile_id, row.project_id, row.title, row.type, row.status, row.description, row.activity_at, row.created_at, row.updated_at])
+    runStatement(statement, [row.id, row.user_id, row.server_profile_id, row.project_id, row.project_path ?? null, row.legacy_project_id ?? null, row.title, row.type, row.status, row.description, row.activity_at, row.created_at, row.updated_at])
     return mapItem(row)
   }
 
@@ -570,9 +632,23 @@ export class ThinServerRepository {
     return result.changes > 0
   }
 
-  listSessionSummaries(userId: string, projectId: string): SessionSummaryRecord[] {
+  listSessionSummaries(userId: string, projectPath: string, legacyProjectId?: string | null): SessionSummaryRecord[] {
     this.dedupeSessionSummariesByBaseUrl(userId)
-    const rows = this.database.db.query('SELECT * FROM session_summaries WHERE user_id = ? AND project_id = ? ORDER BY activity_at DESC, updated_at DESC').all(userId, projectId) as SessionSummaryRow[]
+    const rows = legacyProjectId
+      ? this.database.db.query(`
+          SELECT *
+          FROM session_summaries
+          WHERE user_id = ?
+            AND (project_path = ? OR legacy_project_id = ? OR project_id = ?)
+          ORDER BY activity_at DESC, updated_at DESC
+        `).all(userId, projectPath, legacyProjectId, legacyProjectId) as SessionSummaryRow[]
+      : this.database.db.query(`
+          SELECT *
+          FROM session_summaries
+          WHERE user_id = ?
+            AND project_path = ?
+          ORDER BY activity_at DESC, updated_at DESC
+        `).all(userId, projectPath) as SessionSummaryRow[]
     return rows.map(mapSessionSummary)
   }
 
@@ -596,7 +672,15 @@ export class ThinServerRepository {
 
   upsertSessionSummary(input: UpsertSessionSummaryInput): SessionSummaryRecord {
     this.dedupeSessionSummariesByBaseUrl(input.userId)
-    const existing = this.database.db.query(`
+    const exactExisting = this.database.db.query(`
+      SELECT *
+      FROM session_summaries
+      WHERE user_id = ?
+        AND server_profile_id = ?
+        AND external_session_id = ?
+      LIMIT 1
+    `).get(input.userId, input.serverProfileId, input.externalSessionId) as SessionSummaryRow | null
+    const existing = exactExisting ?? this.database.db.query(`
       SELECT s.*
       FROM session_summaries s
       INNER JOIN server_profiles sp ON sp.id = s.server_profile_id
@@ -612,8 +696,11 @@ export class ThinServerRepository {
     if (existing) {
       const next: SessionSummaryRow = {
         ...existing,
-        project_id: input.projectId,
+        project_id: input.legacyProjectId ?? existing.project_id,
+        project_path: input.projectPath,
+        legacy_project_id: input.legacyProjectId ?? existing.legacy_project_id ?? existing.project_id,
         item_id: input.itemId === undefined ? existing.item_id : input.itemId,
+        variant: input.variant === undefined ? existing.variant : input.variant,
         title_snapshot: input.titleSnapshot,
         status_snapshot: nextStatus,
         last_message_at: input.lastMessageAt ?? existing.last_message_at,
@@ -622,10 +709,10 @@ export class ThinServerRepository {
       }
       const statement = this.database.db.query(`
         UPDATE session_summaries
-        SET project_id = ?, item_id = ?, title_snapshot = ?, status_snapshot = ?, last_message_at = ?, activity_at = ?, updated_at = ?
+        SET project_id = ?, project_path = ?, legacy_project_id = ?, item_id = ?, variant = ?, title_snapshot = ?, status_snapshot = ?, last_message_at = ?, activity_at = ?, updated_at = ?
         WHERE id = ?
       `)
-      runStatement(statement, [next.project_id, next.item_id, next.title_snapshot, next.status_snapshot, next.last_message_at, next.activity_at, next.updated_at, existing.id])
+      runStatement(statement, [next.project_id, next.project_path ?? null, next.legacy_project_id ?? null, next.item_id, next.variant, next.title_snapshot, next.status_snapshot, next.last_message_at, next.activity_at, next.updated_at, existing.id])
       this.syncItemStatusFromSession(next.item_id, input.userId)
       return mapSessionSummary(next)
     }
@@ -634,9 +721,12 @@ export class ThinServerRepository {
       id: createId('ssn'),
       user_id: input.userId,
       server_profile_id: input.serverProfileId,
-      project_id: input.projectId,
+      project_id: input.legacyProjectId ?? input.projectPath,
+      project_path: input.projectPath,
+      legacy_project_id: input.legacyProjectId ?? input.projectPath,
       external_session_id: input.externalSessionId,
       item_id: input.itemId ?? null,
+      variant: input.variant ?? null,
       title_snapshot: input.titleSnapshot,
       status_snapshot: nextStatus,
       last_message_at: input.lastMessageAt ?? null,
@@ -645,10 +735,10 @@ export class ThinServerRepository {
       updated_at: now,
     }
     const statement = this.database.db.query(`
-      INSERT INTO session_summaries (id, user_id, server_profile_id, project_id, external_session_id, item_id, title_snapshot, status_snapshot, last_message_at, activity_at, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO session_summaries (id, user_id, server_profile_id, project_id, project_path, legacy_project_id, external_session_id, item_id, variant, title_snapshot, status_snapshot, last_message_at, activity_at, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `)
-    runStatement(statement, [row.id, row.user_id, row.server_profile_id, row.project_id, row.external_session_id, row.item_id, row.title_snapshot, row.status_snapshot, row.last_message_at, row.activity_at, row.created_at, row.updated_at])
+    runStatement(statement, [row.id, row.user_id, row.server_profile_id, row.project_id, row.project_path ?? null, row.legacy_project_id ?? null, row.external_session_id, row.item_id, row.variant, row.title_snapshot, row.status_snapshot, row.last_message_at, row.activity_at, row.created_at, row.updated_at])
     this.syncItemStatusFromSession(row.item_id, input.userId)
     return mapSessionSummary(row)
   }
@@ -697,17 +787,31 @@ export class ThinServerRepository {
     return rows.map(mapItemDocumentRef)
   }
 
-  searchProjectFiles(userId: string, projectId: string, query: string): Array<{ filePath: string; displayName: string; itemId: string }> {
-    const rows = this.database.db.query(`
+  searchProjectFiles(userId: string, projectPath: string, query: string, legacyProjectId?: string | null): Array<{ filePath: string; displayName: string; itemId: string }> {
+    const statement = legacyProjectId
+      ? this.database.db.query(`
       SELECT DISTINCT r.file_path, r.display_name, i.id AS item_id
       FROM item_document_refs r
       INNER JOIN items i ON i.id = r.item_id
       WHERE i.user_id = ?
-        AND i.project_id = ?
+        AND (i.project_path = ? OR i.legacy_project_id = ? OR i.project_id = ?)
         AND (LOWER(r.file_path) LIKE ? OR LOWER(r.display_name) LIKE ?)
       ORDER BY r.created_at DESC
       LIMIT 100
-    `).all(userId, projectId, `%${query.toLowerCase()}%`, `%${query.toLowerCase()}%`) as Array<{ file_path: string; display_name: string; item_id: string }>
+    `)
+      : this.database.db.query(`
+      SELECT DISTINCT r.file_path, r.display_name, i.id AS item_id
+      FROM item_document_refs r
+      INNER JOIN items i ON i.id = r.item_id
+      WHERE i.user_id = ?
+        AND i.project_path = ?
+        AND (LOWER(r.file_path) LIKE ? OR LOWER(r.display_name) LIKE ?)
+      ORDER BY r.created_at DESC
+      LIMIT 100
+    `)
+    const rows = (legacyProjectId
+      ? statement.all(userId, projectPath, legacyProjectId, legacyProjectId, `%${query.toLowerCase()}%`, `%${query.toLowerCase()}%`)
+      : statement.all(userId, projectPath, `%${query.toLowerCase()}%`, `%${query.toLowerCase()}%`)) as Array<{ file_path: string; display_name: string; item_id: string }>
 
     return rows.map((row) => ({
       filePath: row.file_path,

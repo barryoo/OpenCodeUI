@@ -29,7 +29,7 @@ import { FolderIcon } from './components/Icons'
 import { getGlobalSessions } from './api'
 import { extractToolData } from './features/message/tools'
 import type { ToolPart } from './types/message'
-import { authStore, autoApproveStore, useAuthStore } from './store'
+import { authStore, autoApproveStore, startupChoiceStore, useAuthStore } from './store'
 import { useItemWorkspaceStore } from './store/itemWorkspaceStore'
 import { ItemDetailPanel } from './features/items/ItemDetailPanel'
 import type { ThinItem } from './api/thinServer'
@@ -92,13 +92,15 @@ function App() {
   const initializedBaselineSessionRef = useRef<string | null>(null)
 
   // Directory (for new-session project banner)
-  const { currentDirectory, savedDirectories } = useDirectory()
+  const { currentDirectory, savedDirectories, setCurrentDirectory } = useDirectory()
   const escHintTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // ============================================
   // Cancel Hint (double-Esc to abort)
   // ============================================
   const [showCancelHint, setShowCancelHint] = useState(false)
+  const [loginPromptOpen, setLoginPromptOpen] = useState(false)
+  const hasPromptedAnonymousRef = useRef(false)
 
   // ============================================
   // Theme
@@ -120,6 +122,7 @@ function App() {
     handleModelChange,
     handleVariantChange,
     restoreFromMessage,
+    restoreVariant,
   } = useModelSelection({ models })
   const [sessionBaselineModel, setSessionBaselineModel] = useState<SessionBaselineModel | null>(null)
 
@@ -278,7 +281,7 @@ function App() {
   const { itemProjectId: routeItemProjectId, itemId: routeItemId, setItemContext } = useRouter()
   const activeSessionKey = routeSessionId ?? '__new_session__'
   const selectedItemId = useItemWorkspaceStore((state) => state.selectedItemId)
-  const selectedItemProjectId = useItemWorkspaceStore((state) => state.selectedItemProjectId)
+  const selectedItemProjectPath = useItemWorkspaceStore((state) => state.selectedItemProjectPath)
   const getItemById = useItemWorkspaceStore((state) => state.getItemById)
   const getLinkedSummaries = useItemWorkspaceStore((state) => state.getLinkedSummaries)
   const getProjectUnboundSummaries = useItemWorkspaceStore((state) => state.getProjectUnboundSummaries)
@@ -295,18 +298,50 @@ function App() {
   const pendingItemSessionBinding = useItemWorkspaceStore((state) => state.pendingItemSessionBinding)
   const archiveItem = useItemWorkspaceStore((state) => state.archiveItem)
   const setDraftItem = useItemWorkspaceStore((state) => state.setDraftItem)
+  const initializeItemWorkspace = useItemWorkspaceStore((state) => state.initialize)
+  const currentSessionSummary = useItemWorkspaceStore((state) => routeSessionId ? state.getSessionSummaryByExternalId(routeSessionId) : null)
   const authState = useAuthStore()
 
-  const selectedItem = selectedItemId && selectedItemProjectId
-    ? getItemById(selectedItemProjectId, selectedItemId)
+  useEffect(() => {
+    if (authState.status === 'anonymous' || authState.status === 'error') {
+      if (!hasPromptedAnonymousRef.current) {
+        if (startupChoiceStore.isResolved()) {
+          startupChoiceStore.reset()
+        }
+        setLoginPromptOpen(true)
+        hasPromptedAnonymousRef.current = true
+      }
+      return
+    }
+
+    setLoginPromptOpen(false)
+    if (authState.status === 'authenticated') {
+      startupChoiceStore.resolve()
+      hasPromptedAnonymousRef.current = false
+      return
+    }
+
+    if (authState.status === 'idle' || authState.status === 'checking') {
+      hasPromptedAnonymousRef.current = false
+    }
+  }, [authState.status])
+
+  useEffect(() => {
+    if (authState.status !== 'authenticated') return
+    void initializeItemWorkspace().catch(() => {})
+  }, [authState.status, initializeItemWorkspace])
+
+  const selectedItem = selectedItemId && selectedItemProjectPath
+    ? getItemById(selectedItemProjectPath, selectedItemId)
     : null
   const isDraftItem = selectedItem?.id === '__draft__'
   const linkedSummaries = selectedItem ? getLinkedSummaries(selectedItem.id) : []
-  const unboundSummaries = selectedItemProjectId ? getProjectUnboundSummaries(selectedItemProjectId) : []
-  const handleSelectItem = useCallback((projectId: string, item: ThinItem) => {
-    selectItem(projectId, item.id)
-    setItemContext(projectId, item.id)
-  }, [selectItem, setItemContext])
+  const unboundSummaries = selectedItemProjectPath ? getProjectUnboundSummaries(selectedItemProjectPath) : []
+  const handleSelectItem = useCallback((projectPath: string, item: ThinItem) => {
+    setCurrentDirectory(projectPath)
+    selectItem(projectPath, item.id)
+    setItemContext(projectPath, item.id)
+  }, [selectItem, setCurrentDirectory, setItemContext])
 
   const handleSelectSessionFromItem = useCallback(async (sessionId: string) => {
     const globalSessions = await getGlobalSessions({ roots: true, limit: 200 })
@@ -320,13 +355,13 @@ function App() {
     // 先清掉路由中的事项上下文，避免后续 selectedItem 清空时的同步 effect
     // 用旧 sessionId 回写 hash，覆盖掉这次真正的会话切换。
     setItemContext(undefined, undefined)
-    selectItem(selectedItemProjectId ?? '', null)
+    selectItem(selectedItemProjectPath ?? '', null)
     handleSelectSession(session, { clearItemContext: true })
-  }, [handleSelectSession, selectItem, selectedItemProjectId, setItemContext])
+  }, [handleSelectSession, selectItem, selectedItemProjectPath, setItemContext])
 
   useEffect(() => {
     if (!routeItemProjectId || !routeItemId) return
-    if (selectedItemId === routeItemId && selectedItemProjectId === routeItemProjectId) return
+    if (selectedItemId === routeItemId && selectedItemProjectPath === routeItemProjectId) return
 
     const itemFromStore = getItemById(routeItemProjectId, routeItemId)
     if (itemFromStore) {
@@ -342,12 +377,12 @@ function App() {
     }).catch(() => {
       // ignore recovery errors to avoid breaking session rendering
     })
-  }, [getItemById, routeItemId, routeItemProjectId, selectItem, selectedItemId, selectedItemProjectId])
+  }, [getItemById, routeItemId, routeItemProjectId, selectItem, selectedItemId, selectedItemProjectPath])
 
   useEffect(() => {
-    if (selectedItem && selectedItemProjectId) {
-      if (routeItemProjectId === selectedItemProjectId && routeItemId === selectedItem.id) return
-      setItemContext(selectedItemProjectId, selectedItem.id)
+    if (selectedItem && selectedItemProjectPath) {
+      if (routeItemProjectId === selectedItemProjectPath && routeItemId === selectedItem.id) return
+      setItemContext(selectedItemProjectPath, selectedItem.id)
       return
     }
 
@@ -357,7 +392,7 @@ function App() {
     routeItemId,
     routeItemProjectId,
     selectedItem?.id,
-    selectedItemProjectId,
+    selectedItemProjectPath,
     setItemContext,
     selectedItem,
   ])
@@ -445,7 +480,12 @@ function App() {
     if (restoredModelSessionRef.current === routeSessionId) return
     if (loadState !== 'loaded' || models.length === 0) return
 
+    const summaryVariant = currentSessionSummary?.variant ?? undefined
+
     if (messages.length === 0) {
+      if (summaryVariant && currentModel?.variants.includes(summaryVariant)) {
+        restoreVariant(summaryVariant)
+      }
       restoredModelSessionRef.current = routeSessionId
       return
     }
@@ -453,11 +493,13 @@ function App() {
     const lastUserMsg = [...messages].reverse().find(m => m.info.role === 'user')
     if (lastUserMsg && 'model' in lastUserMsg.info) {
       const userInfo = lastUserMsg.info as { model?: { providerID: string; modelID: string }; variant?: string }
-      restoreFromMessage(userInfo.model, userInfo.variant)
+      restoreFromMessage(userInfo.model, userInfo.variant ?? summaryVariant)
+    } else if (summaryVariant && currentModel?.variants.includes(summaryVariant)) {
+      restoreVariant(summaryVariant)
     }
 
     restoredModelSessionRef.current = routeSessionId
-  }, [routeSessionId, activeStoreSessionId, loadState, messages, models, restoreFromMessage])
+  }, [routeSessionId, activeStoreSessionId, loadState, messages, models, currentSessionSummary?.variant, currentModel, restoreFromMessage, restoreVariant])
 
   useEffect(() => {
     initializedBaselineSessionRef.current = null
@@ -468,10 +510,11 @@ function App() {
     if (models.length === 0) return
     if (routeSessionId && activeStoreSessionId !== routeSessionId) return
 
+    const summaryVariant = currentSessionSummary?.variant ?? null
     const lastUserMsg = [...messages].reverse().find(m => m.info.role === 'user')
     if (lastUserMsg && 'model' in lastUserMsg.info) {
       const userInfo = lastUserMsg.info as { model?: { providerID: string; modelID: string }; variant?: string }
-      const restoredSelection = restoreModelSelection(userInfo.model ?? null, userInfo.variant ?? null, models)
+      const restoredSelection = restoreModelSelection(userInfo.model ?? null, userInfo.variant ?? summaryVariant, models)
 
       if (restoredSelection) {
         setSessionBaselineModel({
@@ -495,10 +538,10 @@ function App() {
       sessionKey: activeSessionKey,
       modelKey: selectedModelKey,
       modelName: baselineModel.name,
-      variant: selectedVariant,
+      variant: summaryVariant ?? selectedVariant,
     })
     initializedBaselineSessionRef.current = activeSessionKey
-  }, [activeSessionKey, routeSessionId, activeStoreSessionId, loadState, messages, models, selectedModelKey, selectedVariant])
+  }, [activeSessionKey, routeSessionId, activeStoreSessionId, loadState, messages, models, selectedModelKey, selectedVariant, currentSessionSummary?.variant])
 
   const showRestoreSessionModel = !!sessionBaselineModel
     && sessionBaselineModel.sessionKey === activeSessionKey
@@ -781,19 +824,20 @@ function App() {
             linkedSessions={linkedSummaries}
             unboundSessions={unboundSummaries}
             onCreateItem={async (input) => {
-              if (!selectedItemProjectId) return
-              await createItem(selectedItemProjectId, input)
+              if (!selectedItemProjectPath) return
+              setCurrentDirectory(selectedItemProjectPath)
+              await createItem(selectedItemProjectPath, input)
             }}
             onUpdateItem={async (itemId, input) => {
               await updateItem(itemId, input)
             }}
             onDeleteItem={async (itemId) => {
-              if (!selectedItemProjectId) return
-              await deleteItem(selectedItemProjectId, itemId)
+              if (!selectedItemProjectPath) return
+              await deleteItem(selectedItemProjectPath, itemId)
             }}
             onArchiveItem={() => {
-              if (!selectedItemProjectId || !selectedItem) return
-              void archiveItem(selectedItemProjectId, selectedItem.id)
+              if (!selectedItemProjectPath || !selectedItem) return
+              void archiveItem(selectedItemProjectPath, selectedItem.id)
             }}
             onCopyWorktree={() => {
               if (!effectiveDirectory) return
@@ -801,15 +845,15 @@ function App() {
             }}
             onCancelCreate={() => {
               setDraftItem(null)
-              selectItem(selectedItemProjectId ?? '', null)
+              selectItem(selectedItemProjectPath ?? '', null)
             }}
             onSelectSession={(sessionId) => {
               void handleSelectSessionFromItem(sessionId)
             }}
             onCreateSession={async (itemId) => {
-              if (!selectedItemProjectId) return
-              preparePendingItemSession(selectedItemProjectId, itemId)
-              handleNewSession()
+              if (!selectedItemProjectPath) return
+              preparePendingItemSession(selectedItemProjectPath, itemId)
+              handleNewSession(selectedItemProjectPath)
             }}
             onUnbindSession={async (summaryId) => {
               await unbindSession(summaryId)
@@ -818,16 +862,16 @@ function App() {
               await bindSession(summaryId, itemId)
             }}
             onBindProjectSession={async (session, itemId) => {
-              if (!selectedItemProjectId) return
-              await ensureProjectSummaryForSessions(selectedItemProjectId, [session])
-              const summaries = useItemWorkspaceStore.getState().getProjectUnboundSummaries(selectedItemProjectId)
+              if (!selectedItemProjectPath) return
+              await ensureProjectSummaryForSessions(selectedItemProjectPath, [session])
+              const summaries = useItemWorkspaceStore.getState().getProjectUnboundSummaries(selectedItemProjectPath)
               const summary = summaries.find((entry) => entry.externalSessionId === session.id)
               if (summary) {
                 await bindSession(summary.id, itemId)
               }
             }}
-            projectDirectory={selectedItemProjectId ? (savedDirectories.find((dir) => dir.path === currentDirectory)?.path ?? currentDirectory) : currentDirectory}
-            onSearchFiles={(query) => searchItemFiles(selectedItemProjectId ?? '', query)}
+            projectDirectory={selectedItemProjectPath ? (savedDirectories.find((dir) => dir.path === currentDirectory)?.path ?? currentDirectory) : currentDirectory}
+            onSearchFiles={(query) => searchItemFiles(selectedItemProjectPath ?? '', query)}
           />
         )}
 
@@ -1040,8 +1084,12 @@ function App() {
       <ToastContainer />
 
       <LoginPromptDialog
-        isOpen={authState.status === 'anonymous'}
+        isOpen={loginPromptOpen}
         isLoading={authState.status === 'redirecting'}
+        onContinueWithoutLogin={() => {
+          startupChoiceStore.resolve()
+          setLoginPromptOpen(false)
+        }}
         onLogin={() => {
           void authStore.beginLogin()
         }}

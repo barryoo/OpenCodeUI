@@ -46,7 +46,7 @@ export interface ItemRecord {
   id: string
   userId: string
   serverProfileId: string
-  projectId: string
+  projectPath: string
   title: string
   type: ItemType
   status: WorkflowStatus
@@ -60,9 +60,10 @@ export interface SessionSummaryRecord {
   id: string
   userId: string
   serverProfileId: string
-  projectId: string
+  projectPath: string
   externalSessionId: string
   itemId: string | null
+  variant: string | null
   titleSnapshot: string
   statusSnapshot: WorkflowStatus
   lastMessageAt: string | null
@@ -99,7 +100,8 @@ export interface UpdateServerProfileInput {
 export interface CreateItemInput {
   userId: string
   serverProfileId: string
-  projectId: string
+  projectPath: string
+  legacyProjectId?: string
   title: string
   type: ItemType
   description?: string
@@ -116,11 +118,13 @@ export interface UpdateItemInput {
 export interface UpsertSessionSummaryInput {
   userId: string
   serverProfileId: string
-  projectId: string
+  projectPath: string
+  legacyProjectId?: string
   externalSessionId: string
   titleSnapshot: string
   statusSnapshot: WorkflowStatus
   itemId?: string | null
+  variant?: string | null
   lastMessageAt?: string | null
   activityAt: string
 }

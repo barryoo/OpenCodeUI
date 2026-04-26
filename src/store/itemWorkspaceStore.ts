@@ -1,11 +1,12 @@
 import { create } from 'zustand'
-import { getProjects, searchFiles, type ApiSession } from '../api'
+import { searchFiles, type ApiSession } from '../api'
 import {
   bindThinSessionSummary,
   createBoundSession,
   createThinItem,
   deleteThinItem,
   ensureDefaultThinServerProfile,
+  findProjectByPath,
   listAllThinSessionSummaries,
   listThinItems,
   listThinSessionSummaries,
@@ -17,6 +18,7 @@ import {
   updateThinItem,
   upsertThinSessionSummary,
 } from '../api/thinServer'
+import { ThinAuthError } from '../api/auth'
 import { serverStore } from './serverStore'
 
 const PINNED_ITEMS_STORAGE_KEY = 'opencode-pinned-items'
@@ -42,7 +44,7 @@ function writeLocalArray(key: string, value: string[]) {
 }
 
 interface PendingItemSessionBinding {
-  projectId: string
+  projectPath: string
   itemId: string
 }
 
@@ -76,45 +78,45 @@ interface ItemWorkspaceState {
   draftItem: ThinItem | null
   allSummaries: ThinSessionSummary[]
   selectedItemId: string | null
-  selectedItemProjectId: string | null
+  selectedItemProjectPath: string | null
   projectStates: Record<string, ProjectItemState>
   loadingProjects: Record<string, boolean>
   initialize: () => Promise<void>
-  loadProject: (projectId: string) => Promise<void>
-  ensureProjectSummaryForSessions: (projectId: string, sessions: ApiSession[]) => Promise<void>
-  getProjectEntries: (projectId: string, sessions: ApiSession[]) => MixedSidebarEntry[]
-  getProjectItems: (projectId: string) => ThinItem[]
-  getItemById: (projectId: string, itemId: string) => ThinItem | null
-  getProjectUnboundSummaries: (projectId: string) => ThinSessionSummary[]
+  loadProject: (projectPath: string) => Promise<void>
+  ensureProjectSummaryForSessions: (projectPath: string, sessions: ApiSession[]) => Promise<void>
+  getProjectEntries: (projectPath: string, sessions: ApiSession[]) => MixedSidebarEntry[]
+  getProjectItems: (projectPath: string) => ThinItem[]
+  getItemById: (projectPath: string, itemId: string) => ThinItem | null
+  getProjectUnboundSummaries: (projectPath: string) => ThinSessionSummary[]
   getLinkedSummaries: (itemId: string) => ThinSessionSummary[]
   getSessionSummaryByExternalId: (externalSessionId: string) => ThinSessionSummary | null
-  getProjectError: (projectId: string) => string | undefined
-  isProjectLoading: (projectId: string) => boolean
-  selectItem: (projectId: string, itemId: string | null) => void
+  getProjectError: (projectPath: string) => string | undefined
+  isProjectLoading: (projectPath: string) => boolean
+  selectItem: (projectPath: string, itemId: string | null) => void
   setDraftItem: (item: ThinItem | null) => void
-  createItem: (projectId: string, input: Pick<ThinItem, 'title' | 'type' | 'description'>) => Promise<ThinItem | null>
+  createItem: (projectPath: string, input: Pick<ThinItem, 'title' | 'type' | 'description'>) => Promise<ThinItem | null>
   updateItem: (itemId: string, input: Partial<Pick<ThinItem, 'title' | 'type' | 'description' | 'status'>>) => Promise<ThinItem | null>
-  deleteItem: (projectId: string, itemId: string) => Promise<void>
+  deleteItem: (projectPath: string, itemId: string) => Promise<void>
   togglePinnedItem: (itemId: string) => void
   isItemPinned: (itemId: string) => boolean
-  archiveItem: (projectId: string, itemId: string) => Promise<void>
+  archiveItem: (projectPath: string, itemId: string) => Promise<void>
   isItemArchived: (itemId: string) => boolean
-  preparePendingItemSession: (projectId: string, itemId: string) => void
+  preparePendingItemSession: (projectPath: string, itemId: string) => void
   consumePendingItemSessionBinding: () => PendingItemSessionBinding | null
   bindSession: (summaryId: string, itemId: string) => Promise<void>
   unbindSession: (summaryId: string) => Promise<void>
-  updateSessionStatus: (input: { projectId: string; externalSessionId: string; titleSnapshot: string; activityAt: string; status: ThinWorkflowStatus }) => Promise<ThinSessionSummary | null>
-  createSessionForItem: (projectId: string, itemId: string) => Promise<ApiSession | null>
-  searchFiles: (projectId: string, query: string) => Promise<string[]>
+  updateSessionStatus: (input: { projectPath: string; externalSessionId: string; titleSnapshot: string; activityAt: string; status: ThinWorkflowStatus }) => Promise<ThinSessionSummary | null>
+  createSessionForItem: (projectPath: string, itemId: string) => Promise<ApiSession | null>
+  searchFiles: (projectPath: string, query: string) => Promise<string[]>
   reset: () => void
 }
 
-function mergeProjectState(projectStates: Record<string, ProjectItemState>, projectId: string, next: Partial<ProjectItemState>) {
+function mergeProjectState(projectStates: Record<string, ProjectItemState>, projectPath: string, next: Partial<ProjectItemState>) {
   return {
     ...projectStates,
-    [projectId]: {
-      items: next.items ?? projectStates[projectId]?.items ?? [],
-      summaries: next.summaries ?? projectStates[projectId]?.summaries ?? [],
+    [projectPath]: {
+      items: next.items ?? projectStates[projectPath]?.items ?? [],
+      summaries: next.summaries ?? projectStates[projectPath]?.summaries ?? [],
       error: next.error,
     },
   }
@@ -155,6 +157,10 @@ function dedupeSummariesByExternalSessionId(summaries: ThinSessionSummary[]): Th
   return Array.from(byExternalId.values()).sort(compareSummaryPriority)
 }
 
+function isThinUnauthorized(error: unknown): boolean {
+  return error instanceof ThinAuthError && (error.status === 401 || error.code === 'UNAUTHORIZED')
+}
+
 export const useItemWorkspaceStore = create<ItemWorkspaceState>((set, get) => ({
   profile: null,
   pinnedItemIds: readLocalArray(PINNED_ITEMS_STORAGE_KEY),
@@ -163,7 +169,7 @@ export const useItemWorkspaceStore = create<ItemWorkspaceState>((set, get) => ({
   draftItem: null,
   allSummaries: [],
   selectedItemId: null,
-  selectedItemProjectId: null,
+  selectedItemProjectPath: null,
   projectStates: {},
   loadingProjects: {},
 
@@ -171,44 +177,62 @@ export const useItemWorkspaceStore = create<ItemWorkspaceState>((set, get) => ({
     if (get().profile) return
     const baseUrl = serverStore.getActiveBaseUrl()
     const activeServer = serverStore.getActiveServer()
-    const profile = await ensureDefaultThinServerProfile(baseUrl, activeServer?.name ?? 'Active OpenCode Server')
-    const allSummaries = await listAllThinSessionSummaries().catch(() => [])
-    set({ profile, allSummaries })
+    try {
+      const profile = await ensureDefaultThinServerProfile(baseUrl, activeServer?.name ?? 'Active OpenCode Server')
+      const allSummaries = await listAllThinSessionSummaries().catch(() => [])
+      set({ profile, allSummaries })
+    } catch (error) {
+      if (!isThinUnauthorized(error)) throw error
+      set({ profile: null, allSummaries: [] })
+    }
   },
 
-  loadProject: async (projectId: string) => {
-    await get().initialize()
-    set((state) => ({ loadingProjects: { ...state.loadingProjects, [projectId]: true } }))
+  loadProject: async (projectPath: string) => {
+    set((state) => ({ loadingProjects: { ...state.loadingProjects, [projectPath]: true } }))
     try {
+      await get().initialize()
+      const activeProfile = get().profile
+      const project = await findProjectByPath(projectPath)
+      const legacyProjectId = project?.id ?? null
+      if (!activeProfile) {
+        set((state) => ({
+          projectStates: mergeProjectState(state.projectStates, projectPath, { items: [], summaries: [], error: undefined }),
+          loadingProjects: { ...state.loadingProjects, [projectPath]: false },
+        }))
+        return
+      }
+
       const [items, summaries] = await Promise.all([
-        listThinItems(projectId),
-        listThinSessionSummaries(projectId),
+        listThinItems(projectPath, legacyProjectId),
+        listThinSessionSummaries(projectPath, legacyProjectId),
       ])
       set((state) => ({
-        projectStates: mergeProjectState(state.projectStates, projectId, { items, summaries, error: undefined }),
+        projectStates: mergeProjectState(state.projectStates, projectPath, { items, summaries, error: undefined }),
         allSummaries: mergeSummaries(state.allSummaries, summaries),
-        loadingProjects: { ...state.loadingProjects, [projectId]: false },
+        loadingProjects: { ...state.loadingProjects, [projectPath]: false },
       }))
     } catch (error) {
       set((state) => ({
-        projectStates: mergeProjectState(state.projectStates, projectId, { error: error instanceof Error ? error.message : 'Failed to load items' }),
-        loadingProjects: { ...state.loadingProjects, [projectId]: false },
+        projectStates: mergeProjectState(state.projectStates, projectPath, { error: error instanceof Error ? error.message : 'Failed to load items' }),
+        loadingProjects: { ...state.loadingProjects, [projectPath]: false },
       }))
     }
   },
 
-  ensureProjectSummaryForSessions: async (projectId: string, sessions: ApiSession[]) => {
+  ensureProjectSummaryForSessions: async (projectPath: string, sessions: ApiSession[]) => {
     const profile = get().profile
     if (!profile) {
       await get().initialize()
     }
     const activeProfile = get().profile
     if (!activeProfile) return
-    const state = get().projectStates[projectId]
+    const project = await findProjectByPath(projectPath)
+    const legacyProjectId = project?.id ?? null
+    const state = get().projectStates[projectPath]
     const existingByExternalId = new Map(
       dedupeSummariesByExternalSessionId([
         ...(state?.summaries ?? []),
-        ...get().allSummaries.filter((summary) => summary.projectId === projectId),
+        ...get().allSummaries.filter((summary) => summary.projectPath === projectPath),
       ]).map((summary) => [summary.externalSessionId, summary])
     )
     const touched = await Promise.all(sessions.map(async (session) => {
@@ -218,8 +242,10 @@ export const useItemWorkspaceStore = create<ItemWorkspaceState>((set, get) => ({
 
       return upsertThinSessionSummary({
         serverProfileId: activeProfile.id,
-        projectId,
+        projectPath,
+        legacyProjectId,
         externalSessionId: session.id,
+        variant: existing?.variant,
         titleSnapshot: session.title,
         statusSnapshot: nextStatus,
         activityAt,
@@ -227,15 +253,15 @@ export const useItemWorkspaceStore = create<ItemWorkspaceState>((set, get) => ({
       })
     }))
     set((state) => ({
-      projectStates: mergeProjectState(state.projectStates, projectId, {
-        summaries: mergeSummaries(state.projectStates[projectId]?.summaries ?? [], touched),
+      projectStates: mergeProjectState(state.projectStates, projectPath, {
+        summaries: mergeSummaries(state.projectStates[projectPath]?.summaries ?? [], touched),
       }),
       allSummaries: mergeSummaries(state.allSummaries, touched),
     }))
   },
 
-  getProjectEntries: (projectId: string, sessions: ApiSession[]) => {
-    const state = get().projectStates[projectId]
+  getProjectEntries: (projectPath: string, sessions: ApiSession[]) => {
+    const state = get().projectStates[projectPath]
     const items = (state?.items ?? []).filter((item) => !get().archivedItemIds.includes(item.id))
     const summaries = dedupeSummariesByExternalSessionId(state?.summaries ?? [])
     const summaryByExternalId = new Map(summaries.map((summary) => [summary.externalSessionId, summary]))
@@ -281,13 +307,13 @@ export const useItemWorkspaceStore = create<ItemWorkspaceState>((set, get) => ({
     })
   },
 
-  getProjectItems: (projectId: string) => get().projectStates[projectId]?.items ?? [],
-  getItemById: (projectId: string, itemId: string) => {
+  getProjectItems: (projectPath: string) => get().projectStates[projectPath]?.items ?? [],
+  getItemById: (projectPath: string, itemId: string) => {
     if (itemId === '__draft__') return get().draftItem
-    return get().projectStates[projectId]?.items.find((item) => item.id === itemId) ?? null
+    return get().projectStates[projectPath]?.items.find((item) => item.id === itemId) ?? null
   },
-  getProjectUnboundSummaries: (projectId: string) => dedupeSummariesByExternalSessionId(
-    (get().projectStates[projectId]?.summaries ?? []).filter((summary: ThinSessionSummary) => !summary.itemId)
+  getProjectUnboundSummaries: (projectPath: string) => dedupeSummariesByExternalSessionId(
+    (get().projectStates[projectPath]?.summaries ?? []).filter((summary: ThinSessionSummary) => !summary.itemId)
   ),
   getLinkedSummaries: (itemId: string) => dedupeSummariesByExternalSessionId(
     Object.values(get().projectStates)
@@ -297,36 +323,37 @@ export const useItemWorkspaceStore = create<ItemWorkspaceState>((set, get) => ({
   getSessionSummaryByExternalId: (externalSessionId: string) => dedupeSummariesByExternalSessionId(
     get().allSummaries.filter((summary) => summary.externalSessionId === externalSessionId)
   )[0] ?? null,
-  getProjectError: (projectId: string) => get().projectStates[projectId]?.error,
-  isProjectLoading: (projectId: string) => !!get().loadingProjects[projectId],
+  getProjectError: (projectPath: string) => get().projectStates[projectPath]?.error,
+  isProjectLoading: (projectPath: string) => !!get().loadingProjects[projectPath],
 
-  selectItem: (projectId: string, itemId: string | null) => set({ selectedItemId: itemId, selectedItemProjectId: itemId ? projectId : null }),
+  selectItem: (projectPath: string, itemId: string | null) => set({ selectedItemId: itemId, selectedItemProjectPath: itemId ? projectPath : null }),
 
   setDraftItem: (item) => set({ draftItem: item }),
 
-  createItem: async (projectId: string, input) => {
+  createItem: async (projectPath: string, input) => {
     await get().initialize()
     const profile = get().profile
     if (!profile) return null
-    const created = await createThinItem({ serverProfileId: profile.id, projectId, title: input.title, type: input.type, description: input.description })
-    set((state: ItemWorkspaceState) => ({ projectStates: mergeProjectState(state.projectStates, projectId, { items: [created, ...(state.projectStates[projectId]?.items ?? [])] }) }))
-    set({ selectedItemId: created.id, selectedItemProjectId: projectId, draftItem: null })
+    const project = await findProjectByPath(projectPath)
+    const created = await createThinItem({ serverProfileId: profile.id, projectPath, legacyProjectId: project?.id ?? null, title: input.title, type: input.type, description: input.description })
+    set((state: ItemWorkspaceState) => ({ projectStates: mergeProjectState(state.projectStates, projectPath, { items: [created, ...(state.projectStates[projectPath]?.items ?? [])] }) }))
+    set({ selectedItemId: created.id, selectedItemProjectPath: projectPath, draftItem: null })
     return created
   },
 
   updateItem: async (itemId: string, input) => {
-    const projectId = get().selectedItemProjectId
-    if (!projectId) return null
+    const projectPath = get().selectedItemProjectPath
+    if (!projectPath) return null
     const updated = await updateThinItem(itemId, input)
     set((state: ItemWorkspaceState) => ({
-      projectStates: mergeProjectState(state.projectStates, projectId, {
-        items: (state.projectStates[projectId]?.items ?? []).map((item: ThinItem) => item.id === itemId ? updated : item),
+      projectStates: mergeProjectState(state.projectStates, projectPath, {
+        items: (state.projectStates[projectPath]?.items ?? []).map((item: ThinItem) => item.id === itemId ? updated : item),
       }),
     }))
     return updated
   },
 
-  deleteItem: async (projectId: string, itemId: string) => {
+  deleteItem: async (projectPath: string, itemId: string) => {
     await deleteThinItem(itemId)
     const pinnedItemIds = get().pinnedItemIds.filter((id) => id !== itemId)
     const archivedItemIds = get().archivedItemIds.filter((id) => id !== itemId)
@@ -335,11 +362,11 @@ export const useItemWorkspaceStore = create<ItemWorkspaceState>((set, get) => ({
     set((state: ItemWorkspaceState) => ({
       pinnedItemIds,
       archivedItemIds,
-      projectStates: mergeProjectState(state.projectStates, projectId, {
-        items: (state.projectStates[projectId]?.items ?? []).filter((item: ThinItem) => item.id !== itemId),
+      projectStates: mergeProjectState(state.projectStates, projectPath, {
+        items: (state.projectStates[projectPath]?.items ?? []).filter((item: ThinItem) => item.id !== itemId),
       }),
       selectedItemId: state.selectedItemId === itemId ? null : state.selectedItemId,
-      selectedItemProjectId: state.selectedItemId === itemId ? null : state.selectedItemProjectId,
+      selectedItemProjectPath: state.selectedItemId === itemId ? null : state.selectedItemProjectPath,
     }))
   },
 
@@ -352,7 +379,7 @@ export const useItemWorkspaceStore = create<ItemWorkspaceState>((set, get) => ({
 
   isItemPinned: (itemId: string) => get().pinnedItemIds.includes(itemId),
 
-  archiveItem: async (_projectId: string, itemId: string) => {
+  archiveItem: async (_projectPath: string, itemId: string) => {
     const current = get().archivedItemIds
     if (current.includes(itemId)) return
     const next = [itemId, ...current]
@@ -361,14 +388,14 @@ export const useItemWorkspaceStore = create<ItemWorkspaceState>((set, get) => ({
       archivedItemIds: next,
       draftItem: state.selectedItemId === itemId ? null : state.draftItem,
       selectedItemId: state.selectedItemId === itemId ? null : state.selectedItemId,
-      selectedItemProjectId: state.selectedItemId === itemId ? null : state.selectedItemProjectId,
+      selectedItemProjectPath: state.selectedItemId === itemId ? null : state.selectedItemProjectPath,
     }))
   },
 
   isItemArchived: (itemId: string) => get().archivedItemIds.includes(itemId),
 
-  preparePendingItemSession: (projectId: string, itemId: string) => {
-    set({ pendingItemSessionBinding: { projectId, itemId } })
+  preparePendingItemSession: (projectPath: string, itemId: string) => {
+    set({ pendingItemSessionBinding: { projectPath, itemId } })
   },
 
   consumePendingItemSessionBinding: () => {
@@ -379,10 +406,10 @@ export const useItemWorkspaceStore = create<ItemWorkspaceState>((set, get) => ({
 
   bindSession: async (summaryId: string, itemId: string) => {
     const updated = await bindThinSessionSummary(summaryId, itemId)
-    const projectId = updated.projectId
+    const projectPath = updated.projectPath
     set((state: ItemWorkspaceState) => ({
-      projectStates: mergeProjectState(state.projectStates, projectId, {
-        summaries: (state.projectStates[projectId]?.summaries ?? []).map((summary: ThinSessionSummary) => summary.id === summaryId ? updated : summary),
+      projectStates: mergeProjectState(state.projectStates, projectPath, {
+        summaries: (state.projectStates[projectPath]?.summaries ?? []).map((summary: ThinSessionSummary) => summary.id === summaryId ? updated : summary),
       }),
       allSummaries: state.allSummaries.map((summary: ThinSessionSummary) => summary.id === summaryId ? updated : summary),
     }))
@@ -390,25 +417,28 @@ export const useItemWorkspaceStore = create<ItemWorkspaceState>((set, get) => ({
 
   unbindSession: async (summaryId: string) => {
     const updated = await unbindThinSessionSummary(summaryId)
-    const projectId = updated.projectId
+    const projectPath = updated.projectPath
     set((state: ItemWorkspaceState) => ({
-      projectStates: mergeProjectState(state.projectStates, projectId, {
-        summaries: (state.projectStates[projectId]?.summaries ?? []).map((summary: ThinSessionSummary) => summary.id === summaryId ? updated : summary),
+      projectStates: mergeProjectState(state.projectStates, projectPath, {
+        summaries: (state.projectStates[projectPath]?.summaries ?? []).map((summary: ThinSessionSummary) => summary.id === summaryId ? updated : summary),
       }),
       allSummaries: state.allSummaries.map((summary: ThinSessionSummary) => summary.id === summaryId ? updated : summary),
     }))
   },
 
-  updateSessionStatus: async ({ projectId, externalSessionId, titleSnapshot, activityAt, status }) => {
+  updateSessionStatus: async ({ projectPath, externalSessionId, titleSnapshot, activityAt, status }) => {
     await get().initialize()
     const profile = get().profile
     if (!profile) return null
 
+    const project = await findProjectByPath(projectPath)
     const existing = get().getSessionSummaryByExternalId(externalSessionId)
     const updated = await upsertThinSessionSummary({
       serverProfileId: profile.id,
-      projectId,
+      projectPath,
+      legacyProjectId: project?.id ?? null,
       externalSessionId,
+      variant: existing?.variant,
       titleSnapshot,
       statusSnapshot: status,
       activityAt,
@@ -416,10 +446,10 @@ export const useItemWorkspaceStore = create<ItemWorkspaceState>((set, get) => ({
     })
 
     set((state: ItemWorkspaceState) => {
-      const currentSummaries = state.projectStates[projectId]?.summaries ?? []
+      const currentSummaries = state.projectStates[projectPath]?.summaries ?? []
       const exists = currentSummaries.some((summary) => summary.id === updated.id)
       return {
-        projectStates: mergeProjectState(state.projectStates, projectId, {
+        projectStates: mergeProjectState(state.projectStates, projectPath, {
           summaries: exists
             ? currentSummaries.map((summary: ThinSessionSummary) => summary.id === updated.id ? updated : summary)
             : [updated, ...currentSummaries],
@@ -431,23 +461,27 @@ export const useItemWorkspaceStore = create<ItemWorkspaceState>((set, get) => ({
     return updated
   },
 
-  createSessionForItem: async (projectId: string, itemId: string) => {
+  createSessionForItem: async (projectPath: string, itemId: string) => {
     await get().initialize()
     const profile = get().profile
     if (!profile) return null
-    const projects = await getProjects()
-    const project = projects.find((entry) => entry.id === projectId)
-    if (!project) return null
-    const session = await createBoundSession({ project, serverProfileId: profile.id, itemId, title: undefined })
-    await get().loadProject(projectId)
+    const project = await findProjectByPath(projectPath)
+    const session = await createBoundSession({ projectPath, legacyProjectId: project?.id ?? null, serverProfileId: profile.id, itemId, title: undefined })
+    await get().loadProject(projectPath)
     return session
   },
 
-  searchFiles: async (projectId: string, query: string) => {
+  searchFiles: async (projectPath: string, query: string) => {
     if (!query.trim()) return []
-    const projects = await getProjects()
-    const project = projects.find((entry) => entry.id === projectId)
-    if (!project?.worktree) return []
+    const project = await findProjectByPath(projectPath)
+    if (!projectPath) return []
+    if (!project?.worktree) {
+      return searchFiles(query, {
+        directory: projectPath,
+        type: 'file',
+        limit: 8,
+      })
+    }
     return searchFiles(query, {
       directory: project.worktree,
       type: 'file',
@@ -461,7 +495,7 @@ export const useItemWorkspaceStore = create<ItemWorkspaceState>((set, get) => ({
     draftItem: null,
     allSummaries: [],
     selectedItemId: null,
-    selectedItemProjectId: null,
+    selectedItemProjectPath: null,
     projectStates: {},
     loadingProjects: {},
   }),

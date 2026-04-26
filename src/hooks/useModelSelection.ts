@@ -19,6 +19,7 @@ interface UseModelSelectionReturn {
   handleModelChange: (modelKey: string, model: ModelInfo) => void
   handleVariantChange: (variant: string | undefined) => void
   restoreFromMessage: (model: { providerID: string; modelID: string } | null | undefined, variant: string | null | undefined) => void
+  restoreVariant: (variant: string | null | undefined) => void
 }
 
 export function useModelSelection({ models }: UseModelSelectionOptions): UseModelSelectionReturn {
@@ -69,6 +70,10 @@ export function useModelSelection({ models }: UseModelSelectionOptions): UseMode
     }
   }, [models])
 
+  const restoreVariant = useCallback((variant: string | null | undefined) => {
+    setSelectedVariant(variant ?? undefined)
+  }, [])
+
   // 初始化时恢复 variant 偏好
   useEffect(() => {
     if (selectedModelKey && selectedVariant === undefined) {
@@ -103,5 +108,6 @@ export function useModelSelection({ models }: UseModelSelectionOptions): UseMode
     handleModelChange,
     handleVariantChange,
     restoreFromMessage,
+    restoreVariant,
   }
 }
