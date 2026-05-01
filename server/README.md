@@ -25,7 +25,7 @@ GITHUB_CLIENT_SECRET=your-client-secret
 GitHub OAuth App 的 callback URL 应设置为：
 
 ```text
-http://127.0.0.1:4097/api/auth/github/callback
+http://127.0.0.1:4097/admin/auth/github/callback
 ```
 
 如果生产环境使用 HTTPS，请同时：

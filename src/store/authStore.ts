@@ -126,7 +126,17 @@ class AuthStore {
 
   async beginLogin(): Promise<void> {
     this.setState({ status: 'redirecting', error: null })
-    await loginWithGithub()
+    try {
+      await loginWithGithub()
+    } catch (error) {
+      this.setState({
+        status: 'anonymous',
+        user: null,
+        mode: null,
+        error: error instanceof Error ? error.message : 'Failed to start GitHub login',
+      })
+      throw error
+    }
   }
 }
 

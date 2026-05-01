@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { ChevronDownIcon, MoreHorizontalIcon, LinkIcon, PinIcon, ClockIcon, CopyIcon, TrashIcon } from '../../components/Icons'
-import { deleteSession, getSessions, type ApiSession, updateSession } from '../../api'
-import { formatPathForApi } from '../../utils/directoryUtils'
+import { deleteSession, getSessionsForDirectory, type ApiSession, updateSession } from '../../api'
 import { Button } from '../../components/ui/Button'
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog'
 import type { ThinItem, ThinItemType, ThinSessionSummary, ThinWorkflowStatus } from '../../api/thinServer'
@@ -238,10 +237,10 @@ export function ItemDetailPanel({
   }, [sessionMenuId])
 
   useEffect(() => {
-    if (!bindMenuOpen || isCreateMode) return
+    if (!bindMenuOpen || isCreateMode || !projectDirectory) return
 
     let cancelled = false
-    void getSessions({ directory: formatPathForApi(projectDirectory), roots: true, limit: 200 }).then((sessions) => {
+    void getSessionsForDirectory({ directory: projectDirectory, roots: true, limit: 200 }).then((sessions) => {
       if (cancelled) return
       const boundIds = new Set(linkedSessions.map((session) => session.externalSessionId))
       const summariesByExternalId = new Map(unboundSessions.map((summary) => [summary.externalSessionId, summary]))
@@ -258,14 +257,14 @@ export function ItemDetailPanel({
   useEffect(() => {
     if (isCreateMode) return
 
-    const directory = formatPathForApi(projectDirectory)
+    const directory = projectDirectory
     if (!directory) {
       setExistingLinkedSessionIds(null)
       return
     }
 
     let cancelled = false
-    void getSessions({ directory, roots: true, limit: 200 }).then(async (sessions) => {
+    void getSessionsForDirectory({ directory, roots: true, limit: 200 }).then(async (sessions) => {
       if (cancelled) return
 
       const nextIds = new Set(sessions.map((session) => session.id))
@@ -364,7 +363,7 @@ export function ItemDetailPanel({
   }
 
   const handleArchiveLinkedSession = async (session: ThinSessionSummary) => {
-    const directory = formatPathForApi(projectDirectory)
+    const directory = projectDirectory
     if (!directory) return
     try {
       await updateSession(session.externalSessionId, { time: { archived: Date.now() } }, directory)
@@ -378,7 +377,7 @@ export function ItemDetailPanel({
   }
 
   const handleDeleteLinkedSession = async (session: ThinSessionSummary) => {
-    const directory = formatPathForApi(projectDirectory)
+    const directory = projectDirectory
     if (!directory) return
     try {
       await deleteSession(session.externalSessionId, directory)
@@ -392,7 +391,7 @@ export function ItemDetailPanel({
   }
 
   const handleCopyLinkedSessionDirectory = async () => {
-    const directory = formatPathForApi(projectDirectory)
+    const directory = projectDirectory
     if (!directory) return
     try {
       await navigator.clipboard.writeText(directory)

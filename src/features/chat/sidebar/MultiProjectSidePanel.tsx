@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom'
 import {
   deleteSession as deleteSessionApi,
   getGlobalSessions,
-  getSessions,
+  getSessionsForDirectory,
   subscribeToConnectionState,
   subscribeToEvents,
   type ApiSession,
@@ -38,7 +38,6 @@ import { notificationStore, useNotifications } from '../../../store/notification
 import { isSameDirectory, serverStorage, uiErrorHandler } from '../../../utils'
 import type { SessionStatusMap } from '../../../types/api/session'
 import { handleWindowTitlebarMouseDown, isTauri, isTauriMacOS } from '../../../utils/tauri'
-import { getProjectIdByPathMap } from '../../../api/thinServer'
 import { serverStore } from '../../../store/serverStore'
 import { useItemWorkspaceStore } from '../../../store/itemWorkspaceStore'
 import { SidePanel, SidebarFooter, type SidePanelProps } from './SidePanel'
@@ -64,7 +63,7 @@ const DEFAULT_THREAD_STATUS_FILTERS: ThinWorkflowStatus[] = ['not_started', 'in_
 
 type ThreadTypeFilter = (typeof THREAD_TYPE_FILTER_OPTIONS)[number]['value']
 
-const DEFAULT_VISIBLE_COUNT = 3
+const DEFAULT_VISIBLE_COUNT = 10
 const DEFAULT_RECENT_VISIBLE_COUNT = 10
 const RECENT_WINDOW_MS = 24 * 60 * 60 * 1000
 const PINNED_SESSIONS_STORAGE_KEY = 'opencode-pinned-sessions'
@@ -261,7 +260,6 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
   const [expandedProjects, setExpandedProjects] = useState<Record<string, boolean>>({})
   const [visibleCountByProject, setVisibleCountByProject] = useState<Record<string, number>>({})
   const [sessionsByProject, setSessionsByProject] = useState<Record<string, ApiSession[]>>({})
-  const [projectIdByPath, setProjectIdByPath] = useState<Record<string, string>>({})
   const [loadingByProject, setLoadingByProject] = useState<Record<string, boolean>>({})
   const [hasMoreByProject, setHasMoreByProject] = useState<Record<string, boolean>>({})
   const [loadedLimitByProject, setLoadedLimitByProject] = useState<Record<string, number>>({})
@@ -300,7 +298,7 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
   const pointerUpHandlerRef = useRef<(event?: PointerEvent) => void>(() => {})
   const [projectDeleteConfirm, setProjectDeleteConfirm] = useState<string | null>(null)
   const [sessionDeleteConfirm, setSessionDeleteConfirm] = useState<{ projectPath: string; session: ApiSession } | null>(null)
-  const [itemDeleteConfirm, setItemDeleteConfirm] = useState<{ projectId: string; itemId: string; title: string } | null>(null)
+  const [itemDeleteConfirm, setItemDeleteConfirm] = useState<{ projectPath: string; itemId: string; title: string } | null>(null)
   const [sessionRenameState, setSessionRenameState] = useState<SessionRenameState | null>(null)
   const [sessionRenameInput, setSessionRenameInput] = useState('')
   const [isRenamingSession, setIsRenamingSession] = useState(false)
@@ -338,25 +336,6 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
   const deleteItem = useItemWorkspaceStore((state) => state.deleteItem)
   const togglePinnedItem = useItemWorkspaceStore((state) => state.togglePinnedItem)
   const archiveItem = useItemWorkspaceStore((state) => state.archiveItem)
-
-  useEffect(() => {
-    let cancelled = false
-    void getProjectIdByPathMap()
-      .then((map) => {
-        if (cancelled) return
-        const next: Record<string, string> = {}
-        for (const [path, projectId] of map.entries()) {
-          next[path] = projectId
-        }
-        setProjectIdByPath(next)
-      })
-      .catch(() => {
-        if (!cancelled) setProjectIdByPath({})
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [savedDirectories])
 
   const projectNameByPath = useMemo(() => {
     const map = new Map<string, string>()
@@ -715,7 +694,7 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
     setLoadingByProject((prev) => ({ ...prev, [projectPath]: true }))
 
     try {
-      const data = await getSessions({
+      const data = await getSessionsForDirectory({
         roots: true,
         directory: projectPath,
         limit,
@@ -725,11 +704,8 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
       setHasMoreByProject((prev) => ({ ...prev, [projectPath]: data.length >= limit }))
       setLoadedLimitByProject((prev) => ({ ...prev, [projectPath]: limit }))
       syncPinnedEntriesWithSessions(projectPath, data)
-      const projectId = data[0]?.projectID
-      if (projectId) {
-        void loadItemProject(projectId)
-        void ensureProjectSummaryForSessions(projectId, data)
-      }
+      void loadItemProject(projectPath)
+      void ensureProjectSummaryForSessions(projectPath, data)
     } catch {
       setSessionsByProject((prev) => ({ ...prev, [projectPath]: [] }))
       setHasMoreByProject((prev) => ({ ...prev, [projectPath]: false }))
@@ -742,11 +718,7 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
   useEffect(() => {
     for (const project of projects) {
       if (!expandedProjects[project.path]) continue
-
-      const mappedProjectId = projectIdByPath[project.path]
-      if (mappedProjectId) {
-        void loadItemProject(mappedProjectId)
-      }
+      void loadItemProject(project.path)
 
       const targetLimit = visibleCountByProject[project.path] ?? DEFAULT_VISIBLE_COUNT
       const loadedLimit = loadedLimitByProject[project.path] ?? 0
@@ -759,7 +731,6 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
   }, [
     projects,
     expandedProjects,
-    projectIdByPath,
     visibleCountByProject,
     loadedLimitByProject,
     loadingByProject,
@@ -986,14 +957,12 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
   }, [onCloseMobile, onNewSession, updateProjectExpanded])
 
   const handleCreateItemInProject = useCallback(async (projectPath: string) => {
-    const projectId = projectIdByPath[projectPath]
-    if (!projectId) return
     setOpenMenu(null)
     updateProjectExpanded(projectPath, true)
     setCurrentDirectory(projectPath)
     const draftItem: ThinItem = {
       id: '__draft__',
-      projectId,
+      projectPath,
       serverProfileId: '',
       title: '',
       type: 'requirement',
@@ -1003,8 +972,8 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
       updatedAt: new Date().toISOString(),
     }
     setDraftItem(draftItem)
-    onSelectItem?.(projectId, draftItem)
-  }, [onSelectItem, projectIdByPath, setCurrentDirectory, setDraftItem, updateProjectExpanded])
+    onSelectItem?.(projectPath, draftItem)
+  }, [onSelectItem, setCurrentDirectory, setDraftItem, updateProjectExpanded])
 
   const handleOpenProjectFolder = useCallback(async (projectPath: string) => {
     try {
@@ -1925,7 +1894,7 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
                     menuOpen={isSessionMenuOpen}
                     menuRef={menuRef}
                     menuAnchorRect={isSessionMenuOpen ? openMenu?.anchorRect : null}
-                    tagStatus={entry.session?.projectID ? (allSummaryByExternalId.get(entry.sessionId)?.statusSnapshot ?? 'in_progress') : 'in_progress'}
+                    tagStatus={allSummaryByExternalId.get(entry.sessionId)?.statusSnapshot ?? 'in_progress'}
                     menuActions={[
                       {
                         label: '取消置顶',
@@ -2023,7 +1992,7 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
                     menuOpen={isSessionMenuOpen}
                     menuRef={menuRef}
                     menuAnchorRect={isSessionMenuOpen ? openMenu?.anchorRect : null}
-                    tagStatus={session.projectID ? (allSummaryByExternalId.get(session.id)?.statusSnapshot ?? 'in_progress') : 'in_progress'}
+                    tagStatus={allSummaryByExternalId.get(session.id)?.statusSnapshot ?? 'in_progress'}
                     menuActions={[
                       {
                         label: isPinned ? '取消置顶' : '置顶会话',
@@ -2200,11 +2169,11 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
 
               const isExpandedProject = expandedProjects[project.path] ?? false
               const sessions = sessionsByProject[project.path] ?? []
-              const projectId = sessions[0]?.projectID ?? projectIdByPath[project.path] ?? null
-              const mixedEntries = projectId ? getProjectEntries(projectId, sessions) : []
+              const projectPath = project.path
+              const mixedEntries = getProjectEntries(projectPath, sessions)
               const filteredEntries = mixedEntries.filter(matchesThreadFilters)
-              const itemProjectError = projectId ? getProjectError(projectId) : undefined
-              const itemProjectLoading = projectId ? isProjectLoading(projectId) : false
+              const itemProjectError = getProjectError(projectPath)
+              const itemProjectLoading = isProjectLoading(projectPath)
               const isLoading = loadingByProject[project.path] ?? false
               const hasMore = hasMoreByProject[project.path] ?? false
               const isProjectMenuOpen = openMenu?.type === 'project' && openMenu.projectPath === project.path
@@ -2362,28 +2331,24 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
                           <div className="ml-5 px-1.5 py-2 text-[11px] text-rose-300 space-y-2">
                             <div>事项加载失败</div>
                             <div className="text-text-500 break-all">{itemProjectError}</div>
-                            {projectId && (
-                              <button
-                                type="button"
-                                onClick={() => void loadItemProject(projectId)}
-                                className="inline-flex items-center rounded-md bg-bg-200 px-2 py-1 text-[11px] text-text-200 hover:text-text-100"
-                              >
-                                重试
-                              </button>
-                            )}
+                            <button
+                              type="button"
+                              onClick={() => void loadItemProject(projectPath)}
+                              className="inline-flex items-center rounded-md bg-bg-200 px-2 py-1 text-[11px] text-text-200 hover:text-text-100"
+                            >
+                              重试
+                            </button>
                           </div>
                         ) : mixedEntries.length === 0 ? (
                           <div className="ml-5 px-1.5 py-2 text-[11px] text-text-500 space-y-2">
                             <div>暂无事项或未绑定会话</div>
-                            {projectId && (
-                              <button
-                                type="button"
-                                onClick={() => void handleCreateItemInProject(project.path)}
-                                className="inline-flex items-center rounded-md bg-bg-200 px-2 py-1 text-[11px] text-text-200 hover:text-text-100"
-                              >
-                                新建事项
-                              </button>
-                            )}
+                            <button
+                              type="button"
+                              onClick={() => void handleCreateItemInProject(project.path)}
+                              className="inline-flex items-center rounded-md bg-bg-200 px-2 py-1 text-[11px] text-text-200 hover:text-text-100"
+                            >
+                              新建事项
+                            </button>
                           </div>
                         ) : filteredEntries.length === 0 ? (
                           <div className="ml-5 px-1.5 py-2 text-[11px] text-text-500">
@@ -2391,7 +2356,7 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
                           </div>
                         ) : (
                           filteredEntries.map((entry) => {
-                            if (entry.kind === 'item' && entry.item && projectId) {
+                            if (entry.kind === 'item' && entry.item) {
                               const isSelected = entry.item.id === selectedItemId
                               const isPinnedItem = pinnedItems.some((candidate) => candidate.itemId === entry.item!.id)
                               const isItemMenuOpen = openMenu?.type === 'item' && openMenu.projectPath === project.path && openMenu.itemId === entry.item.id
@@ -2401,7 +2366,7 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
                                     type="button"
                                     onClick={() => {
                                       setCurrentDirectory(project.path)
-                                      onSelectItem?.(projectId, entry.item!)
+                                      onSelectItem?.(projectPath, entry.item!)
                                     }}
                                     className={`w-full h-7 px-1.5 pr-12 rounded-md flex items-center gap-1.5 text-left transition-colors ${
                                       isSelected
@@ -2474,7 +2439,7 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
                                         label="重命名"
                                         icon={<PencilIcon size={12} />}
                                         onClick={() => {
-                                          onSelectItem?.(projectId, entry.item!)
+                                          onSelectItem?.(projectPath, entry.item!)
                                           setOpenMenu(null)
                                         }}
                                       />
@@ -2482,7 +2447,7 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
                                         label="归档"
                                         icon={<ClockIcon size={12} />}
                                         onClick={() => {
-                                          void archiveItem(projectId, entry.item!.id)
+                                          void archiveItem(projectPath, entry.item!.id)
                                           setOpenMenu(null)
                                         }}
                                       />
@@ -2498,7 +2463,7 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
                                         icon={<TrashIcon size={12} />}
                                         danger
                                         onClick={() => {
-                                          setItemDeleteConfirm({ projectId, itemId: entry.item!.id, title: entry.item!.title })
+                                          setItemDeleteConfirm({ projectPath, itemId: entry.item!.id, title: entry.item!.title })
                                           setOpenMenu(null)
                                         }}
                                       />
@@ -2708,7 +2673,7 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
         onClose={() => setItemDeleteConfirm(null)}
         onConfirm={() => {
           if (itemDeleteConfirm) {
-            void deleteItem(itemDeleteConfirm.projectId, itemDeleteConfirm.itemId).then(() => setItemDeleteConfirm(null))
+            void deleteItem(itemDeleteConfirm.projectPath, itemDeleteConfirm.itemId).then(() => setItemDeleteConfirm(null))
           }
         }}
         title="删除事项"

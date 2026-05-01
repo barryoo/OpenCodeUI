@@ -3,7 +3,7 @@
 // ============================================
 
 import { createContext, useContext, useState, useCallback, useEffect, useMemo, useRef, type ReactNode } from 'react'
-import { getPath, type ApiPath, getProjects, listDirectory } from '../api'
+import { getGlobalSessions, getPath, type ApiPath, getProjects, listDirectory } from '../api'
 import { useRouter } from '../hooks/useRouter'
 import { handleError, normalizeToForwardSlash, getDirectoryName, isSameDirectory, serverStorage } from '../utils'
 import { layoutStore, useLayoutStore } from '../store/layoutStore'
@@ -50,6 +50,7 @@ const DirectoryContext = createContext<DirectoryContextValue | null>(null)
 const STORAGE_KEY_SAVED = 'opencode-saved-directories'
 const STORAGE_KEY_RECENT = 'opencode-recent-projects'
 const STORAGE_KEY_HIDDEN = 'opencode-hidden-projects'
+const GLOBAL_DIRECTORY_SESSION_SCAN_LIMIT = 1000
 
 // 最近使用记录: { [path]: lastUsedAt }
 type RecentProjects = Record<string, number>
@@ -146,8 +147,11 @@ export function DirectoryProvider({ children }: { children: ReactNode }) {
     targetRecentProjects: RecentProjects
   ) => {
     try {
-      const apiProjects = await getProjects()
-      if (apiProjects.length === 0) return
+      const [apiProjects, globalSessions] = await Promise.all([
+        getProjects().catch(() => []),
+        getGlobalSessions({ roots: true, limit: GLOBAL_DIRECTORY_SESSION_SCAN_LIMIT }).catch(() => []),
+      ])
+      if (apiProjects.length === 0 && globalSessions.length === 0) return
 
       const now = Date.now()
       const fromApi: SavedDirectory[] = []
@@ -176,6 +180,26 @@ export function DirectoryProvider({ children }: { children: ReactNode }) {
           path: normalizedPath,
           name: project.name?.trim() || getDirectoryName(normalizedPath) || normalizedPath,
           addedAt: project.time?.created ?? now,
+        })
+      }
+
+      for (const session of globalSessions) {
+        if (session.projectID !== 'global') continue
+
+        const normalizedPath = normalizeDirectoryPath(session.directory || '')
+        if (!normalizedPath || normalizedPath === '.') continue
+
+        const isHidden = hidden.some((p) => isSameDirectory(p, normalizedPath))
+        if (isHidden && (!normalizedCurrent || !isSameDirectory(normalizedCurrent, normalizedPath))) {
+          continue
+        }
+
+        if (fromApi.some((dir) => isSameDirectory(dir.path, normalizedPath))) continue
+
+        fromApi.push({
+          path: normalizedPath,
+          name: getDirectoryName(normalizedPath) || normalizedPath,
+          addedAt: session.time.created ?? session.time.updated ?? now,
         })
       }
 

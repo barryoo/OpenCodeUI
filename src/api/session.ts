@@ -4,7 +4,7 @@
 // ============================================
 
 import { get, post, patch, del } from './http'
-import { formatPathForApi } from '../utils/directoryUtils'
+import { formatPathForApi, normalizeToForwardSlash } from '../utils/directoryUtils'
 import type { ApiSession, SessionListParams, FileDiff } from './types'
 import type { SessionStatusMap } from '../types/api/session'
 
@@ -49,13 +49,14 @@ export async function getSessionDiff(
  */
 export async function getSessions(params: SessionListParams = {}): Promise<ApiSession[]> {
   const { directory, roots, start, search, limit } = params
-  return get<ApiSession[]>('/session', { 
-    directory: formatPathForApi(directory), 
+  const formattedDir = formatPathForApi(directory)
+  return get<ApiSession[]>('/session', {
+    directory: formattedDir,
     roots, 
     start, 
     search, 
     limit 
-  })
+  }, { directory: formattedDir })
 }
 
 /**
@@ -64,20 +65,44 @@ export async function getSessions(params: SessionListParams = {}): Promise<ApiSe
  */
 export async function getGlobalSessions(params: SessionListParams = {}): Promise<ApiSession[]> {
   const { directory, roots, start, search, limit } = params
+  const formattedDir = formatPathForApi(directory)
   return get<ApiSession[]>('/experimental/session', {
-    directory: formatPathForApi(directory),
+    directory: formattedDir,
     roots,
     start,
     search,
     limit,
+  }, { directory: formattedDir })
+}
+
+function isSameSessionDirectory(a: string | undefined, b: string | undefined): boolean {
+  if (!a || !b) return false
+  return normalizeToForwardSlash(a).toLowerCase() === normalizeToForwardSlash(b).toLowerCase()
+}
+
+export async function getSessionsForDirectory(params: SessionListParams & { directory: string }): Promise<ApiSession[]> {
+  const { directory, limit, ...rest } = params
+  const formattedDir = formatPathForApi(directory)
+  if (!formattedDir) return []
+
+  const fallbackLimit = Math.max((limit ?? 100) * 5, 200)
+  const sessions = await getGlobalSessions({
+    ...rest,
+    directory: formattedDir,
+    limit: fallbackLimit,
   })
+
+  return sessions
+    .filter((session) => isSameSessionDirectory(session.directory, formattedDir))
+    .slice(0, limit ?? sessions.length)
 }
 
 /**
  * GET /session/{sessionID} - 获取单个 session
  */
 export async function getSession(sessionId: string, directory?: string): Promise<ApiSession> {
-  return get<ApiSession>(`/session/${sessionId}`, { directory: formatPathForApi(directory) })
+  const formattedDir = formatPathForApi(directory)
+  return get<ApiSession>(`/session/${sessionId}`, { directory: formattedDir }, { directory: formattedDir })
 }
 
 /**
@@ -89,7 +114,8 @@ export async function createSession(params: {
   parentID?: string
 } = {}): Promise<ApiSession> {
   const { directory, title, parentID } = params
-  return post<ApiSession>('/session', { directory: formatPathForApi(directory) }, { title, parentID })
+  const formattedDir = formatPathForApi(directory)
+  return post<ApiSession>('/session', { directory: formattedDir }, { title, parentID }, { directory: formattedDir })
 }
 
 /**
@@ -100,14 +126,16 @@ export async function updateSession(
   params: { title?: string; time?: { archived?: number } },
   directory?: string
 ): Promise<ApiSession> {
-  return patch<ApiSession>(`/session/${sessionId}`, { directory: formatPathForApi(directory) }, params)
+  const formattedDir = formatPathForApi(directory)
+  return patch<ApiSession>(`/session/${sessionId}`, { directory: formattedDir }, params, { directory: formattedDir })
 }
 
 /**
  * DELETE /session/{sessionID} - 删除 session
  */
 export async function deleteSession(sessionId: string, directory?: string): Promise<boolean> {
-  return del<boolean>(`/session/${sessionId}`, { directory: formatPathForApi(directory) })
+  const formattedDir = formatPathForApi(directory)
+  return del<boolean>(`/session/${sessionId}`, { directory: formattedDir }, { directory: formattedDir })
 }
 
 // ============================================

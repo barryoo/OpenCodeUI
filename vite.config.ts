@@ -7,6 +7,9 @@ export default defineConfig(() => {
   const rawBase = process.env.VITE_BASE_PATH || "/";
   const base =
     rawBase === "/" ? "/" : rawBase.endsWith("/") ? rawBase : `${rawBase}/`;
+  const thinServerHost = process.env.OPENCODEUI_SERVER_HOST || "127.0.0.1";
+  const thinServerPort = process.env.OPENCODEUI_SERVER_PORT || "4097";
+  const thinServerTarget = process.env.VITE_THIN_SERVER_URL || `http://${thinServerHost}:${thinServerPort}`;
 
   return {
     base,
@@ -31,6 +34,11 @@ export default defineConfig(() => {
           target: "http://100.66.48.126:4097", // OpenCode 后端（Tailscale IP）
           changeOrigin: true,
           rewrite: (path) => path.replace(/^\/api/, ""),
+        },
+        // 开发环境代理 - 将 /admin 前缀的请求转发到 thin server
+        "/admin": {
+          target: thinServerTarget,
+          changeOrigin: true,
         },
       },
     },

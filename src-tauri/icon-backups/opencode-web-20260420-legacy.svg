@@ -1,0 +1,58 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
+  <defs>
+    <linearGradient id="bg" x1="88" y1="64" x2="432" y2="456" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#34343A"/>
+      <stop offset="0.52" stop-color="#242429"/>
+      <stop offset="1" stop-color="#141416"/>
+    </linearGradient>
+    <radialGradient id="glowTop" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(248 138) rotate(90) scale(186 226)">
+      <stop stop-color="#FFFFFF" stop-opacity="0.22"/>
+      <stop offset="0.58" stop-color="#FFFFFF" stop-opacity="0.08"/>
+      <stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="glowBottom" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(270 400) rotate(90) scale(214 270)">
+      <stop stop-color="#000000" stop-opacity="0.2"/>
+      <stop offset="0.62" stop-color="#000000" stop-opacity="0.08"/>
+      <stop offset="1" stop-color="#000000" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="topSheen" x1="256" y1="52" x2="256" y2="232" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFFFFF" stop-opacity="0.34"/>
+      <stop offset="0.4" stop-color="#FFFFFF" stop-opacity="0.14"/>
+      <stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="symbol" x1="256" y1="164" x2="256" y2="350" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#F7B13A"/>
+      <stop offset="0.48" stop-color="#E99118"/>
+      <stop offset="1" stop-color="#C76400"/>
+    </linearGradient>
+    <filter id="shadow" x="8" y="12" width="496" height="500" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="16" stdDeviation="18" flood-color="#000000" flood-opacity="0.28"/>
+    </filter>
+    <filter id="symbolGlow" x="115" y="123" width="282" height="262" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feGaussianBlur stdDeviation="18"/>
+    </filter>
+    <clipPath id="shapeClip">
+      <rect x="32" y="32" width="448" height="448" rx="104"/>
+    </clipPath>
+  </defs>
+  <g filter="url(#shadow)">
+    <rect x="32" y="32" width="448" height="448" rx="104" fill="url(#bg)"/>
+    <g clip-path="url(#shapeClip)">
+      <rect x="32" y="32" width="448" height="448" rx="104" fill="url(#glowTop)"/>
+      <rect x="32" y="32" width="448" height="448" rx="104" fill="url(#glowBottom)"/>
+      <rect x="52" y="48" width="408" height="184" rx="92" fill="url(#topSheen)"/>
+      <rect x="37" y="37" width="438" height="438" rx="99" stroke="#FFFFFF" stroke-opacity="0.16" stroke-width="2"/>
+      <rect x="34" y="34" width="444" height="444" rx="102" stroke="#000000" stroke-opacity="0.2" stroke-width="4"/>
+    </g>
+    <g transform="translate(0 -6)">
+      <g filter="url(#symbolGlow)" opacity="0.22">
+        <path d="M164 176L274 256L164 336" stroke="#F59E0B" stroke-width="38" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M298 338H374" stroke="#F59E0B" stroke-width="38" stroke-linecap="round"/>
+      </g>
+      <path d="M164 176L274 256L164 336" stroke="url(#symbol)" stroke-width="34" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M298 338H374" stroke="url(#symbol)" stroke-width="34" stroke-linecap="round"/>
+      <path d="M164 176L274 256L164 336" stroke="#FFD27A" stroke-opacity="0.26" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M298 338H374" stroke="#FFD27A" stroke-opacity="0.22" stroke-width="10" stroke-linecap="round"/>
+    </g>
+  </g>
+</svg>

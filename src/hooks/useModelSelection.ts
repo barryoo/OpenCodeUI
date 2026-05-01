@@ -67,6 +67,8 @@ export function useModelSelection({ models }: UseModelSelectionOptions): UseMode
     if (exists) {
       setSelectedModelKey(modelKey)
       setSelectedVariant(variant ?? undefined)
+      // 持久化到 localStorage，确保刷新后模型选择不丢失
+      serverStorage.set(STORAGE_KEY_SELECTED_MODEL, modelKey)
     }
   }, [models])
 

@@ -225,7 +225,7 @@ GITHUB_CLIENT_SECRET=your-client-secret
 GitHub OAuth callback URL:
 
 ```text
-http://127.0.0.1:4097/api/auth/github/callback
+http://127.0.0.1:4097/admin/auth/github/callback
 ```
 
 For HTTPS production deployments, enable:
@@ -236,7 +236,7 @@ OPENCODEUI_SECURE_COOKIES=true
 
 This makes the thin server issue `Secure` cookies and preserve login sessions across service restarts via SQLite.
 
-If the frontend and thin server are exposed through the same reverse-proxied domain, `VITE_THIN_SERVER_URL` can be left empty so the frontend uses same-origin `/api/*` requests.
+If the frontend and thin server are exposed through the same reverse-proxied domain, `VITE_THIN_SERVER_URL` can be left empty so the frontend uses same-origin `/admin/*` requests.
 
 If `OPENCODEUI_SERVER_PUBLIC_URL` / `OPENCODEUI_FRONTEND_URL` are not configured, the thin server now derives the external origin from the incoming request instead of falling back to `127.0.0.1`.
 

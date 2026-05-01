@@ -1,4 +1,4 @@
-const THIN_SERVER_BASE_URL = (import.meta.env.VITE_THIN_SERVER_URL || '').replace(/\/$/, '')
+const THIN_SERVER_BASE_URL = (import.meta.env.VITE_THIN_SERVER_URL || '/admin').replace(/\/$/, '')
 
 export class ThinAuthError extends Error {
   status: number
@@ -35,7 +35,7 @@ async function parseError(response: Response, fallback: string): Promise<ThinAut
 }
 
 export async function getThinAuthMe(): Promise<ThinAuthResponse> {
-  const response = await fetch(`${THIN_SERVER_BASE_URL}/api/auth/me`, {
+  const response = await fetch(`${THIN_SERVER_BASE_URL}/auth/me`, {
     credentials: 'include',
   })
   if (!response.ok) throw await parseError(response, `Auth me failed: ${response.status}`)
@@ -43,7 +43,7 @@ export async function getThinAuthMe(): Promise<ThinAuthResponse> {
 }
 
 export async function loginWithGithub(): Promise<void> {
-  const response = await fetch(`${THIN_SERVER_BASE_URL}/api/auth/github/login`, {
+  const response = await fetch(`${THIN_SERVER_BASE_URL}/auth/github/login`, {
     credentials: 'include',
   })
   if (!response.ok) throw await parseError(response, `GitHub login failed: ${response.status}`)
@@ -72,7 +72,7 @@ export async function ensureThinAuth(): Promise<void> {
 }
 
 export async function logoutThinAuth(): Promise<void> {
-  const response = await fetch(`${THIN_SERVER_BASE_URL}/api/auth/logout`, {
+  const response = await fetch(`${THIN_SERVER_BASE_URL}/auth/logout`, {
     method: 'POST',
     credentials: 'include',
   })

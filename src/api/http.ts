@@ -7,6 +7,7 @@
 import { API_BASE_URL } from '../constants'
 import { serverStore, makeBasicAuthHeader } from '../store/serverStore'
 import { authStore } from '../store/authStore'
+import { startupChoiceStore } from '../store/startupChoiceStore'
 import { isTauri } from '../utils/tauri'
 
 /**
@@ -129,6 +130,7 @@ export async function request<T>(
   params: Record<string, QueryValue> = {},
   options: RequestOptions = {}
 ): Promise<T> {
+  await startupChoiceStore.waitUntilResolved()
   await ensureOpenCodeServerReady()
 
   const { method = 'GET', body, headers = {}, directory } = options

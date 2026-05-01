@@ -236,7 +236,7 @@ GITHUB_CLIENT_SECRET=your-client-secret
 GitHub OAuth App callback URL：
 
 ```text
-http://127.0.0.1:4097/api/auth/github/callback
+http://127.0.0.1:4097/admin/auth/github/callback
 ```
 
 生产环境如果走 HTTPS，请启用：
@@ -247,7 +247,7 @@ OPENCODEUI_SECURE_COOKIES=true
 
 这样 thin server 会把登录 cookie 标记为 `Secure`，并在服务重启后继续从 SQLite 恢复登录态。
 
-如果前端与 thin server 通过同域反向代理访问，`VITE_THIN_SERVER_URL` 可以留空，前端会直接使用当前站点域名请求 `/api/*`。
+如果前端与 thin server 通过同域反向代理访问，`VITE_THIN_SERVER_URL` 可以留空，前端会直接使用当前站点域名请求 `/admin/*`。
 
 如果未配置 `OPENCODEUI_SERVER_PUBLIC_URL` / `OPENCODEUI_FRONTEND_URL`，thin server 会按当前请求自动推断外部访问域名，避免 OAuth 回调被错误固定到 `127.0.0.1`。
 

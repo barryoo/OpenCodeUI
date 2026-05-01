@@ -41,3 +41,5 @@ export { serviceStore, useServiceStore } from './serviceStore'
 export { useItemWorkspaceStore } from './itemWorkspaceStore'
 
 export { authStore, useAuthStore } from './authStore'
+
+export { startupChoiceStore } from './startupChoiceStore'

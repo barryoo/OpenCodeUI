@@ -5,16 +5,25 @@ interface LoginPromptDialogProps {
   isOpen: boolean
   isLoading?: boolean
   onLogin: () => void
+  onContinueWithoutLogin: () => void
 }
 
-export function LoginPromptDialog({ isOpen, isLoading = false, onLogin }: LoginPromptDialogProps) {
+export function LoginPromptDialog({
+  isOpen,
+  isLoading = false,
+  onLogin,
+  onContinueWithoutLogin,
+}: LoginPromptDialogProps) {
   return (
-    <Dialog isOpen={isOpen} onClose={() => {}} title="登录 OpenCodeUI" width={420} showCloseButton={false}>
+    <Dialog isOpen={isOpen} onClose={onContinueWithoutLogin} title="选择使用方式" width={460} showCloseButton={false}>
       <div className="space-y-4">
         <p className="text-sm text-text-300 leading-6">
-          当前还没有登录。请先使用 GitHub 登录，才能同步 server 配置、事项和会话摘要。
+          你可以直接连接默认的 OpenCode server 开始使用，也可以先使用 GitHub 登录，启用 server 配置同步、事项和会话摘要等增强能力。
         </p>
-        <div className="flex justify-end">
+        <div className="flex justify-end gap-2">
+          <Button variant="secondary" onClick={onContinueWithoutLogin}>
+            暂不登录，直接使用
+          </Button>
           <Button onClick={onLogin} isLoading={isLoading}>
             使用 GitHub 登录
           </Button>

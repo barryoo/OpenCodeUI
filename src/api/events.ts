@@ -3,6 +3,7 @@
 // ============================================
 
 import { getApiBaseUrl, getAuthHeader } from './http'
+import { startupChoiceStore } from '../store/startupChoiceStore'
 import { isTauri } from '../utils/tauri'
 import type {
   ApiMessageWithParts,
@@ -82,6 +83,7 @@ let reconnectTimer: ReturnType<typeof setTimeout> | null = null
 let keepaliveTimer: ReturnType<typeof setInterval> | null = null
 let isConnecting = false
 let lifecycleListenersRegistered = false
+let waitingForStartupChoice = false
 /** 连接代次，每次 reconnectSSE() 递增，旧代次的事件会被丢弃 */
 let connectionGeneration = 0
 /** 当前是否在后台 */
@@ -125,6 +127,15 @@ function scheduleReconnect() {
 
 function connectSingleton() {
   if (isConnecting || allSubscribers.size === 0) return
+  if (!startupChoiceStore.isResolved()) {
+    if (waitingForStartupChoice) return
+    waitingForStartupChoice = true
+    void startupChoiceStore.waitUntilResolved().then(() => {
+      waitingForStartupChoice = false
+      connectSingleton()
+    })
+    return
+  }
   
   // 如果状态声称 connected，验证连接是否真的活着
   if (connectionInfo.state === 'connected') {

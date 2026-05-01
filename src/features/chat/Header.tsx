@@ -188,19 +188,22 @@ export function Header({
   }, [])
 
   const handleSessionStatusChange = useCallback(async (status: ThinWorkflowStatus) => {
-    if (!sessionId || !currentSession?.projectID) return
+    const projectPath = currentSession?.directory || sessionDirectory
+    if (!sessionId || !projectPath) return
+    const activityTime = currentSession?.time.updated ?? currentSession?.time.created ?? Date.now()
+    const titleSnapshot = currentSession?.title || sessionTitle
     try {
       await updateSessionStatus({
-        projectId: currentSession.projectID,
+        projectPath,
         externalSessionId: sessionId,
-        titleSnapshot: currentSession.title || sessionTitle,
-        activityAt: new Date((currentSession.time.updated ?? currentSession.time.created ?? Date.now())).toISOString(),
+        titleSnapshot,
+        activityAt: new Date(activityTime).toISOString(),
         status,
       })
     } catch (error) {
       uiErrorHandler('update session status', error)
     }
-  }, [currentSession?.projectID, currentSession?.time.created, currentSession?.time.updated, currentSession?.title, sessionId, sessionTitle, updateSessionStatus])
+  }, [currentSession?.directory, currentSession?.time.created, currentSession?.time.updated, currentSession?.title, sessionDirectory, sessionId, sessionTitle, updateSessionStatus])
 
   return (
     <div

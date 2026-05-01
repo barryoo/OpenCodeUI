@@ -352,12 +352,11 @@ function App() {
   }, [effectiveDirectory, handleSelectSession])
 
   const handleSidebarSelectSession = useCallback((session: Parameters<typeof handleSelectSession>[0]) => {
-    // 先清掉路由中的事项上下文，避免后续 selectedItem 清空时的同步 effect
-    // 用旧 sessionId 回写 hash，覆盖掉这次真正的会话切换。
-    setItemContext(undefined, undefined)
-    selectItem(selectedItemProjectPath ?? '', null)
+    if (selectedItemProjectPath) {
+      selectItem(selectedItemProjectPath, null)
+    }
     handleSelectSession(session, { clearItemContext: true })
-  }, [handleSelectSession, selectItem, selectedItemProjectPath, setItemContext])
+  }, [handleSelectSession, selectItem, selectedItemProjectPath])
 
   useEffect(() => {
     if (!routeItemProjectId || !routeItemId) return
@@ -378,24 +377,6 @@ function App() {
       // ignore recovery errors to avoid breaking session rendering
     })
   }, [getItemById, routeItemId, routeItemProjectId, selectItem, selectedItemId, selectedItemProjectPath])
-
-  useEffect(() => {
-    if (selectedItem && selectedItemProjectPath) {
-      if (routeItemProjectId === selectedItemProjectPath && routeItemId === selectedItem.id) return
-      setItemContext(selectedItemProjectPath, selectedItem.id)
-      return
-    }
-
-    if (!routeItemProjectId && !routeItemId) return
-    setItemContext(undefined, undefined)
-  }, [
-    routeItemId,
-    routeItemProjectId,
-    selectedItem?.id,
-    selectedItemProjectPath,
-    setItemContext,
-    selectedItem,
-  ])
 
   useEffect(() => {
     if (!routeItemProjectId || !routeItemId) return

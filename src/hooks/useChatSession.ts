@@ -46,6 +46,32 @@ function isThinUnauthorized(error: unknown): boolean {
   return error instanceof ThinAuthError && (error.status === 401 || error.code === 'UNAUTHORIZED')
 }
 
+/**
+ * Orchestrates the new-session-item-binding flow:
+ * 1. Peeks the pending binding (keeps it visible in store during sync)
+ * 2. Calls the provided sync function with the peeked binding
+ * 3. After sync succeeds, only clears the binding if it hasn't been
+ *    replaced (by a concurrent operation) during sync.
+ *
+ * If sync throws, the pending binding is preserved so the caller
+ * (or a retry) can still consume it.
+ *
+ * Exported for unit testing the race-condition guard.
+ */
+export async function handleNewSessionBinding(
+  syncFn: (binding: { projectPath: string; itemId: string } | null) => Promise<void>,
+): Promise<void> {
+  const binding = useItemWorkspaceStore.getState().pendingItemSessionBinding
+  await syncFn(binding)
+  // Only consume if the store's current binding still matches what we started with
+  const current = useItemWorkspaceStore.getState().pendingItemSessionBinding
+  if (binding && current &&
+      binding.projectPath === current.projectPath &&
+      binding.itemId === current.itemId) {
+    useItemWorkspaceStore.getState().consumePendingItemSessionBinding()
+  }
+}
+
 interface UseChatSessionOptions {
   chatAreaRef: React.RefObject<ChatAreaHandle | null>
   currentModel: ModelInfo | undefined
@@ -337,8 +363,6 @@ export function useChatSession({ chatAreaRef, currentModel, refetchModels }: Use
     let sessionId = routeSessionId
 
     try {
-      let pendingItemBinding: { projectPath: string; itemId: string } | null = null
-
       if (!sessionId) {
         const newSession = await createSession()
         const createdSessionId = newSession.id
@@ -350,8 +374,9 @@ export function useChatSession({ chatAreaRef, currentModel, refetchModels }: Use
         messageStore.setStreaming(createdSessionId, true)
         navigateToSession(createdSessionId)
 
-        pendingItemBinding = useItemWorkspaceStore.getState().consumePendingItemSessionBinding()
-        await syncThinSessionVariant(newSession, options?.variant, pendingItemBinding)
+        await handleNewSessionBinding((binding) =>
+          syncThinSessionVariant(newSession, options?.variant, binding),
+        )
       }
 
       await sendMessageAsync({

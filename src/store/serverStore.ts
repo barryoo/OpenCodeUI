@@ -10,7 +10,7 @@ import {
   setDefaultThinServerProfile,
   updateThinServerProfile,
 } from '../api/thinServer'
-import { ensureThinAuth } from '../api/auth'
+import { ThinAuthError, ensureThinAuth } from '../api/auth'
 import { authStore } from './authStore'
 import { isTauri } from '../utils/tauri'
 
@@ -120,19 +120,36 @@ class ServerStore {
     }
   }
 
+  private isAuthRequiredError(error: unknown): boolean {
+    if (error instanceof ThinAuthError) {
+      return error.status === 401 || error.code === 'UNAUTHORIZED'
+    }
+
+    return error instanceof Error && error.message === 'AUTH_REQUIRED'
+  }
+
   async initialize(): Promise<void> {
     if (this.isInitialized) return
     if (this.initializePromise) return this.initializePromise
 
     this.initializePromise = (async () => {
-      await authStore.ensureAuthenticated().catch(async () => {
-        await ensureThinAuth()
-      })
-      await this.migrateLegacyStorageIfNeeded()
-      await this.reloadFromBackend()
+      try {
+        await authStore.ensureAuthenticated().catch(async () => {
+          await ensureThinAuth()
+        })
+        await this.migrateLegacyStorageIfNeeded()
+        await this.reloadFromBackend()
+      } catch (error) {
+        if (!this.isAuthRequiredError(error)) throw error
+        this.loadInitialLocalFallback()
+        this.notify()
+      }
+
       this.isInitialized = true
       this.initializePromise = null
-    })()
+    })().finally(() => {
+      this.initializePromise = null
+    })
 
     return this.initializePromise
   }
