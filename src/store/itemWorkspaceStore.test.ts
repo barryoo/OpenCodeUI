@@ -163,3 +163,134 @@ describe('itemWorkspaceStore local summary sync', () => {
     expect(sameSession).toHaveLength(1)
   })
 })
+
+describe('updateLocalSessionSnapshot', () => {
+  beforeEach(() => {
+    useItemWorkspaceStore.getState().reset()
+    useItemWorkspaceStore.setState({
+      projectStates: {
+        [projectPath]: {
+          items: [makeItem()],
+          summaries: [makeSummary()],
+          error: undefined,
+        },
+      },
+      allSummaries: [makeSummary()],
+      selectedItemId: itemId,
+      selectedItemProjectPath: projectPath,
+    })
+  })
+
+  test('updates titleSnapshot in allSummaries and project states', () => {
+    useItemWorkspaceStore.getState().updateLocalSessionSnapshot(sessionId, {
+      titleSnapshot: 'AI Generated Title',
+    })
+
+    const state = useItemWorkspaceStore.getState()
+    const updatedAll = state.allSummaries.find((s) => s.externalSessionId === sessionId)
+    expect(updatedAll?.titleSnapshot).toBe('AI Generated Title')
+
+    const updatedProject = state.projectStates[projectPath]?.summaries.find((s) => s.externalSessionId === sessionId)
+    expect(updatedProject?.titleSnapshot).toBe('AI Generated Title')
+  })
+
+  test('updates activityAt and updatedAt when provided', () => {
+    const newActivityAt = '2026-05-01T12:00:00.000Z'
+    const newUpdatedAt = '2026-05-01T12:05:00.000Z'
+    useItemWorkspaceStore.getState().updateLocalSessionSnapshot(sessionId, {
+      titleSnapshot: 'Updated Title',
+      activityAt: newActivityAt,
+      updatedAt: newUpdatedAt,
+    })
+
+    const updated = useItemWorkspaceStore.getState().getSessionSummaryByExternalId(sessionId)
+    expect(updated?.titleSnapshot).toBe('Updated Title')
+    expect(updated?.activityAt).toBe(newActivityAt)
+    expect(updated?.updatedAt).toBe(newUpdatedAt)
+  })
+
+  test('is reflected in getLinkedSummaries', () => {
+    useItemWorkspaceStore.getState().upsertLocalSummary(makeSummary({ itemId }))
+    useItemWorkspaceStore.getState().updateLocalSessionSnapshot(sessionId, {
+      titleSnapshot: 'Linked Title Update',
+    })
+
+    const linked = useItemWorkspaceStore.getState().getLinkedSummaries(itemId)
+    expect(linked).toHaveLength(1)
+    expect(linked[0].titleSnapshot).toBe('Linked Title Update')
+  })
+
+  test('loadProject returns early when project already has items and summaries', async () => {
+    useItemWorkspaceStore.getState().reset()
+    useItemWorkspaceStore.setState({
+      projectStates: {
+        [projectPath]: {
+          items: [makeItem()],
+          summaries: [makeSummary()],
+          error: undefined,
+        },
+      },
+      loadingProjects: {},
+      loadedProjects: { [projectPath]: true },
+    })
+
+    const stateBefore = useItemWorkspaceStore.getState()
+
+    // loadProject should short-circuit: project already has items + summaries, not loading
+    await useItemWorkspaceStore.getState().loadProject(projectPath)
+
+    const stateAfter = useItemWorkspaceStore.getState()
+    // loadingProjects must NOT be set (short-circuit prevented any work)
+    expect(stateAfter.loadingProjects[projectPath]).toBeUndefined()
+    // Existing state must be preserved
+    expect(stateAfter.projectStates[projectPath]?.items).toEqual(stateBefore.projectStates[projectPath]?.items)
+    expect(stateAfter.projectStates[projectPath]?.summaries).toEqual(stateBefore.projectStates[projectPath]?.summaries)
+  })
+
+  test('loadProject does not short-circuit when project has stale error state', async () => {
+    useItemWorkspaceStore.getState().reset()
+    useItemWorkspaceStore.setState({
+      projectStates: {
+        [projectPath]: {
+          items: [],
+          summaries: [],
+          error: '请先手动创建 Server Profile',
+        },
+      },
+      loadingProjects: {},
+      loadedProjects: { [projectPath]: false },
+    })
+
+    const before = useItemWorkspaceStore.getState()
+    await before.loadProject(projectPath)
+    const after = useItemWorkspaceStore.getState()
+
+    expect(after.loadingProjects[projectPath]).toBe(false)
+    expect(after.loadedProjects[projectPath]).toBe(false)
+  })
+
+  test('rename scenario: updates titleSnapshot in both allSummaries and project states via getLinkedSummaries', () => {
+    // Bind the session first
+    useItemWorkspaceStore.getState().upsertLocalSummary(makeSummary({ itemId }))
+
+    // Simulate a rename operation
+    useItemWorkspaceStore.getState().updateLocalSessionSnapshot(sessionId, {
+      titleSnapshot: 'Renamed Session',
+      updatedAt: '2026-05-01T13:00:00.000Z',
+    })
+
+    // Check allSummaries
+    const all = useItemWorkspaceStore.getState().allSummaries.find((s) => s.externalSessionId === sessionId)
+    expect(all?.titleSnapshot).toBe('Renamed Session')
+    expect(all?.updatedAt).toBe('2026-05-01T13:00:00.000Z')
+
+    // Check project states
+    const project = useItemWorkspaceStore.getState().projectStates[projectPath]?.summaries.find((s) => s.externalSessionId === sessionId)
+    expect(project?.titleSnapshot).toBe('Renamed Session')
+
+    // Linked summaries reflect the rename
+    const linked = useItemWorkspaceStore.getState().getLinkedSummaries(itemId)
+    expect(linked).toHaveLength(1)
+    expect(linked[0].titleSnapshot).toBe('Renamed Session')
+  })
+})

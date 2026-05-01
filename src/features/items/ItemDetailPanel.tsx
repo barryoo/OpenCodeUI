@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ChevronDownIcon, MoreHorizontalIcon, LinkIcon, PinIcon, ClockIcon, CopyIcon, TrashIcon } from '../../components/Icons'
 import { deleteSession, getSessionsForDirectory, type ApiSession, updateSession } from '../../api'
 import { Button } from '../../components/ui/Button'
@@ -159,6 +159,11 @@ export function ItemDetailPanel({
 
   const canCreate = useMemo(() => title.trim().length > 0, [title])
 
+  const loadAvailableSessions = useCallback(async () => {
+    if (!projectDirectory) return [] as ApiSession[]
+    return getSessionsForDirectory({ directory: projectDirectory, roots: true, limit: 200 })
+  }, [projectDirectory])
+
   useEffect(() => {
     setTitle(item.title)
     setType(item.type)
@@ -240,7 +245,7 @@ export function ItemDetailPanel({
     if (!bindMenuOpen || isCreateMode || !projectDirectory) return
 
     let cancelled = false
-    void getSessionsForDirectory({ directory: projectDirectory, roots: true, limit: 200 }).then((sessions) => {
+    void loadAvailableSessions().then((sessions) => {
       if (cancelled) return
       const boundIds = new Set(linkedSessions.map((session) => session.externalSessionId))
       const summariesByExternalId = new Map(unboundSessions.map((summary) => [summary.externalSessionId, summary]))
@@ -252,19 +257,18 @@ export function ItemDetailPanel({
     return () => {
       cancelled = true
     }
-  }, [bindMenuOpen, isCreateMode, linkedSessions, projectDirectory, unboundSessions])
+  }, [bindMenuOpen, isCreateMode, linkedSessions, projectDirectory, unboundSessions, loadAvailableSessions])
 
   useEffect(() => {
     if (isCreateMode) return
 
-    const directory = projectDirectory
-    if (!directory) {
+    if (!projectDirectory) {
       setExistingLinkedSessionIds(null)
       return
     }
 
     let cancelled = false
-    void getSessionsForDirectory({ directory, roots: true, limit: 200 }).then(async (sessions) => {
+    void loadAvailableSessions().then(async (sessions) => {
       if (cancelled) return
 
       const nextIds = new Set(sessions.map((session) => session.id))
@@ -283,7 +287,7 @@ export function ItemDetailPanel({
     return () => {
       cancelled = true
     }
-  }, [isCreateMode, linkedSessions, onUnbindSession, projectDirectory])
+  }, [isCreateMode, linkedSessions, onUnbindSession, projectDirectory, loadAvailableSessions])
 
   const visibleLinkedSessions = useMemo(() => {
     if (!existingLinkedSessionIds) return linkedSessions

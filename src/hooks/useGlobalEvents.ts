@@ -11,6 +11,7 @@
 import { useEffect, useRef, useCallback } from 'react'
 import { queryClient } from '../query/client'
 import { messageStore, childSessionStore, autoApproveStore } from '../store'
+import { syncSessionSnapshotToItemWorkspace } from '../store/syncSessionSnapshot'
 import { activeSessionStore } from '../store/activeSessionStore'
 import { notificationStore } from '../store/notificationStore'
 import { subscribeToEvents, replyPermission } from '../api'
@@ -448,6 +449,7 @@ export function useGlobalEvents(callbacks?: GlobalEventsCallbacks) {
         // 更新 session meta 供 active tab 使用
         activeSessionStore.setSessionMeta(session.id, session.title, session.directory)
         setSessionQueryData(session)
+        syncSessionSnapshotToItemWorkspace(session)
         if (session.parentID) {
           childSessionStore.registerChildSession(session)
         }

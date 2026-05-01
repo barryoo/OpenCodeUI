@@ -83,6 +83,7 @@ interface ItemWorkspaceState {
   selectedItemProjectPath: string | null
   projectStates: Record<string, ProjectItemState>
   loadingProjects: Record<string, boolean>
+  loadedProjects: Record<string, boolean>
   initialize: () => Promise<void>
   loadProject: (projectPath: string) => Promise<void>
   ensureProjectSummaryForSessions: (projectPath: string, sessions: ApiSession[]) => Promise<void>
@@ -111,6 +112,7 @@ interface ItemWorkspaceState {
   createSessionForItem: (projectPath: string, itemId: string) => Promise<ApiSession | null>
   searchFiles: (projectPath: string, query: string) => Promise<string[]>
   upsertLocalSummary: (summary: ThinSessionSummary) => void
+  updateLocalSessionSnapshot: (externalSessionId: string, patch: { titleSnapshot?: string; activityAt?: string; updatedAt?: string }) => void
   reset: () => void
 }
 
@@ -176,6 +178,7 @@ export const useItemWorkspaceStore = create<ItemWorkspaceState>((set, get) => ({
   selectedItemProjectPath: null,
   projectStates: {},
   loadingProjects: {},
+  loadedProjects: {},
 
   initialize: async () => {
     const baseUrl = serverStore.getActiveBaseUrl()
@@ -195,6 +198,10 @@ export const useItemWorkspaceStore = create<ItemWorkspaceState>((set, get) => ({
   },
 
   loadProject: async (projectPath: string) => {
+    if (get().loadedProjects[projectPath] && !get().loadingProjects[projectPath]) {
+      return
+    }
+
     set((state) => ({ loadingProjects: { ...state.loadingProjects, [projectPath]: true } }))
     try {
       await get().initialize()
@@ -203,6 +210,7 @@ export const useItemWorkspaceStore = create<ItemWorkspaceState>((set, get) => ({
         set((state) => ({
           projectStates: mergeProjectState(state.projectStates, projectPath, { items: [], summaries: [], error: MISSING_PROFILE_ERROR }),
           loadingProjects: { ...state.loadingProjects, [projectPath]: false },
+          loadedProjects: { ...state.loadedProjects, [projectPath]: false },
         }))
         return
       }
@@ -217,11 +225,13 @@ export const useItemWorkspaceStore = create<ItemWorkspaceState>((set, get) => ({
         projectStates: mergeProjectState(state.projectStates, projectPath, { items, summaries, error: undefined }),
         allSummaries: mergeSummaries(state.allSummaries, summaries),
         loadingProjects: { ...state.loadingProjects, [projectPath]: false },
+        loadedProjects: { ...state.loadedProjects, [projectPath]: true },
       }))
     } catch (error) {
       set((state) => ({
         projectStates: mergeProjectState(state.projectStates, projectPath, { error: error instanceof Error ? error.message : 'Failed to load items' }),
         loadingProjects: { ...state.loadingProjects, [projectPath]: false },
+        loadedProjects: { ...state.loadedProjects, [projectPath]: false },
       }))
     }
   },
@@ -515,6 +525,33 @@ export const useItemWorkspaceStore = create<ItemWorkspaceState>((set, get) => ({
     })
   },
 
+  updateLocalSessionSnapshot: (externalSessionId: string, patch: { titleSnapshot?: string; activityAt?: string; updatedAt?: string }) => {
+    set((state: ItemWorkspaceState) => {
+      const updatedAll = state.allSummaries.map((summary) =>
+        summary.externalSessionId === externalSessionId
+          ? { ...summary, ...patch }
+          : summary,
+      )
+
+      const updatedProjectStates: Record<string, ProjectItemState> = {}
+      for (const [path, projectState] of Object.entries(state.projectStates)) {
+        updatedProjectStates[path] = {
+          ...projectState,
+          summaries: projectState.summaries.map((summary) =>
+            summary.externalSessionId === externalSessionId
+              ? { ...summary, ...patch }
+              : summary,
+          ),
+        }
+      }
+
+      return {
+        allSummaries: updatedAll,
+        projectStates: updatedProjectStates,
+      }
+    })
+  },
+
   reset: () => set({
     profile: null,
     profileBaseUrl: null,
@@ -525,5 +562,6 @@ export const useItemWorkspaceStore = create<ItemWorkspaceState>((set, get) => ({
     selectedItemProjectPath: null,
     projectStates: {},
     loadingProjects: {},
+    loadedProjects: {},
   }),
 }))

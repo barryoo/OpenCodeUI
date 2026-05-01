@@ -362,13 +362,16 @@ function App() {
     if (!routeItemProjectId || !routeItemId) return
     if (selectedItemId === routeItemId && selectedItemProjectPath === routeItemProjectId) return
 
-    const itemFromStore = getItemById(routeItemProjectId, routeItemId)
+    const state = useItemWorkspaceStore.getState()
+    const itemFromStore = state.getItemById(routeItemProjectId, routeItemId)
     if (itemFromStore) {
-      selectItem(routeItemProjectId, routeItemId)
+      state.selectItem(routeItemProjectId, routeItemId)
       return
     }
 
-    void useItemWorkspaceStore.getState().loadProject(routeItemProjectId).then(() => {
+    if (state.isProjectLoading(routeItemProjectId)) return
+
+    void state.loadProject(routeItemProjectId).then(() => {
       const loaded = useItemWorkspaceStore.getState().getItemById(routeItemProjectId, routeItemId)
       if (loaded) {
         useItemWorkspaceStore.getState().selectItem(routeItemProjectId, routeItemId)

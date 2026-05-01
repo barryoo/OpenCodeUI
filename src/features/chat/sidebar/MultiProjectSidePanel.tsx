@@ -40,6 +40,7 @@ import type { SessionStatusMap } from '../../../types/api/session'
 import { handleWindowTitlebarMouseDown, isTauri, isTauriMacOS } from '../../../utils/tauri'
 import { serverStore } from '../../../store/serverStore'
 import { useItemWorkspaceStore } from '../../../store/itemWorkspaceStore'
+import { syncSessionSnapshotToItemWorkspace } from '../../../store/syncSessionSnapshot'
 import { SidePanel, SidebarFooter, type SidePanelProps } from './SidePanel'
 import { ActionMenu, ActionMenuItem, SessionListItem } from './SessionListItem'
 import type { ThinSessionSummary, ThinWorkflowStatus } from '../../../api/thinServer'
@@ -853,6 +854,7 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
           return changed ? next : prev
         })
 
+        syncSessionSnapshotToItemWorkspace(session)
         scheduleRecentRefresh()
       },
       onSessionDeleted: (sessionId) => {
@@ -1109,6 +1111,11 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
         ? { ...item, ...updated, title: updated.title ?? trimmed }
         : item
     )))
+
+    syncSessionSnapshotToItemWorkspace({
+      ...updated,
+      title: updated.title ?? trimmed,
+    })
 
     scheduleRecentRefresh()
   }, [scheduleRecentRefresh])
