@@ -142,18 +142,21 @@ export function useChatSession({ chatAreaRef, currentModel, refetchModels }: Use
       const projects = await getProjects()
       const project = projects.find((entry) => entry.worktree === projectPath)
       const existing = useItemWorkspaceStore.getState().getSessionSummaryByExternalId(session.id)
-      await upsertThinSessionSummary({
+      const updated = await upsertThinSessionSummary({
         serverProfileId: profile.id,
         projectPath,
         legacyProjectId: project?.id ?? null,
         externalSessionId: session.id,
-        itemId: itemBinding?.itemId ?? existing?.itemId ?? null,
         variant: variant ?? existing?.variant ?? null,
         titleSnapshot: session.title,
         statusSnapshot: existing?.statusSnapshot ?? 'in_progress',
         activityAt: new Date(session.time.updated ?? session.time.created).toISOString(),
         lastMessageAt: new Date().toISOString(),
+        ...((itemBinding?.itemId ?? existing?.itemId) !== undefined
+          ? { itemId: itemBinding?.itemId ?? existing?.itemId }
+          : {}),
       })
+      useItemWorkspaceStore.getState().upsertLocalSummary(updated)
     } catch (error) {
       if (!isThinUnauthorized(error)) throw error
     }

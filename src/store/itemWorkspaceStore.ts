@@ -108,6 +108,7 @@ interface ItemWorkspaceState {
   updateSessionStatus: (input: { projectPath: string; externalSessionId: string; titleSnapshot: string; activityAt: string; status: ThinWorkflowStatus }) => Promise<ThinSessionSummary | null>
   createSessionForItem: (projectPath: string, itemId: string) => Promise<ApiSession | null>
   searchFiles: (projectPath: string, query: string) => Promise<string[]>
+  upsertLocalSummary: (summary: ThinSessionSummary) => void
   reset: () => void
 }
 
@@ -249,7 +250,7 @@ export const useItemWorkspaceStore = create<ItemWorkspaceState>((set, get) => ({
         titleSnapshot: session.title,
         statusSnapshot: nextStatus,
         activityAt,
-        itemId: existing?.itemId ?? null,
+        ...(existing?.itemId !== undefined ? { itemId: existing.itemId } : {}),
       })
     }))
     set((state) => ({
@@ -442,7 +443,7 @@ export const useItemWorkspaceStore = create<ItemWorkspaceState>((set, get) => ({
       titleSnapshot,
       statusSnapshot: status,
       activityAt,
-      itemId: existing?.itemId ?? null,
+      ...(existing?.itemId !== undefined ? { itemId: existing.itemId } : {}),
     })
 
     set((state: ItemWorkspaceState) => {
@@ -486,6 +487,25 @@ export const useItemWorkspaceStore = create<ItemWorkspaceState>((set, get) => ({
       directory: project.worktree,
       type: 'file',
       limit: 8,
+    })
+  },
+
+  upsertLocalSummary: (summary: ThinSessionSummary) => {
+    const projectPath = summary.projectPath
+    set((state: ItemWorkspaceState) => {
+      const existingProjectSummaries = state.projectStates[projectPath]?.summaries ?? []
+      return {
+        projectStates: mergeProjectState(state.projectStates, projectPath, {
+          summaries: mergeSummaries(
+            existingProjectSummaries.filter((s) => s.externalSessionId !== summary.externalSessionId),
+            [summary],
+          ),
+        }),
+        allSummaries: mergeSummaries(
+          state.allSummaries.filter((s) => s.externalSessionId !== summary.externalSessionId),
+          [summary],
+        ),
+      }
     })
   },
 
