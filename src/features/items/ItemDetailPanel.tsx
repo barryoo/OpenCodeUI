@@ -192,10 +192,21 @@ export function ItemDetailPanel({
     }
   }, [description, onSearchFiles])
 
-  useEffect(() => () => {
-    if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
-    if (hideSavedTimerRef.current) clearTimeout(hideSavedTimerRef.current)
-  }, [])
+  // Clear pending autosave / saved-hint timers when switching items or unmounting
+  useEffect(() => {
+    return () => {
+      if (saveTimerRef.current) {
+        clearTimeout(saveTimerRef.current)
+        saveTimerRef.current = null
+      }
+      if (hideSavedTimerRef.current) {
+        clearTimeout(hideSavedTimerRef.current)
+        hideSavedTimerRef.current = null
+      }
+      setSaveState('idle')
+      setSaveMessage('')
+    }
+  }, [item.id])
 
   useEffect(() => {
     if (!bindMenuOpen) return
@@ -272,14 +283,33 @@ export function ItemDetailPanel({
       if (cancelled) return
 
       const nextIds = new Set(sessions.map((session) => session.id))
-      setExistingLinkedSessionIds(nextIds)
-
       const staleSummaries = linkedSessions.filter((session) => !nextIds.has(session.externalSessionId))
-      if (staleSummaries.length === 0) return
 
-      await Promise.allSettled(staleSummaries.map(async (session) => {
-        await onUnbindSession(session.id)
-      }))
+      if (staleSummaries.length === 0) {
+        setExistingLinkedSessionIds(nextIds)
+        return
+      }
+
+      // Unbind stale summaries first, so we can restore failures back to visible set
+      const results = await Promise.allSettled(
+        staleSummaries.map(async (session) => await onUnbindSession(session.id))
+      )
+
+      if (cancelled) return
+
+      // Add back externalSessionIds whose unbind failed — keep them visible
+      const correctedIds = new Set(nextIds)
+      for (let i = 0; i < results.length; i++) {
+        if (results[i]?.status === 'rejected') {
+          correctedIds.add(staleSummaries[i].externalSessionId)
+        }
+      }
+      setExistingLinkedSessionIds(correctedIds)
+
+      // Show error hint if any unbind failed
+      if (results.some((r) => r.status === 'rejected')) {
+        markError('部分会话同步失败')
+      }
     }).catch(() => {
       if (!cancelled) setExistingLinkedSessionIds(null)
     })

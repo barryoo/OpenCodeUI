@@ -44,6 +44,7 @@ import { syncSessionSnapshotToItemWorkspace } from '../../../store/syncSessionSn
 import { SidePanel, SidebarFooter, type SidePanelProps } from './SidePanel'
 import { ActionMenu, ActionMenuItem, SessionListItem } from './SessionListItem'
 import type { ThinSessionSummary, ThinWorkflowStatus } from '../../../api/thinServer'
+import { buildProjectLoadPlan } from './projectLoadPlan'
 
 const THREAD_TYPE_FILTER_OPTIONS = [
   { value: 'all', label: '所有' },
@@ -264,6 +265,7 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
   const [loadingByProject, setLoadingByProject] = useState<Record<string, boolean>>({})
   const [hasMoreByProject, setHasMoreByProject] = useState<Record<string, boolean>>({})
   const [loadedLimitByProject, setLoadedLimitByProject] = useState<Record<string, number>>({})
+  const [failedSessionLimitByProject, setFailedSessionLimitByProject] = useState<Record<string, number | null>>({})
   const [openMenu, setOpenMenu] = useState<OpenMenuState>(null)
   const [isThreadFilterOpen, setIsThreadFilterOpen] = useState(false)
   const [threadTypeFilter, setThreadTypeFilter] = useState<ThreadTypeFilter>('all')
@@ -333,6 +335,9 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
   const isProjectLoading = useItemWorkspaceStore((state) => state.isProjectLoading)
   const allSummaries = useItemWorkspaceStore((state) => state.allSummaries)
   useItemWorkspaceStore((state) => state.projectStates)
+  const getProjectState = useCallback((projectPath: string) => {
+    return useItemWorkspaceStore.getState().projectStates[projectPath]
+  }, [])
   const setDraftItem = useItemWorkspaceStore((state) => state.setDraftItem)
   const deleteItem = useItemWorkspaceStore((state) => state.deleteItem)
   const togglePinnedItem = useItemWorkspaceStore((state) => state.togglePinnedItem)
@@ -704,39 +709,60 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
       setSessionsByProject((prev) => ({ ...prev, [projectPath]: sortSessionsByRecent(data) }))
       setHasMoreByProject((prev) => ({ ...prev, [projectPath]: data.length >= limit }))
       setLoadedLimitByProject((prev) => ({ ...prev, [projectPath]: limit }))
+      setFailedSessionLimitByProject((prev) => ({ ...prev, [projectPath]: null }))
       syncPinnedEntriesWithSessions(projectPath, data)
-      void loadItemProject(projectPath)
       void ensureProjectSummaryForSessions(projectPath, data)
     } catch {
       setSessionsByProject((prev) => ({ ...prev, [projectPath]: [] }))
       setHasMoreByProject((prev) => ({ ...prev, [projectPath]: false }))
-      setLoadedLimitByProject((prev) => ({ ...prev, [projectPath]: limit }))
+      setFailedSessionLimitByProject((prev) => ({ ...prev, [projectPath]: limit }))
     } finally {
       setLoadingByProject((prev) => ({ ...prev, [projectPath]: false }))
     }
-  }, [ensureProjectSummaryForSessions, loadItemProject, sortSessionsByRecent, syncPinnedEntriesWithSessions])
+  }, [ensureProjectSummaryForSessions, sortSessionsByRecent, syncPinnedEntriesWithSessions])
 
   useEffect(() => {
     for (const project of projects) {
-      if (!expandedProjects[project.path]) continue
-      void loadItemProject(project.path)
+      const expanded = !!expandedProjects[project.path]
 
+      // Clear session failure state when project is collapsed, so re-expand allows retry
+      if (!expanded && failedSessionLimitByProject[project.path] != null) {
+        setFailedSessionLimitByProject((prev) => ({ ...prev, [project.path]: null }))
+      }
+
+      const projectState = getProjectState(project.path)
       const targetLimit = visibleCountByProject[project.path] ?? DEFAULT_VISIBLE_COUNT
       const loadedLimit = loadedLimitByProject[project.path] ?? 0
 
-      if (loadedLimit >= targetLimit) continue
-      if (loadingByProject[project.path]) continue
+      const plan = buildProjectLoadPlan({
+        expanded,
+        projectLoading: isProjectLoading(project.path),
+        sessionLoading: !!loadingByProject[project.path],
+        hasProjectState: !!projectState,
+        loadedLimit,
+        targetLimit,
+        failedSessionLimit: failedSessionLimitByProject[project.path] ?? null,
+      })
 
-      void loadProjectSessions(project.path, targetLimit)
+      if (plan.shouldLoadProject) {
+        void loadItemProject(project.path)
+      }
+
+      if (plan.shouldLoadSessions && plan.nextSessionLimit) {
+        void loadProjectSessions(project.path, plan.nextSessionLimit)
+      }
     }
   }, [
     projects,
     expandedProjects,
+    failedSessionLimitByProject,
     visibleCountByProject,
     loadedLimitByProject,
     loadingByProject,
     loadItemProject,
     loadProjectSessions,
+    getProjectState,
+    isProjectLoading,
   ])
 
   useEffect(() => {
@@ -2338,13 +2364,15 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
                           <div className="ml-5 px-1.5 py-2 text-[11px] text-rose-300 space-y-2">
                             <div>事项加载失败</div>
                             <div className="text-text-500 break-all">{itemProjectError}</div>
-                            <button
-                              type="button"
-                              onClick={() => void loadItemProject(projectPath)}
-                              className="inline-flex items-center rounded-md bg-bg-200 px-2 py-1 text-[11px] text-text-200 hover:text-text-100"
-                            >
-                              重试
-                            </button>
+                            {projectPath && (
+                              <button
+                                type="button"
+                                onClick={() => void loadItemProject(project.path)}
+                                className="inline-flex items-center rounded-md bg-bg-200 px-2 py-1 text-[11px] text-text-200 hover:text-text-100"
+                              >
+                                重试
+                              </button>
+                            )}
                           </div>
                         ) : mixedEntries.length === 0 ? (
                           <div className="ml-5 px-1.5 py-2 text-[11px] text-text-500 space-y-2">

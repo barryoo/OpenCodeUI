@@ -4,8 +4,8 @@ import { Button } from '../../components/ui/Button'
 interface LoginPromptDialogProps {
   isOpen: boolean
   isLoading?: boolean
-  onLogin: () => void
   onContinueWithoutLogin: () => void
+  onLogin: () => void
 }
 
 export function LoginPromptDialog({
@@ -22,7 +22,7 @@ export function LoginPromptDialog({
         </p>
         <div className="flex justify-end gap-2">
           <Button variant="secondary" onClick={onContinueWithoutLogin}>
-            暂不登录，直接使用
+            继续使用
           </Button>
           <Button onClick={onLogin} isLoading={isLoading}>
             使用 GitHub 登录

@@ -3,7 +3,8 @@
 // ============================================
 
 import { createContext, useContext, useState, useCallback, useEffect, useMemo, useRef, type ReactNode } from 'react'
-import { getGlobalSessions, getPath, type ApiPath, getProjects, listDirectory } from '../api'
+import { getGlobalSessions, getPath, type ApiPath, listDirectory } from '../api'
+import { projectCatalog, isStaleGeneration } from '../api/projectCatalog'
 import { useRouter } from '../hooks/useRouter'
 import { handleError, normalizeToForwardSlash, getDirectoryName, isSameDirectory, serverStorage } from '../utils'
 import { layoutStore, useLayoutStore } from '../store/layoutStore'
@@ -114,6 +115,12 @@ export function DirectoryProvider({ children }: { children: ReactNode }) {
     hiddenDirectoriesRef.current = hiddenDirectories
   }, [hiddenDirectories])
 
+  /** 代际计数器：保护异步 syncProjectsFromApi 不会用旧数据覆盖新 state */
+  const syncGenerationRef = useRef(0)
+
+  /** 代际计数器：保护异步 getPath 不会用旧 server 数据覆盖新 state */
+  const pathGenRef = useRef(0)
+
   const [recentProjects, setRecentProjects] = useState<RecentProjects>(() => {
     return serverStorage.getJSON<RecentProjects>(STORAGE_KEY_RECENT) ?? {}
   })
@@ -146,11 +153,13 @@ export function DirectoryProvider({ children }: { children: ReactNode }) {
     targetCurrentDirectory: string | undefined,
     targetRecentProjects: RecentProjects
   ) => {
+    const gen = syncGenerationRef.current
     try {
       const [apiProjects, globalSessions] = await Promise.all([
-        getProjects().catch(() => []),
+        projectCatalog.list(),
         getGlobalSessions({ roots: true, limit: GLOBAL_DIRECTORY_SESSION_SCAN_LIMIT }).catch(() => []),
       ])
+      if (isStaleGeneration(gen, syncGenerationRef.current)) return
       if (apiProjects.length === 0 && globalSessions.length === 0) return
 
       const now = Date.now()
@@ -265,14 +274,23 @@ export function DirectoryProvider({ children }: { children: ReactNode }) {
       setSavedDirectories(nextSaved.filter((d) => !nextHidden.some((p) => isSameDirectory(p, d.path))))
       setRecentProjects(nextRecent)
       setPathInfo(null) // 重置，等待重新加载
+      {
+        const gen = ++pathGenRef.current
+        getPath().then((info) => {
+          if (!isStaleGeneration(gen, pathGenRef.current)) setPathInfo(info)
+        }).catch(handleError('get path info', 'api'))
+      }
       setUrlDirectory(undefined) // 清除当前目录选择
 
+      projectCatalog.invalidate()
+      syncGenerationRef.current++
       void syncProjectsFromApi(undefined, nextRecent)
     })
   }, [setUrlDirectory, syncProjectsFromApi])
 
   // 启动时同步服务端项目，自动初始化项目列表
   useEffect(() => {
+    syncGenerationRef.current++
     void syncProjectsFromApi(urlDirectory, recentProjects)
     // 只在初始化时同步一次，避免频繁请求
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -280,7 +298,10 @@ export function DirectoryProvider({ children }: { children: ReactNode }) {
 
   // 加载路径信息
   useEffect(() => {
-    getPath().then(setPathInfo).catch(handleError('get path info', 'api'))
+    const gen = ++pathGenRef.current
+    getPath().then((info) => {
+      if (!isStaleGeneration(gen, pathGenRef.current)) setPathInfo(info)
+    }).catch(handleError('get path info', 'api'))
   }, [])
 
 

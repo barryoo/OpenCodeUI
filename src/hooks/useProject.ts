@@ -1,7 +1,9 @@
-import { useState, useEffect, useCallback } from 'react'
-import { getCurrentProject, getProjects, type ApiProject } from '../api'
+import { useState, useEffect, useCallback, useRef } from 'react'
+import { getCurrentProject, type ApiProject } from '../api'
+import { projectCatalog, isStaleGeneration } from '../api/projectCatalog'
 import { apiErrorHandler } from '../utils'
 import { serverStorage } from '../utils/perServerStorage'
+import { serverStore } from '../store/serverStore'
 
 export interface UseProjectResult {
   // 当前选中的 project
@@ -26,8 +28,12 @@ export function useProject(): UseProjectResult {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
+  /** 代际计数器：保护异步 loadProjects 不会用旧结果覆盖新 state */
+  const loadGenRef = useRef(0)
+
   // 加载项目列表
   const loadProjects = useCallback(async () => {
+    const gen = ++loadGenRef.current
     setIsLoading(true)
     setError(null)
 
@@ -35,8 +41,11 @@ export function useProject(): UseProjectResult {
       // 并行获取当前项目和所有项目
       const [current, all] = await Promise.all([
         getCurrentProject(),
-        getProjects(),
+        projectCatalog.list(),
       ])
+
+      // 代际保护：旧请求不得覆盖新 state
+      if (isStaleGeneration(gen, loadGenRef.current)) return
 
       setProjects(all)
 
@@ -58,16 +67,26 @@ export function useProject(): UseProjectResult {
         setCurrentProject(current)
       }
     } catch (e) {
+      if (isStaleGeneration(gen, loadGenRef.current)) return
       apiErrorHandler('load projects', e)
       setError(e instanceof Error ? e.message : 'Failed to load projects')
     } finally {
-      setIsLoading(false)
+      // 只有最新一轮请求才能清除 loading 状态
+      if (!isStaleGeneration(gen, loadGenRef.current)) setIsLoading(false)
     }
   }, [])
 
   // 初始加载
   useEffect(() => {
     loadProjects()
+  }, [loadProjects])
+
+  // 服务器切换时，重新加载项目列表
+  useEffect(() => {
+    return serverStore.onServerChange(() => {
+      projectCatalog.invalidate()
+      void loadProjects()
+    })
   }, [loadProjects])
 
   // 选择项目
@@ -79,12 +98,18 @@ export function useProject(): UseProjectResult {
     }
   }, [projects])
 
+  // 刷新项目列表 - 先失效缓存再重新加载
+  const refresh = useCallback(async () => {
+    projectCatalog.invalidate()
+    await loadProjects()
+  }, [loadProjects])
+
   return {
     currentProject,
     projects,
     isLoading,
     error,
     selectProject,
-    refresh: loadProjects,
+    refresh,
   }
 }

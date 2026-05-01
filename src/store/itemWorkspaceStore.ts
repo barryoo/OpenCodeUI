@@ -19,6 +19,7 @@ import {
   upsertThinSessionSummary,
 } from '../api/thinServer'
 import { ThinAuthError } from '../api/auth'
+import { buildSummaryUpsertInputs } from './sessionSummarySync'
 import { serverStore } from './serverStore'
 
 const PINNED_ITEMS_STORAGE_KEY = 'opencode-pinned-items'
@@ -198,7 +199,8 @@ export const useItemWorkspaceStore = create<ItemWorkspaceState>((set, get) => ({
   },
 
   loadProject: async (projectPath: string) => {
-    if (get().loadedProjects[projectPath] && !get().loadingProjects[projectPath]) {
+    const current = get().projectStates[projectPath]
+    if (!get().loadingProjects[projectPath] && (get().loadedProjects[projectPath] || (current && !current.error && current.items !== undefined && current.summaries !== undefined))) {
       return
     }
 
@@ -246,29 +248,32 @@ export const useItemWorkspaceStore = create<ItemWorkspaceState>((set, get) => ({
     const project = await findProjectByPath(projectPath)
     const legacyProjectId = project?.id ?? null
     const state = get().projectStates[projectPath]
-    const existingByExternalId = new Map(
-      dedupeSummariesByExternalSessionId([
-        ...(state?.summaries ?? []),
-        ...get().allSummaries.filter((summary) => summary.projectPath === projectPath),
-      ]).map((summary) => [summary.externalSessionId, summary])
-    )
-    const touched = await Promise.all(sessions.map(async (session) => {
-      const existing = existingByExternalId.get(session.id)
-      const activityAt = new Date(session.time.updated ?? session.time.created).toISOString()
-      const nextStatus = existing?.statusSnapshot ?? 'in_progress'
+    const existing = dedupeSummariesByExternalSessionId([
+      ...(state?.summaries ?? []),
+      ...get().allSummaries.filter((summary) => summary.projectPath === projectPath),
+    ])
 
-      return upsertThinSessionSummary({
+    const inputs = buildSummaryUpsertInputs({
+      projectPath,
+      sessions,
+      existing,
+    })
+
+    if (inputs.length === 0) return
+
+    const touched = await Promise.all(inputs.map((input) =>
+      upsertThinSessionSummary({
         serverProfileId: activeProfile.id,
-        projectPath,
+        projectPath: input.projectPath,
         legacyProjectId,
-        externalSessionId: session.id,
-        variant: existing?.variant,
-        titleSnapshot: session.title,
-        statusSnapshot: nextStatus,
-        activityAt,
-        ...(existing?.itemId !== undefined ? { itemId: existing.itemId } : {}),
+        externalSessionId: input.externalSessionId,
+        itemId: input.itemId,
+        variant: input.variant,
+        titleSnapshot: input.titleSnapshot,
+        statusSnapshot: input.statusSnapshot,
+        activityAt: input.activityAt,
       })
-    }))
+    ))
     set((state) => ({
       projectStates: mergeProjectState(state.projectStates, projectPath, {
         summaries: mergeSummaries(state.projectStates[projectPath]?.summaries ?? [], touched),
@@ -449,7 +454,12 @@ export const useItemWorkspaceStore = create<ItemWorkspaceState>((set, get) => ({
     if (!profile) return null
 
     const project = await findProjectByPath(projectPath)
-    const existing = get().getSessionSummaryByExternalId(externalSessionId)
+    const existing = (get().projectStates[projectPath]?.summaries ?? [])
+      .find((summary) => summary.externalSessionId === externalSessionId)
+      ?? get().allSummaries.find(
+        (summary) => summary.projectPath === projectPath && summary.externalSessionId === externalSessionId
+      )
+      ?? null
     const updated = await upsertThinSessionSummary({
       serverProfileId: profile.id,
       projectPath,
