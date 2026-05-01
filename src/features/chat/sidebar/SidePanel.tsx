@@ -56,7 +56,7 @@ function getParentPath(fullPath: string): string {
 export interface SidePanelProps {
   onNewSession: (directory?: string) => void
   onSelectSession: (session: ApiSession) => void
-  onSelectItem?: (projectId: string, item: ThinItem) => void
+  onSelectItem?: (projectPath: string, item: ThinItem) => void
   onCloseMobile?: () => void
   selectedSessionId: string | null
   selectedItemId?: string | null

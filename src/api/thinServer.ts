@@ -1,4 +1,5 @@
-import { createSession, getProjects, type ApiProject } from './client'
+import { createSession, type ApiProject } from './client'
+import { projectCatalog, normalizeProjectPath } from './projectCatalog'
 import { ThinAuthError } from './auth'
 import { authStore } from '../store/authStore'
 
@@ -142,27 +143,16 @@ export async function setDefaultThinServerProfile(id: string): Promise<ThinServe
   return response.data
 }
 
-export function normalizePath(value: string): string {
-  return value.replace(/\\/g, '/')
-}
-
 export async function getLegacyProjectIdByPathMap(): Promise<Map<string, string>> {
-  const projects = await getProjects()
-  const map = new Map<string, string>()
-  for (const project of projects) {
-    if (project.worktree) map.set(normalizePath(project.worktree), project.id)
-  }
-  return map
+  return projectCatalog.getLegacyIdMap()
 }
 
 export function getLegacyProjectIdForPath(projects: Map<string, string>, path: string): string | null {
-  return projects.get(normalizePath(path)) ?? null
+  return projects.get(normalizeProjectPath(path)) ?? null
 }
 
 export async function findProjectByPath(projectPath: string): Promise<ApiProject | null> {
-  const projects = await getProjects()
-  const normalizedProjectPath = normalizePath(projectPath)
-  return projects.find((project) => normalizePath(project.worktree || '') === normalizedProjectPath) ?? null
+  return projectCatalog.findByPath(projectPath)
 }
 
 export async function listThinItems(projectPath: string, legacyProjectId?: string | null): Promise<ThinItem[]> {

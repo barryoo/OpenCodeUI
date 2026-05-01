@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ChevronDownIcon, MoreHorizontalIcon, LinkIcon, PinIcon, ClockIcon, CopyIcon, TrashIcon } from '../../components/Icons'
 import { deleteSession, getSessions, type ApiSession, updateSession } from '../../api'
 import { formatPathForApi } from '../../utils/directoryUtils'
@@ -160,6 +160,12 @@ export function ItemDetailPanel({
 
   const canCreate = useMemo(() => title.trim().length > 0, [title])
 
+  const loadAvailableSessions = useCallback(async (): Promise<ApiSession[]> => {
+    const directory = formatPathForApi(projectDirectory)
+    if (!directory) return []
+    return getSessions({ directory, roots: true, limit: 200 })
+  }, [projectDirectory])
+
   useEffect(() => {
     setTitle(item.title)
     setType(item.type)
@@ -188,10 +194,21 @@ export function ItemDetailPanel({
     }
   }, [description, onSearchFiles])
 
-  useEffect(() => () => {
-    if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
-    if (hideSavedTimerRef.current) clearTimeout(hideSavedTimerRef.current)
-  }, [])
+  // Clear pending autosave / saved-hint timers when switching items or unmounting
+  useEffect(() => {
+    return () => {
+      if (saveTimerRef.current) {
+        clearTimeout(saveTimerRef.current)
+        saveTimerRef.current = null
+      }
+      if (hideSavedTimerRef.current) {
+        clearTimeout(hideSavedTimerRef.current)
+        hideSavedTimerRef.current = null
+      }
+      setSaveState('idle')
+      setSaveMessage('')
+    }
+  }, [item.id])
 
   useEffect(() => {
     if (!bindMenuOpen) return
@@ -241,7 +258,7 @@ export function ItemDetailPanel({
     if (!bindMenuOpen || isCreateMode) return
 
     let cancelled = false
-    void getSessions({ directory: formatPathForApi(projectDirectory), roots: true, limit: 200 }).then((sessions) => {
+    void loadAvailableSessions().then((sessions) => {
       if (cancelled) return
       const boundIds = new Set(linkedSessions.map((session) => session.externalSessionId))
       const summariesByExternalId = new Map(unboundSessions.map((summary) => [summary.externalSessionId, summary]))
@@ -253,30 +270,48 @@ export function ItemDetailPanel({
     return () => {
       cancelled = true
     }
-  }, [bindMenuOpen, isCreateMode, linkedSessions, projectDirectory, unboundSessions])
+  }, [bindMenuOpen, isCreateMode, linkedSessions, projectDirectory, unboundSessions, loadAvailableSessions])
 
   useEffect(() => {
     if (isCreateMode) return
 
-    const directory = formatPathForApi(projectDirectory)
-    if (!directory) {
+    if (!formatPathForApi(projectDirectory)) {
       setExistingLinkedSessionIds(null)
       return
     }
 
     let cancelled = false
-    void getSessions({ directory, roots: true, limit: 200 }).then(async (sessions) => {
+    void loadAvailableSessions().then(async (sessions) => {
       if (cancelled) return
 
       const nextIds = new Set(sessions.map((session) => session.id))
-      setExistingLinkedSessionIds(nextIds)
-
       const staleSummaries = linkedSessions.filter((session) => !nextIds.has(session.externalSessionId))
-      if (staleSummaries.length === 0) return
 
-      await Promise.allSettled(staleSummaries.map(async (session) => {
-        await onUnbindSession(session.id)
-      }))
+      if (staleSummaries.length === 0) {
+        setExistingLinkedSessionIds(nextIds)
+        return
+      }
+
+      // Unbind stale summaries first, so we can restore failures back to visible set
+      const results = await Promise.allSettled(
+        staleSummaries.map(async (session) => await onUnbindSession(session.id))
+      )
+
+      if (cancelled) return
+
+      // Add back externalSessionIds whose unbind failed — keep them visible
+      const correctedIds = new Set(nextIds)
+      for (let i = 0; i < results.length; i++) {
+        if (results[i]?.status === 'rejected') {
+          correctedIds.add(staleSummaries[i].externalSessionId)
+        }
+      }
+      setExistingLinkedSessionIds(correctedIds)
+
+      // Show error hint if any unbind failed
+      if (results.some((r) => r.status === 'rejected')) {
+        markError('部分会话同步失败')
+      }
     }).catch(() => {
       if (!cancelled) setExistingLinkedSessionIds(null)
     })
@@ -284,7 +319,7 @@ export function ItemDetailPanel({
     return () => {
       cancelled = true
     }
-  }, [isCreateMode, linkedSessions, onUnbindSession, projectDirectory])
+  }, [isCreateMode, linkedSessions, onUnbindSession, projectDirectory, loadAvailableSessions])
 
   const visibleLinkedSessions = useMemo(() => {
     if (!existingLinkedSessionIds) return linkedSessions

@@ -363,13 +363,16 @@ function App() {
     if (!routeItemProjectId || !routeItemId) return
     if (selectedItemId === routeItemId && selectedItemProjectPath === routeItemProjectId) return
 
-    const itemFromStore = getItemById(routeItemProjectId, routeItemId)
+    const state = useItemWorkspaceStore.getState()
+    const itemFromStore = state.getItemById(routeItemProjectId, routeItemId)
     if (itemFromStore) {
-      selectItem(routeItemProjectId, routeItemId)
+      state.selectItem(routeItemProjectId, routeItemId)
       return
     }
 
-    void useItemWorkspaceStore.getState().loadProject(routeItemProjectId).then(() => {
+    if (state.isProjectLoading(routeItemProjectId)) return
+
+    void state.loadProject(routeItemProjectId).then(() => {
       const loaded = useItemWorkspaceStore.getState().getItemById(routeItemProjectId, routeItemId)
       if (loaded) {
         useItemWorkspaceStore.getState().selectItem(routeItemProjectId, routeItemId)
@@ -404,11 +407,28 @@ function App() {
     if (!routeSessionId) return
     if (linkedSummaries.some((summary) => summary.externalSessionId === routeSessionId)) return
     if (activeStoreSessionId && linkedSummaries.some((summary) => summary.externalSessionId === activeStoreSessionId)) return
-    const firstLinked = linkedSummaries[0]
-    if (!firstLinked?.externalSessionId) return
-    if (routeSessionId === firstLinked.externalSessionId) return
-    if (activeStoreSessionId === firstLinked.externalSessionId) return
-    void handleSelectSessionFromItem(firstLinked.externalSessionId)
+
+    let cancelled = false
+    void (async () => {
+      const globalSessions = await getGlobalSessions({ roots: true, limit: 200 })
+      if (cancelled) return
+
+      const existingIds = new Set(globalSessions.map((session) => session.id))
+
+      // Pick the first linked summary whose session still exists
+      const firstExisting = linkedSummaries.find(
+        (summary) => existingIds.has(summary.externalSessionId)
+      )
+      if (!firstExisting?.externalSessionId) return
+      if (firstExisting.externalSessionId === routeSessionId) return
+      if (firstExisting.externalSessionId === activeStoreSessionId) return
+
+      void handleSelectSessionFromItem(firstExisting.externalSessionId)
+    })()
+
+    return () => {
+      cancelled = true
+    }
   }, [
     routeItemProjectId,
     routeItemId,

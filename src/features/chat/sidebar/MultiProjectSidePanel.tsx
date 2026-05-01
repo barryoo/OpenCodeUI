@@ -38,12 +38,13 @@ import { notificationStore, useNotifications } from '../../../store/notification
 import { isSameDirectory, serverStorage, uiErrorHandler } from '../../../utils'
 import type { SessionStatusMap } from '../../../types/api/session'
 import { handleWindowTitlebarMouseDown, isTauri, isTauriMacOS } from '../../../utils/tauri'
-import { getProjectIdByPathMap } from '../../../api/thinServer'
+import { getLegacyProjectIdByPathMap } from '../../../api/thinServer'
 import { serverStore } from '../../../store/serverStore'
 import { useItemWorkspaceStore } from '../../../store/itemWorkspaceStore'
 import { SidePanel, SidebarFooter, type SidePanelProps } from './SidePanel'
 import { ActionMenu, ActionMenuItem, SessionListItem } from './SessionListItem'
 import type { ThinSessionSummary, ThinWorkflowStatus } from '../../../api/thinServer'
+import { buildProjectLoadPlan } from './projectLoadPlan'
 
 const THREAD_TYPE_FILTER_OPTIONS = [
   { value: 'all', label: '所有' },
@@ -265,6 +266,7 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
   const [loadingByProject, setLoadingByProject] = useState<Record<string, boolean>>({})
   const [hasMoreByProject, setHasMoreByProject] = useState<Record<string, boolean>>({})
   const [loadedLimitByProject, setLoadedLimitByProject] = useState<Record<string, number>>({})
+  const [failedSessionLimitByProject, setFailedSessionLimitByProject] = useState<Record<string, number | null>>({})
   const [openMenu, setOpenMenu] = useState<OpenMenuState>(null)
   const [isThreadFilterOpen, setIsThreadFilterOpen] = useState(false)
   const [threadTypeFilter, setThreadTypeFilter] = useState<ThreadTypeFilter>('all')
@@ -332,8 +334,11 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
   const getProjectEntries = useItemWorkspaceStore((state) => state.getProjectEntries)
   const getProjectError = useItemWorkspaceStore((state) => state.getProjectError)
   const isProjectLoading = useItemWorkspaceStore((state) => state.isProjectLoading)
-  const allSummaries = useItemWorkspaceStore((state) => state.allSummaries)
+  const   allSummaries = useItemWorkspaceStore((state) => state.allSummaries)
   useItemWorkspaceStore((state) => state.projectStates)
+  const getProjectState = useCallback((projectPath: string) => {
+    return useItemWorkspaceStore.getState().projectStates[projectPath]
+  }, [])
   const setDraftItem = useItemWorkspaceStore((state) => state.setDraftItem)
   const deleteItem = useItemWorkspaceStore((state) => state.deleteItem)
   const togglePinnedItem = useItemWorkspaceStore((state) => state.togglePinnedItem)
@@ -341,8 +346,8 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
 
   useEffect(() => {
     let cancelled = false
-    void getProjectIdByPathMap()
-      .then((map) => {
+    void getLegacyProjectIdByPathMap()
+      .then((map: Map<string, string>) => {
         if (cancelled) return
         const next: Record<string, string> = {}
         for (const [path, projectId] of map.entries()) {
@@ -724,47 +729,60 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
       setSessionsByProject((prev) => ({ ...prev, [projectPath]: sortSessionsByRecent(data) }))
       setHasMoreByProject((prev) => ({ ...prev, [projectPath]: data.length >= limit }))
       setLoadedLimitByProject((prev) => ({ ...prev, [projectPath]: limit }))
+      setFailedSessionLimitByProject((prev) => ({ ...prev, [projectPath]: null }))
       syncPinnedEntriesWithSessions(projectPath, data)
-      const projectId = data[0]?.projectID
-      if (projectId) {
-        void loadItemProject(projectId)
-        void ensureProjectSummaryForSessions(projectId, data)
-      }
+      void ensureProjectSummaryForSessions(projectPath, data)
     } catch {
       setSessionsByProject((prev) => ({ ...prev, [projectPath]: [] }))
       setHasMoreByProject((prev) => ({ ...prev, [projectPath]: false }))
-      setLoadedLimitByProject((prev) => ({ ...prev, [projectPath]: limit }))
+      setFailedSessionLimitByProject((prev) => ({ ...prev, [projectPath]: limit }))
     } finally {
       setLoadingByProject((prev) => ({ ...prev, [projectPath]: false }))
     }
-  }, [ensureProjectSummaryForSessions, loadItemProject, sortSessionsByRecent, syncPinnedEntriesWithSessions])
+  }, [ensureProjectSummaryForSessions, sortSessionsByRecent, syncPinnedEntriesWithSessions])
 
   useEffect(() => {
     for (const project of projects) {
-      if (!expandedProjects[project.path]) continue
+      const expanded = !!expandedProjects[project.path]
 
-      const mappedProjectId = projectIdByPath[project.path]
-      if (mappedProjectId) {
-        void loadItemProject(mappedProjectId)
+      // Clear session failure state when project is collapsed, so re-expand allows retry
+      if (!expanded && failedSessionLimitByProject[project.path] != null) {
+        setFailedSessionLimitByProject((prev) => ({ ...prev, [project.path]: null }))
       }
 
+      const projectState = getProjectState(project.path)
       const targetLimit = visibleCountByProject[project.path] ?? DEFAULT_VISIBLE_COUNT
       const loadedLimit = loadedLimitByProject[project.path] ?? 0
 
-      if (loadedLimit >= targetLimit) continue
-      if (loadingByProject[project.path]) continue
+      const plan = buildProjectLoadPlan({
+        expanded,
+        projectLoading: isProjectLoading(project.path),
+        sessionLoading: !!loadingByProject[project.path],
+        hasProjectState: !!projectState,
+        loadedLimit,
+        targetLimit,
+        failedSessionLimit: failedSessionLimitByProject[project.path] ?? null,
+      })
 
-      void loadProjectSessions(project.path, targetLimit)
+      if (plan.shouldLoadProject) {
+        void loadItemProject(project.path)
+      }
+
+      if (plan.shouldLoadSessions && plan.nextSessionLimit) {
+        void loadProjectSessions(project.path, plan.nextSessionLimit)
+      }
     }
   }, [
     projects,
     expandedProjects,
-    projectIdByPath,
+    failedSessionLimitByProject,
     visibleCountByProject,
     loadedLimitByProject,
     loadingByProject,
     loadItemProject,
     loadProjectSessions,
+    getProjectState,
+    isProjectLoading,
   ])
 
   useEffect(() => {
@@ -993,7 +1011,7 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
     setCurrentDirectory(projectPath)
     const draftItem: ThinItem = {
       id: '__draft__',
-      projectId,
+      projectPath,
       serverProfileId: '',
       title: '',
       type: 'requirement',
@@ -1003,7 +1021,7 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
       updatedAt: new Date().toISOString(),
     }
     setDraftItem(draftItem)
-    onSelectItem?.(projectId, draftItem)
+    onSelectItem?.(projectPath, draftItem)
   }, [onSelectItem, projectIdByPath, setCurrentDirectory, setDraftItem, updateProjectExpanded])
 
   const handleOpenProjectFolder = useCallback(async (projectPath: string) => {
@@ -2201,10 +2219,10 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
               const isExpandedProject = expandedProjects[project.path] ?? false
               const sessions = sessionsByProject[project.path] ?? []
               const projectId = sessions[0]?.projectID ?? projectIdByPath[project.path] ?? null
-              const mixedEntries = projectId ? getProjectEntries(projectId, sessions) : []
+              const mixedEntries = getProjectEntries(project.path, sessions)
               const filteredEntries = mixedEntries.filter(matchesThreadFilters)
-              const itemProjectError = projectId ? getProjectError(projectId) : undefined
-              const itemProjectLoading = projectId ? isProjectLoading(projectId) : false
+              const itemProjectError = getProjectError(project.path)
+              const itemProjectLoading = isProjectLoading(project.path)
               const isLoading = loadingByProject[project.path] ?? false
               const hasMore = hasMoreByProject[project.path] ?? false
               const isProjectMenuOpen = openMenu?.type === 'project' && openMenu.projectPath === project.path
@@ -2365,7 +2383,7 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
                             {projectId && (
                               <button
                                 type="button"
-                                onClick={() => void loadItemProject(projectId)}
+                                onClick={() => void loadItemProject(project.path)}
                                 className="inline-flex items-center rounded-md bg-bg-200 px-2 py-1 text-[11px] text-text-200 hover:text-text-100"
                               >
                                 重试
