@@ -4,6 +4,7 @@
 
 import { getApiBaseUrl, getAuthHeader } from './http'
 import { startupChoiceStore } from '../store/startupChoiceStore'
+import { serverStore } from '../store/serverStore'
 import { isTauri } from '../utils/tauri'
 import type {
   ApiMessageWithParts,
@@ -125,7 +126,7 @@ function scheduleReconnect() {
   }, delay)
 }
 
-function connectSingleton() {
+async function connectSingleton() {
   if (isConnecting || allSubscribers.size === 0) return
   if (!startupChoiceStore.isResolved()) {
     if (waitingForStartupChoice) return
@@ -162,6 +163,27 @@ function connectSingleton() {
   }
   
   isConnecting = true
+  
+  // 等待 serverStore 完成初始化，确保使用正确的服务器地址
+  // 在 initialize 完成前不发请求，避免用本地 fallback 地址建立错误的连接
+  try {
+    await serverStore.initialize()
+  } catch (err) {
+    // 初始化失败时走标准错误路径：更新状态、通知订阅者、调度重连
+    isConnecting = false
+    const errorMsg = err instanceof Error ? err.message : String(err)
+    console.warn('[SSE] serverStore.initialize() failed:', errorMsg)
+    updateConnectionState({ state: 'error', error: `Server init failed: ${errorMsg}` })
+    allSubscribers.forEach(cb => cb.onError?.(new Error(`Server init failed: ${errorMsg}`)))
+    scheduleReconnect()
+    return
+  }
+
+  // 在 await 期间连接可能已被取消（forceReconnectNow / disconnectSingleton 会置 false）
+  if (!isConnecting || allSubscribers.size === 0) {
+    isConnecting = false
+    return
+  }
   
   updateConnectionState({ state: 'connecting' })
   if (import.meta.env.DEV) {
