@@ -23,7 +23,7 @@ import { createErrorHandler } from '../utils'
 import { serverStorage } from '../utils/perServerStorage'
 import { useItemWorkspaceStore } from '../store/itemWorkspaceStore'
 import { getProjects } from '../api'
-import { ensureDefaultThinServerProfile, upsertThinSessionSummary } from '../api/thinServer'
+import { findThinServerProfileByBaseUrl, upsertThinSessionSummary } from '../api/thinServer'
 import { ThinAuthError } from '../api/auth'
 import { serverStore } from '../store/serverStore'
 import {
@@ -42,8 +42,46 @@ import type { ChatAreaHandle } from '../features/chat'
 
 const handleError = createErrorHandler('session')
 
-function isThinUnauthorized(error: unknown): boolean {
+export function isThinUnauthorized(error: unknown): boolean {
   return error instanceof ThinAuthError && (error.status === 401 || error.code === 'UNAUTHORIZED')
+}
+
+/**
+ * Core sync logic extracted from syncThinSessionVariant for testability.
+ * Finds the active server profile, then upserts a session summary to the thin server.
+ * - If no profile is found, returns silently (no upsert).
+ * - If profile lookup throws a ThinAuthError (401/UNAUTHORIZED), the error is swallowed.
+ */
+export async function syncSessionSummaryToThin(
+  session: Pick<ApiSession, 'id' | 'title' | 'time' | 'directory'>,
+  variant: string | undefined,
+  projectPath: string,
+  itemId?: string | null,
+): Promise<void> {
+  try {
+    const profile = await findThinServerProfileByBaseUrl(serverStore.getActiveBaseUrl())
+    if (!profile) return
+    const projects = await getProjects()
+    const project = projects.find((entry) => entry.worktree === projectPath)
+    const existing = useItemWorkspaceStore.getState().getSessionSummaryByExternalId(session.id)
+    const updated = await upsertThinSessionSummary({
+      serverProfileId: profile.id,
+      projectPath,
+      legacyProjectId: project?.id ?? null,
+      externalSessionId: session.id,
+      variant: variant ?? existing?.variant ?? null,
+      titleSnapshot: session.title,
+      statusSnapshot: existing?.statusSnapshot ?? 'in_progress',
+      activityAt: new Date(session.time.updated ?? session.time.created).toISOString(),
+      lastMessageAt: new Date().toISOString(),
+      ...((itemId ?? existing?.itemId) !== undefined
+        ? { itemId: itemId ?? existing?.itemId }
+        : {}),
+    })
+    useItemWorkspaceStore.getState().upsertLocalSummary(updated)
+  } catch (error) {
+    if (!isThinUnauthorized(error)) throw error
+  }
 }
 
 /**
@@ -161,31 +199,7 @@ export function useChatSession({ chatAreaRef, currentModel, refetchModels }: Use
   ) => {
     const projectPath = itemBinding?.projectPath ?? session.directory ?? effectiveDirectory
     if (!projectPath) return
-
-    try {
-      const activeServer = serverStore.getActiveServer()
-      const profile = await ensureDefaultThinServerProfile(serverStore.getActiveBaseUrl(), activeServer?.name ?? 'Active OpenCode Server')
-      const projects = await getProjects()
-      const project = projects.find((entry) => entry.worktree === projectPath)
-      const existing = useItemWorkspaceStore.getState().getSessionSummaryByExternalId(session.id)
-      const updated = await upsertThinSessionSummary({
-        serverProfileId: profile.id,
-        projectPath,
-        legacyProjectId: project?.id ?? null,
-        externalSessionId: session.id,
-        variant: variant ?? existing?.variant ?? null,
-        titleSnapshot: session.title,
-        statusSnapshot: existing?.statusSnapshot ?? 'in_progress',
-        activityAt: new Date(session.time.updated ?? session.time.created).toISOString(),
-        lastMessageAt: new Date().toISOString(),
-        ...((itemBinding?.itemId ?? existing?.itemId) !== undefined
-          ? { itemId: itemBinding?.itemId ?? existing?.itemId }
-          : {}),
-      })
-      useItemWorkspaceStore.getState().upsertLocalSummary(updated)
-    } catch (error) {
-      if (!isThinUnauthorized(error)) throw error
-    }
+    await syncSessionSummaryToThin(session, variant, projectPath, itemBinding?.itemId)
   }, [effectiveDirectory])
 
   // Global Events (SSE)

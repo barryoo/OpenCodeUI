@@ -77,19 +77,24 @@ async function thinRequest<T>(path: string, init?: RequestInit): Promise<T> {
   return response.json() as Promise<T>
 }
 
-export async function ensureDefaultThinServerProfile(baseUrl: string, name = 'Active OpenCode Server'): Promise<ThinServerProfile> {
+/** @deprecated Use {@link findThinServerProfileByBaseUrl} instead. This compat wrapper throws on miss instead of returning null. */
+export async function ensureDefaultThinServerProfile(baseUrl: string): Promise<ThinServerProfile> {
+  const profile = await findThinServerProfileByBaseUrl(baseUrl)
+  if (!profile) throw new Error(`No server profile found for ${baseUrl}`)
+  return profile
+}
+
+function normalizeBaseUrl(value: string): string {
+  return value.replace(/\/+$/, '')
+}
+
+/** Read-only lookup: returns the existing profile matching `baseUrl`, or `null` if none found. Never auto-creates. */
+export async function findThinServerProfileByBaseUrl(baseUrl: string): Promise<ThinServerProfile | null> {
+  const normalized = normalizeBaseUrl(baseUrl)
   const profilesResponse = await thinRequest<ThinResponse<ThinServerProfile[]>>('/server-profiles')
   const profiles = profilesResponse.data ?? []
-  const matched = profiles.find((profile) => profile.baseUrl === baseUrl)
-  if (matched) return matched
-
-  const created = await thinRequest<ThinResponse<ThinServerProfile>>('/server-profiles', {
-    method: 'POST',
-    body: JSON.stringify({ name, baseUrl, isDefault: profiles.length === 0 }),
-  })
-
-  if (!created.data) throw new Error('Failed to create thin server profile')
-  return created.data
+  const matched = profiles.find((profile) => normalizeBaseUrl(profile.baseUrl) === normalized)
+  return matched ?? null
 }
 
 export async function listThinServerProfiles(): Promise<ThinServerProfile[]> {

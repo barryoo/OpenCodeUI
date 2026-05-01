@@ -5,8 +5,8 @@ import {
   createBoundSession,
   createThinItem,
   deleteThinItem,
-  ensureDefaultThinServerProfile,
   findProjectByPath,
+  findThinServerProfileByBaseUrl,
   listAllThinSessionSummaries,
   listThinItems,
   listThinSessionSummaries,
@@ -23,6 +23,7 @@ import { serverStore } from './serverStore'
 
 const PINNED_ITEMS_STORAGE_KEY = 'opencode-pinned-items'
 const ARCHIVED_ITEMS_STORAGE_KEY = 'opencode-archived-items'
+const MISSING_PROFILE_ERROR = '请先手动创建 Server Profile'
 
 function readLocalArray(key: string): string[] {
   try {
@@ -72,6 +73,7 @@ interface ProjectItemState {
 
 interface ItemWorkspaceState {
   profile: ThinServerProfile | null
+  profileBaseUrl: string | null
   pinnedItemIds: string[]
   archivedItemIds: string[]
   pendingItemSessionBinding: PendingItemSessionBinding | null
@@ -164,6 +166,7 @@ function isThinUnauthorized(error: unknown): boolean {
 
 export const useItemWorkspaceStore = create<ItemWorkspaceState>((set, get) => ({
   profile: null,
+  profileBaseUrl: null,
   pinnedItemIds: readLocalArray(PINNED_ITEMS_STORAGE_KEY),
   archivedItemIds: readLocalArray(ARCHIVED_ITEMS_STORAGE_KEY),
   pendingItemSessionBinding: null,
@@ -175,16 +178,19 @@ export const useItemWorkspaceStore = create<ItemWorkspaceState>((set, get) => ({
   loadingProjects: {},
 
   initialize: async () => {
-    if (get().profile) return
     const baseUrl = serverStore.getActiveBaseUrl()
-    const activeServer = serverStore.getActiveServer()
+    if (get().profile && get().profileBaseUrl === baseUrl) return
     try {
-      const profile = await ensureDefaultThinServerProfile(baseUrl, activeServer?.name ?? 'Active OpenCode Server')
+      const profile = await findThinServerProfileByBaseUrl(baseUrl)
+      if (!profile) {
+        set({ profile: null, profileBaseUrl: null, allSummaries: [] })
+        return
+      }
       const allSummaries = await listAllThinSessionSummaries().catch(() => [])
-      set({ profile, allSummaries })
+      set({ profile, profileBaseUrl: baseUrl, allSummaries })
     } catch (error) {
       if (!isThinUnauthorized(error)) throw error
-      set({ profile: null, allSummaries: [] })
+      set({ profile: null, profileBaseUrl: null, allSummaries: [] })
     }
   },
 
@@ -193,15 +199,15 @@ export const useItemWorkspaceStore = create<ItemWorkspaceState>((set, get) => ({
     try {
       await get().initialize()
       const activeProfile = get().profile
-      const project = await findProjectByPath(projectPath)
-      const legacyProjectId = project?.id ?? null
       if (!activeProfile) {
         set((state) => ({
-          projectStates: mergeProjectState(state.projectStates, projectPath, { items: [], summaries: [], error: undefined }),
+          projectStates: mergeProjectState(state.projectStates, projectPath, { items: [], summaries: [], error: MISSING_PROFILE_ERROR }),
           loadingProjects: { ...state.loadingProjects, [projectPath]: false },
         }))
         return
       }
+      const project = await findProjectByPath(projectPath)
+      const legacyProjectId = project?.id ?? null
 
       const [items, summaries] = await Promise.all([
         listThinItems(projectPath, legacyProjectId),
@@ -511,6 +517,7 @@ export const useItemWorkspaceStore = create<ItemWorkspaceState>((set, get) => ({
 
   reset: () => set({
     profile: null,
+    profileBaseUrl: null,
     pendingItemSessionBinding: null,
     draftItem: null,
     allSummaries: [],
