@@ -2,7 +2,7 @@
 
 import { afterAll, beforeAll, beforeEach, describe, expect, mock, test } from 'bun:test'
 import type { ApiSession } from '../api'
-import type { ThinItem, ThinServerProfile, ThinSessionSummary } from '../api/thinServer'
+import type { ThinItem, ThinSessionSummary } from '../api/thinServer'
 
 const storageMap = new Map<string, string>()
 const polyfill: Storage = {
@@ -83,6 +83,11 @@ const findProjectByPathMock = mock(async () => ({ id: 'proj-1', worktree: projec
 const findThinServerProfileByBaseUrlMock = mock(
   async (_baseUrl: string) => ({ id: 'profile-1', userId: 'user-1', name: 'Mock', baseUrl: '', isDefault: true }),
 )
+const fetchThinServerProfileByBaseUrlQueryMock = mock(async (_baseUrl: string) => ({
+  id: 'profile-1', userId: 'user-1', name: 'Mock', baseUrl: '', isDefault: true,
+} as { id: string; userId: string; name: string; baseUrl: string; isDefault: boolean } | null))
+const fetchAllThinSessionSummariesQueryMock = mock(async () => [] as ThinSessionSummary[])
+const invalidateAllThinSessionSummariesQueryMock = mock(async () => {})
 const listThinItemsMock = mock(async () => [] as ThinItem[])
 const listThinSessionSummariesMock = mock(async () => [] as ThinSessionSummary[])
 
@@ -114,6 +119,12 @@ mock.module('../api/thinServer', () => ({
   createBoundSession: mock(async () => null),
 }))
 
+mock.module('../query/admin', () => ({
+  fetchThinServerProfileByBaseUrlQuery: fetchThinServerProfileByBaseUrlQueryMock,
+  fetchAllThinSessionSummariesQuery: fetchAllThinSessionSummariesQueryMock,
+  invalidateAllThinSessionSummariesQuery: invalidateAllThinSessionSummariesQueryMock,
+}))
+
 let useItemWorkspaceStore: typeof import('./itemWorkspaceStore').useItemWorkspaceStore
 
 beforeAll(async () => {
@@ -133,6 +144,9 @@ describe('itemWorkspaceStore binding preservation', () => {
     unbindCalls.length = 0
     upsertThinSessionSummaryMock.mockClear()
     findProjectByPathMock.mockClear()
+    fetchThinServerProfileByBaseUrlQueryMock.mockClear()
+    fetchAllThinSessionSummariesQueryMock.mockClear()
+    invalidateAllThinSessionSummariesQueryMock.mockClear()
     listThinItemsMock.mockClear()
     listThinSessionSummariesMock.mockClear()
     useItemWorkspaceStore.getState().reset()
@@ -172,7 +186,7 @@ describe('itemWorkspaceStore binding preservation', () => {
     await useItemWorkspaceStore.getState().ensureProjectSummaryForSessions(projectPath, [makeSession()])
 
     expect(upsertCalls).toHaveLength(1)
-    expect(upsertCalls[0]).not.toHaveProperty('itemId')
+    expect(upsertCalls[0]?.itemId).toBeNull()
   })
 
   test('unbindSession still performs explicit manual unbind', async () => {
@@ -191,14 +205,20 @@ describe('itemWorkspaceStore no matching profile - unconfigured state', () => {
     upsertThinSessionSummaryMock.mockClear()
     findProjectByPathMock.mockClear()
     findThinServerProfileByBaseUrlMock.mockClear()
+    fetchThinServerProfileByBaseUrlQueryMock.mockClear()
+    fetchAllThinSessionSummariesQueryMock.mockClear()
     listThinItemsMock.mockClear()
     listThinSessionSummariesMock.mockClear()
+    fetchThinServerProfileByBaseUrlQueryMock.mockImplementation(async () => ({
+      id: 'profile-1', userId: 'user-1', name: 'Mock', baseUrl: '', isDefault: true,
+    }))
+    fetchAllThinSessionSummariesQueryMock.mockImplementation(async () => [])
     useItemWorkspaceStore.getState().reset()
   })
 
   test('initialize() + loadProject() with no matching profile keeps profile null and sets error message', async () => {
     // Arrange: no matching profile
-    findThinServerProfileByBaseUrlMock.mockReturnValue(Promise.resolve(null as unknown as ThinServerProfile))
+    fetchThinServerProfileByBaseUrlQueryMock.mockImplementation(async () => null)
 
     // Act: initialize
     await useItemWorkspaceStore.getState().initialize()
@@ -221,7 +241,7 @@ describe('itemWorkspaceStore no matching profile - unconfigured state', () => {
 
   test('ensureProjectSummaryForSessions with no profile does not call upsert', async () => {
     // Arrange: no matching profile, store already initialized with null profile
-    findThinServerProfileByBaseUrlMock.mockReturnValue(Promise.resolve(null as unknown as ThinServerProfile))
+    fetchThinServerProfileByBaseUrlQueryMock.mockImplementation(async () => null)
     await useItemWorkspaceStore.getState().initialize()
     expect(useItemWorkspaceStore.getState().profile).toBeNull()
 

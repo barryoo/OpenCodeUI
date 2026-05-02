@@ -6,8 +6,6 @@ import {
   createThinItem,
   deleteThinItem,
   findProjectByPath,
-  findThinServerProfileByBaseUrl,
-  listAllThinSessionSummaries,
   listThinItems,
   listThinSessionSummaries,
   type ThinItem,
@@ -21,10 +19,20 @@ import {
 import { ThinAuthError } from '../api/auth'
 import { buildSummaryUpsertInputs } from './sessionSummarySync'
 import { serverStore } from './serverStore'
+import {
+  fetchAllThinSessionSummariesQuery,
+  fetchThinServerProfileByBaseUrlQuery,
+  invalidateAllThinSessionSummariesQuery,
+} from '../query/admin'
 
 const PINNED_ITEMS_STORAGE_KEY = 'opencode-pinned-items'
 const ARCHIVED_ITEMS_STORAGE_KEY = 'opencode-archived-items'
 const MISSING_PROFILE_ERROR = '请先手动创建 Server Profile'
+let initializePromise: Promise<void> | null = null
+
+function isActiveBaseUrl(baseUrl: string): boolean {
+  return serverStore.getActiveBaseUrl() === baseUrl
+}
 
 function readLocalArray(key: string): string[] {
   try {
@@ -184,29 +192,44 @@ export const useItemWorkspaceStore = create<ItemWorkspaceState>((set, get) => ({
   initialize: async () => {
     const baseUrl = serverStore.getActiveBaseUrl()
     if (get().profile && get().profileBaseUrl === baseUrl) return
-    try {
-      const profile = await findThinServerProfileByBaseUrl(baseUrl)
-      if (!profile) {
+    if (initializePromise) return initializePromise
+    initializePromise = (async () => {
+      try {
+        const profile = await fetchThinServerProfileByBaseUrlQuery(baseUrl)
+        if (!isActiveBaseUrl(baseUrl)) return
+        if (!profile) {
+          set({ profile: null, profileBaseUrl: null, allSummaries: [] })
+          return
+        }
+        const allSummaries = await fetchAllThinSessionSummariesQuery().catch(() => [])
+        if (!isActiveBaseUrl(baseUrl)) return
+        set({ profile, profileBaseUrl: baseUrl, allSummaries })
+      } catch (error) {
+        if (!isActiveBaseUrl(baseUrl)) return
+        if (!isThinUnauthorized(error)) throw error
         set({ profile: null, profileBaseUrl: null, allSummaries: [] })
-        return
+      } finally {
+        initializePromise = null
       }
-      const allSummaries = await listAllThinSessionSummaries().catch(() => [])
-      set({ profile, profileBaseUrl: baseUrl, allSummaries })
-    } catch (error) {
-      if (!isThinUnauthorized(error)) throw error
-      set({ profile: null, profileBaseUrl: null, allSummaries: [] })
-    }
+    })()
+    return initializePromise
   },
 
   loadProject: async (projectPath: string) => {
+    const activeBaseUrl = serverStore.getActiveBaseUrl()
     const current = get().projectStates[projectPath]
-    if (!get().loadingProjects[projectPath] && (get().loadedProjects[projectPath] || (current && !current.error && current.items !== undefined && current.summaries !== undefined))) {
+    const hasFreshProfile = get().profileBaseUrl === activeBaseUrl
+    if (hasFreshProfile && !get().loadingProjects[projectPath] && (get().loadedProjects[projectPath] || (current && !current.error && current.items !== undefined && current.summaries !== undefined))) {
       return
     }
 
     set((state) => ({ loadingProjects: { ...state.loadingProjects, [projectPath]: true } }))
     try {
       await get().initialize()
+      if (!isActiveBaseUrl(activeBaseUrl)) {
+        set((state) => ({ loadingProjects: { ...state.loadingProjects, [projectPath]: false } }))
+        return
+      }
       const activeProfile = get().profile
       if (!activeProfile) {
         set((state) => ({
@@ -223,6 +246,10 @@ export const useItemWorkspaceStore = create<ItemWorkspaceState>((set, get) => ({
         listThinItems(projectPath, legacyProjectId),
         listThinSessionSummaries(projectPath, legacyProjectId),
       ])
+      if (!isActiveBaseUrl(activeBaseUrl)) {
+        set((state) => ({ loadingProjects: { ...state.loadingProjects, [projectPath]: false } }))
+        return
+      }
       set((state) => ({
         projectStates: mergeProjectState(state.projectStates, projectPath, { items, summaries, error: undefined }),
         allSummaries: mergeSummaries(state.allSummaries, summaries),
@@ -428,6 +455,7 @@ export const useItemWorkspaceStore = create<ItemWorkspaceState>((set, get) => ({
 
   bindSession: async (summaryId: string, itemId: string) => {
     const updated = await bindThinSessionSummary(summaryId, itemId)
+    await invalidateAllThinSessionSummariesQuery()
     const projectPath = updated.projectPath
     set((state: ItemWorkspaceState) => ({
       projectStates: mergeProjectState(state.projectStates, projectPath, {
@@ -439,6 +467,7 @@ export const useItemWorkspaceStore = create<ItemWorkspaceState>((set, get) => ({
 
   unbindSession: async (summaryId: string) => {
     const updated = await unbindThinSessionSummary(summaryId)
+    await invalidateAllThinSessionSummariesQuery()
     const projectPath = updated.projectPath
     set((state: ItemWorkspaceState) => ({
       projectStates: mergeProjectState(state.projectStates, projectPath, {
@@ -471,6 +500,7 @@ export const useItemWorkspaceStore = create<ItemWorkspaceState>((set, get) => ({
       activityAt,
       ...(existing?.itemId !== undefined ? { itemId: existing.itemId } : {}),
     })
+    await invalidateAllThinSessionSummariesQuery()
 
     set((state: ItemWorkspaceState) => {
       const currentSummaries = state.projectStates[projectPath]?.summaries ?? []
@@ -562,7 +592,9 @@ export const useItemWorkspaceStore = create<ItemWorkspaceState>((set, get) => ({
     })
   },
 
-  reset: () => set({
+  reset: () => {
+    initializePromise = null
+    set({
     profile: null,
     profileBaseUrl: null,
     pendingItemSessionBinding: null,
@@ -573,5 +605,6 @@ export const useItemWorkspaceStore = create<ItemWorkspaceState>((set, get) => ({
     projectStates: {},
     loadingProjects: {},
     loadedProjects: {},
-  }),
+    })
+  },
 }))

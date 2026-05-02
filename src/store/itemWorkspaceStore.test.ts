@@ -50,9 +50,29 @@ export const mockEnsureDefaultThinServerProfile = mock(async () => ({
   isDefault: true,
 }))
 
+export const mockFindThinServerProfileByBaseUrl = mock(async () => ({
+  id: 'profile-1',
+  userId: 'user-1',
+  name: 'Test Server',
+  baseUrl: 'http://localhost:3000',
+  isDefault: true,
+}))
+
+export const mockListAllThinSessionSummaries = mock(async () => [])
+export const mockFetchThinServerProfileByBaseUrlQuery = mock(async () => ({
+  id: 'profile-1',
+  userId: 'user-1',
+  name: 'Test Server',
+  baseUrl: 'http://localhost:3000',
+  isDefault: true,
+}))
+export const mockFetchAllThinSessionSummariesQuery = mock(async () => [])
+export const mockInvalidateAllThinSessionSummariesQuery = mock(async () => {})
+
 // ---- mock thinServer module BEFORE store import ----
 mock.module('../api/thinServer', () => ({
   ensureDefaultThinServerProfile: mockEnsureDefaultThinServerProfile,
+  findThinServerProfileByBaseUrl: mockFindThinServerProfileByBaseUrl,
   listThinServerProfiles: api(),
   createThinServerProfile: api(),
   updateThinServerProfile: api(),
@@ -66,13 +86,19 @@ mock.module('../api/thinServer', () => ({
   updateThinItem: api(),
   deleteThinItem: apiVoid(),
   listThinSessionSummaries: mock(async () => []),
-  listAllThinSessionSummaries: mock(async () => []),
+  listAllThinSessionSummaries: mockListAllThinSessionSummaries,
   listThinItemSessionSummaries: mock(async () => []),
   upsertThinSessionSummary: mockUpsertThinSessionSummary,
   bindThinSessionSummary: api(),
   unbindThinSessionSummary: api(),
   searchThinProjectFiles: mock(async () => []),
   createBoundSession: api(),
+}))
+
+mock.module('../query/admin', () => ({
+  fetchThinServerProfileByBaseUrlQuery: mockFetchThinServerProfileByBaseUrlQuery,
+  fetchAllThinSessionSummariesQuery: mockFetchAllThinSessionSummariesQuery,
+  invalidateAllThinSessionSummariesQuery: mockInvalidateAllThinSessionSummariesQuery,
 }))
 
 // ---- mock auth module to prevent API calls during module init ----
@@ -93,6 +119,15 @@ mock.module('../api/auth', () => ({
   logoutThinAuth: mock(async () => {}),
 }))
 
+let activeBaseUrl = 'http://localhost:3000'
+
+mock.module('./serverStore', () => ({
+  serverStore: {
+    getActiveBaseUrl: () => activeBaseUrl,
+  },
+  makeBasicAuthHeader: () => 'Basic mocked',
+}))
+
 // ---- now import store (mock applied) ----
 const { useItemWorkspaceStore } = await import('./itemWorkspaceStore')
 
@@ -105,6 +140,7 @@ const DEFAULT_PROFILE = {
 }
 
 function resetStore() {
+  useItemWorkspaceStore.getState().reset()
   useItemWorkspaceStore.setState({
     profile: DEFAULT_PROFILE,
     profileBaseUrl: DEFAULT_PROFILE.baseUrl,
@@ -122,10 +158,103 @@ function resetStore() {
 }
 
 beforeEach(() => {
-  resetStore()
+  activeBaseUrl = 'http://localhost:3000'
   mockUpsertThinSessionSummary.mockClear()
   mockFindProjectByPath.mockClear()
   mockEnsureDefaultThinServerProfile.mockClear()
+  mockFindThinServerProfileByBaseUrl.mockClear()
+  mockListAllThinSessionSummaries.mockClear()
+  mockFetchThinServerProfileByBaseUrlQuery.mockClear()
+  mockFetchAllThinSessionSummariesQuery.mockClear()
+  mockInvalidateAllThinSessionSummariesQuery.mockClear()
+
+  mockFetchThinServerProfileByBaseUrlQuery.mockImplementation(async () => ({
+    id: 'profile-1',
+    userId: 'user-1',
+    name: 'Test Server',
+    baseUrl: activeBaseUrl,
+    isDefault: true,
+  }))
+  mockFetchAllThinSessionSummariesQuery.mockImplementation(async () => [])
+  mockFindProjectByPath.mockImplementation(async () => ({
+    id: 'proj-legacy-1',
+    name: 'Test Project',
+    worktree: '/tmp/test-project',
+    sandboxes: [],
+    time: { created: 1, updated: 1 },
+  }))
+  resetStore()
+})
+
+describe('initialize singleflight', () => {
+  test('dedupes concurrent initialize calls for same baseUrl', async () => {
+    useItemWorkspaceStore.setState({
+      profile: null,
+      profileBaseUrl: null,
+      allSummaries: [],
+    })
+
+    await Promise.all([
+      useItemWorkspaceStore.getState().initialize(),
+      useItemWorkspaceStore.getState().initialize(),
+    ])
+
+    expect(mockFetchThinServerProfileByBaseUrlQuery).toHaveBeenCalledTimes(1)
+    expect(mockFetchAllThinSessionSummariesQuery).toHaveBeenCalledTimes(1)
+  })
+
+  test('ignores stale initialize result after active baseUrl changes', async () => {
+    let resolveProfile!: (value: typeof DEFAULT_PROFILE) => void
+
+    mockFetchThinServerProfileByBaseUrlQuery.mockImplementationOnce(() => new Promise<typeof DEFAULT_PROFILE>((resolve) => {
+      resolveProfile = resolve
+    }))
+
+    useItemWorkspaceStore.setState({
+      profile: null,
+      profileBaseUrl: null,
+      allSummaries: [],
+    })
+
+    const pending = useItemWorkspaceStore.getState().initialize()
+    activeBaseUrl = 'http://localhost:4000'
+    resolveProfile(DEFAULT_PROFILE)
+    await pending
+
+    expect(useItemWorkspaceStore.getState().profileBaseUrl).toBeNull()
+    expect(useItemWorkspaceStore.getState().profile).toBeNull()
+  })
+})
+
+describe('loadProject server switch isolation', () => {
+  test('does not short-circuit on cached project data after active baseUrl changes', async () => {
+    useItemWorkspaceStore.setState({
+      profile: DEFAULT_PROFILE,
+      profileBaseUrl: 'http://localhost:3000',
+      projectStates: {
+        '/tmp/test': {
+          items: [{
+            id: 'it-1', projectPath: '/tmp/test', serverProfileId: 'p1',
+            title: 'X', type: 'bug', status: 'in_progress',
+            description: '', activityAt: '', updatedAt: '',
+          }],
+          summaries: [{
+            id: 's1', projectPath: '/tmp/test', externalSessionId: 'ext-1',
+            itemId: null, variant: null, titleSnapshot: 'Y',
+            statusSnapshot: 'in_progress', activityAt: '', updatedAt: '',
+          }],
+        },
+      },
+      loadedProjects: { '/tmp/test': true },
+    })
+
+    activeBaseUrl = 'http://localhost:4000'
+
+    await useItemWorkspaceStore.getState().loadProject('/tmp/test')
+
+    expect(mockFetchThinServerProfileByBaseUrlQuery).toHaveBeenCalledTimes(1)
+    expect(mockFindProjectByPath).toHaveBeenCalledTimes(1)
+  })
 })
 
 describe('ensureProjectSummaryForSessions', () => {

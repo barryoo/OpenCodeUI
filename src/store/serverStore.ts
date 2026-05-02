@@ -6,13 +6,13 @@ import { API_BASE_URL } from '../constants'
 import {
   createThinServerProfile,
   deleteThinServerProfile,
-  listThinServerProfiles,
   setDefaultThinServerProfile,
   updateThinServerProfile,
 } from '../api/thinServer'
 import { ThinAuthError, ensureThinAuth } from '../api/auth'
 import { authStore } from './authStore'
 import { isTauri } from '../utils/tauri'
+import { fetchThinServerProfilesQuery, invalidateThinServerProfilesQuery } from '../query/admin'
 
 let _tauriFetch: typeof globalThis.fetch | null = null
 let _tauriFetchLoading: Promise<typeof globalThis.fetch> | null = null
@@ -103,7 +103,7 @@ class ServerStore {
       const parsed = JSON.parse(stored) as ServerConfig[]
       if (!Array.isArray(parsed) || parsed.length === 0) return
 
-      const remote = await listThinServerProfiles()
+      const remote = await fetchThinServerProfilesQuery()
       if (remote.length > 0) return
 
       for (const server of parsed) {
@@ -159,7 +159,7 @@ class ServerStore {
   }
 
   private async reloadFromBackend(): Promise<void> {
-    const profiles = await listThinServerProfiles()
+    const profiles = await fetchThinServerProfilesQuery()
     this.servers = profiles.length > 0
       ? profiles.map((profile) => ({
           id: profile.id,
@@ -250,6 +250,7 @@ class ServerStore {
       authSecretEncrypted: config.auth?.password ? JSON.stringify(config.auth) : null,
       isDefault: !!config.isDefault,
     })
+    await invalidateThinServerProfilesQuery()
     await this.reloadFromBackend()
     return this.servers.find((server) => server.id === created.id) ?? {
       id: created.id,
@@ -269,6 +270,7 @@ class ServerStore {
       authSecretEncrypted: updates.auth ? JSON.stringify(updates.auth) : undefined,
       isDefault: updates.isDefault,
     })
+    await invalidateThinServerProfilesQuery()
     await this.reloadFromBackend()
     return true
   }
@@ -279,6 +281,7 @@ class ServerStore {
     if (!server || server.isDefault) return false
     await deleteThinServerProfile(id)
     this.healthMap.delete(id)
+    await invalidateThinServerProfilesQuery()
     await this.reloadFromBackend()
     return true
   }
@@ -299,6 +302,7 @@ class ServerStore {
   async setDefaultServer(id: string): Promise<boolean> {
     await this.initialize()
     await setDefaultThinServerProfile(id)
+    await invalidateThinServerProfilesQuery()
     await this.reloadFromBackend()
     return true
   }

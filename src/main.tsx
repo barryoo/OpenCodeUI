@@ -13,6 +13,7 @@ import { messageCacheStore } from './store/messageCacheStore'
 import { autoApproveStore } from './store/autoApproveStore'
 import { serviceStore } from './store/serviceStore'
 import { authStore } from './store/authStore'
+import { useItemWorkspaceStore } from './store/itemWorkspaceStore'
 import { reconnectSSE } from './api/events'
 import { queryClient } from './query/client'
 import { resetPathModeCache } from './utils/directoryUtils'
@@ -50,6 +51,7 @@ serverStore.onServerChange(() => {
   messageStore.clearAll()
   childSessionStore.clearAll()
   todoStore.clearAll()
+  useItemWorkspaceStore.getState().reset()
   
   // 2. 清空 IndexedDB 消息缓存
   void messageCacheStore.clearAll()
