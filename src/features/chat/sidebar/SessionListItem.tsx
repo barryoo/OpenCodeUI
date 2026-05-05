@@ -3,21 +3,7 @@ import type { MouseEvent, ReactNode, RefObject, TouchEventHandler } from 'react'
 import { MoreHorizontalIcon, PinIcon } from '../../../components/Icons'
 import { formatRelativeTime } from '../../../utils/dateUtils'
 import type { ThinWorkflowStatus } from '../../../api/thinServer'
-
-function getStatusTagClass(status?: ThinWorkflowStatus): string {
-  switch (status) {
-    case 'in_progress':
-      return 'bg-sky-500/15 text-sky-300'
-    case 'not_started':
-      return 'bg-violet-500/15 text-violet-300'
-    case 'completed':
-      return 'bg-emerald-500/15 text-emerald-300'
-    case 'abandoned':
-      return 'bg-zinc-500/15 text-zinc-400'
-    default:
-      return 'bg-bg-200 text-text-400'
-  }
-}
+import { getStatusTagClass } from './statusTag'
 
 function RunningIndicator() {
   return (
@@ -197,7 +183,7 @@ export function SessionListItem({
           </span>
         </span>
         <span className="min-w-0 flex-1 flex items-center gap-1.5 overflow-hidden">
-          <span className={`shrink-0 rounded px-1.5 py-0.5 text-[9px] leading-none ${getStatusTagClass(tagStatus)}`}>
+          <span className={getStatusTagClass(tagStatus)}>
             {tagLabel}
           </span>
           <span className="truncate text-[12px] font-medium leading-none">{title}</span>

@@ -43,6 +43,7 @@ import { useItemWorkspaceStore } from '../../../store/itemWorkspaceStore'
 import { syncSessionSnapshotToItemWorkspace } from '../../../store/syncSessionSnapshot'
 import { SidePanel, SidebarFooter, type SidePanelProps } from './SidePanel'
 import { ActionMenu, ActionMenuItem, SessionListItem } from './SessionListItem'
+import { getStatusTagClass } from './statusTag'
 import type { ThinSessionSummary, ThinWorkflowStatus } from '../../../api/thinServer'
 import { buildProjectLoadPlan } from './projectLoadPlan'
 
@@ -2435,7 +2436,7 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
                                       </span>
                                     </span>
                                     <span className="min-w-0 flex-1 flex items-center gap-1.5 overflow-hidden">
-                                      <span className={`shrink-0 rounded px-1.5 py-0.5 text-[9px] leading-none ${entry.status === 'in_progress' ? 'bg-sky-500/15 text-sky-300' : entry.status === 'not_started' ? 'bg-violet-500/15 text-violet-300' : entry.status === 'completed' ? 'bg-emerald-500/15 text-emerald-300' : 'bg-zinc-500/15 text-zinc-400'}`}>
+                                      <span className={getStatusTagClass(entry.status)}>
                                         {getItemTypeLabel(entry.item.type)}
                                       </span>
                                       <span className="truncate text-[12px] font-medium leading-none">
