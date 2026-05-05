@@ -8,7 +8,6 @@ import {
   SettingsIcon, KeyboardIcon, CloseIcon, BellIcon, CompactIcon, PlugIcon, StopIcon, EyeIcon
 } from '../../components/Icons'
 import { usePathMode, useServerStore, useIsMobile, useNotification, useRouter } from '../../hooks'
-import { loginWithGithub } from '../../api'
 import { layoutStore, useLayoutStore, type SidebarViewMode } from '../../store/layoutStore'
 import { authStore, messageStore, notificationStore, useAuthStore } from '../../store'
 import { serviceStore, useServiceStore } from '../../store/serviceStore'
@@ -28,6 +27,7 @@ type SettingsTab = 'appearance' | 'chat' | 'notifications' | 'service' | 'server
 interface SettingsDialogProps {
   isOpen: boolean
   onClose: () => void
+  onOpenLoginPrompt?: () => void
   themeMode: ThemeMode
   onThemeChange: (mode: ThemeMode, event?: React.MouseEvent) => void
   isWideMode?: boolean
@@ -1221,7 +1221,7 @@ function EditServerForm({
   )
 }
 
-function ServersSettings() {
+function ServersSettings({ onOpenLoginPrompt }: { onOpenLoginPrompt?: () => void }) {
   const [addingServer, setAddingServer] = useState(false)
   const [editingServerId, setEditingServerId] = useState<string | null>(null)
   const [busyServerId, setBusyServerId] = useState<string | null>(null)
@@ -1298,20 +1298,20 @@ function ServersSettings() {
   return (
     <div className="space-y-4">
       <SettingsCard
-        title="Account"
-        description="Thin server login state used for multi-user server and item sync"
+        title="账号"
+        description="Thin server 登录状态，用于多用户 server 与事项同步"
       >
         <div className="flex items-center justify-between gap-3 rounded-lg border border-border-200/40 p-3">
           <div className="min-w-0">
             <div className="text-[13px] font-medium text-text-100">
-              {authBusy ? 'Checking sign-in status…' : authUser ? (authUser.name || authUser.login) : 'Not signed in'}
+              {authBusy ? '正在检查登录状态…' : authUser ? (authUser.name || authUser.login) : '未登录'}
             </div>
             <div className="text-[11px] text-text-400 mt-0.5">
               {authState.error
                 ? authState.error
-                : authUser
+                  : authUser
                   ? `@${authUser.login}${authMode ? ` · ${authMode}` : ''}`
-                  : 'Login with GitHub to sync multi-user thin-server data'}
+                  : '登录账号后可同步多用户 thin-server 数据'}
             </div>
           </div>
           {authUser ? (
@@ -1324,23 +1324,32 @@ function ServersSettings() {
                 void authStore.logout().then(() => refreshServers())
               }}
             >
-              {authBusy ? <SpinnerIcon size={12} className="animate-spin" /> : 'Logout'}
+              {authBusy ? <SpinnerIcon size={12} className="animate-spin" /> : '退出登录'}
             </Button>
           ) : (
-            <Button
-              type="button"
-              size="sm"
-              disabled={authBusy}
-              onClick={() => {
-                void authStore.beginLogin()
-                  .then(() => refreshServers())
-                  .catch(() => {
-                    void loginWithGithub()
-                  })
-              }}
-            >
-              {authBusy ? <SpinnerIcon size={12} className="animate-spin" /> : 'Login'}
-            </Button>
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <Button
+                type="button"
+                size="sm"
+                disabled={authBusy}
+                onClick={() => {
+                  onOpenLoginPrompt?.()
+                }}
+              >
+                {authBusy ? <SpinnerIcon size={12} className="animate-spin" /> : '邮箱登录 / 注册'}
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="secondary"
+                disabled={authBusy}
+                onClick={() => {
+                  void authStore.beginLogin().then(() => refreshServers())
+                }}
+              >
+                {authBusy ? <SpinnerIcon size={12} className="animate-spin" /> : '使用 GitHub 登录'}
+              </Button>
+            </div>
           )}
         </div>
         {authState.error && <p className="text-[11px] text-danger-100 mt-2">{authState.error}</p>}
@@ -1482,7 +1491,7 @@ const TAB_GROUPS: { label: string; tabs: SettingsTab[] }[] = [
 // Tab Content Router
 // ============================================
 
-function TabContent({ tab, themeMode, onThemeChange, isWideMode, onToggleWideMode, presetId, onPresetChange, availablePresets, customCSS, onCustomCSSChange }: {
+function TabContent({ tab, themeMode, onThemeChange, isWideMode, onToggleWideMode, presetId, onPresetChange, availablePresets, customCSS, onCustomCSSChange, onOpenLoginPrompt }: {
   tab: SettingsTab
   themeMode: ThemeMode
   onThemeChange: (mode: ThemeMode, event?: React.MouseEvent) => void
@@ -1493,6 +1502,7 @@ function TabContent({ tab, themeMode, onThemeChange, isWideMode, onToggleWideMod
   availablePresets?: { id: string; name: string; description: string }[]
   customCSS?: string
   onCustomCSSChange?: (css: string) => void
+  onOpenLoginPrompt?: () => void
 }) {
   switch (tab) {
     case 'appearance':
@@ -1516,7 +1526,7 @@ function TabContent({ tab, themeMode, onThemeChange, isWideMode, onToggleWideMod
     case 'service':
       return <GeneralSettings mode="service" />
     case 'servers':
-      return <ServersSettings />
+      return <ServersSettings onOpenLoginPrompt={onOpenLoginPrompt} />
     case 'keybindings':
       return <KeybindingsSection />
     default:
@@ -1529,7 +1539,7 @@ function TabContent({ tab, themeMode, onThemeChange, isWideMode, onToggleWideMod
 // ============================================
 
 export function SettingsDialog({
-  isOpen, onClose, themeMode, onThemeChange, isWideMode, onToggleWideMode, initialTab = 'servers',
+  isOpen, onClose, onOpenLoginPrompt, themeMode, onThemeChange, isWideMode, onToggleWideMode, initialTab = 'servers',
   presetId, onPresetChange, availablePresets, customCSS, onCustomCSSChange,
 }: SettingsDialogProps) {
   const isMobile = useIsMobile()
@@ -1572,6 +1582,7 @@ export function SettingsDialog({
   }, [tab, visibleTabs])
 
   const contentProps = {
+    onOpenLoginPrompt,
     themeMode, onThemeChange, isWideMode, onToggleWideMode,
     presetId, onPresetChange, availablePresets, customCSS, onCustomCSSChange,
   }

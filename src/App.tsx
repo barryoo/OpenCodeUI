@@ -1042,6 +1042,10 @@ function App() {
       <SettingsDialog
         isOpen={settingsDialogOpen}
         onClose={closeSettings}
+        onOpenLoginPrompt={() => {
+          setSettingsDialogOpen(false)
+          setLoginPromptOpen(true)
+        }}
         themeMode={themeMode}
         onThemeChange={setThemeWithAnimation}
         isWideMode={isWideMode}
@@ -1066,13 +1070,20 @@ function App() {
 
       <LoginPromptDialog
         isOpen={loginPromptOpen}
-        isLoading={authState.status === 'redirecting'}
+        isLoading={authState.status === 'redirecting' || authState.status === 'checking'}
+        error={authState.error}
         onContinueWithoutLogin={() => {
           startupChoiceStore.resolve()
           setLoginPromptOpen(false)
         }}
-        onLogin={() => {
+        onGithubLogin={() => {
           void authStore.beginLogin()
+        }}
+        onEmailLogin={(email, password) => {
+          void authStore.loginWithEmail(email, password)
+        }}
+        onEmailRegister={(email, password) => {
+          void authStore.registerWithEmail(email, password)
         }}
       />
 

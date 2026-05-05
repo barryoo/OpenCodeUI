@@ -14,8 +14,9 @@ export class ThinAuthError extends Error {
 
 export interface ThinAuthUser {
   id: string
-  githubId: string
+  githubId: string | null
   login: string
+  email?: string | null
   name?: string | null
   avatarUrl?: string | null
 }
@@ -23,6 +24,11 @@ export interface ThinAuthUser {
 interface ThinAuthResponse {
   user: ThinAuthUser | null
   auth: { provider: string; mode: string } | null
+}
+
+export interface EmailAuthInput {
+  email: string
+  password: string
 }
 
 async function parseError(response: Response, fallback: string): Promise<ThinAuthError> {
@@ -53,6 +59,25 @@ export async function loginWithGithub(): Promise<void> {
     return
   }
   throw new ThinAuthError('GitHub OAuth login is unavailable', 503, 'OAUTH_UNAVAILABLE')
+}
+
+async function postEmailAuth(path: string, input: EmailAuthInput): Promise<ThinAuthResponse> {
+  const response = await fetch(`${THIN_SERVER_BASE_URL}${path}`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(input),
+  })
+  if (!response.ok) throw await parseError(response, `Auth request failed: ${response.status}`)
+  return response.json() as Promise<ThinAuthResponse>
+}
+
+export function registerWithEmail(input: EmailAuthInput): Promise<ThinAuthResponse> {
+  return postEmailAuth('/auth/register', input)
+}
+
+export function loginWithEmail(input: EmailAuthInput): Promise<ThinAuthResponse> {
+  return postEmailAuth('/auth/login', input)
 }
 
 let ensureAuthPromise: Promise<void> | null = null

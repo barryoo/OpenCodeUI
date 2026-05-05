@@ -1,5 +1,6 @@
 import type { ServerConfig } from './config'
 import type { ThinServerRepository } from './repositories'
+import { normalizeEmail } from './auth-helpers'
 import { createId } from './utils'
 
 export interface AuthSession {
@@ -7,6 +8,16 @@ export interface AuthSession {
   userId: string
   login: string
   createdAt: string
+}
+
+export { normalizeEmail, validatePassword } from './auth-helpers'
+
+export async function hashPassword(password: string): Promise<string> {
+  return Bun.password.hash(password)
+}
+
+export async function verifyPassword(password: string, passwordHash: string): Promise<boolean> {
+  return Bun.password.verify(password, passwordHash)
 }
 
 function parseCookie(cookieHeader: string | null, name: string): string | null {
@@ -69,7 +80,7 @@ export function consumeGithubState(repository: ThinServerRepository, state: stri
   return repository.consumeOAuthState(state, 'github')
 }
 
-export async function exchangeGithubCodeForUser(code: string, config: ServerConfig): Promise<{ githubId: string; login: string; name?: string | null; avatarUrl?: string | null } | null> {
+export async function exchangeGithubCodeForUser(code: string, config: ServerConfig): Promise<{ githubId: string; login: string; email?: string | null; name?: string | null; avatarUrl?: string | null } | null> {
   if (!config.githubClientId || !config.githubClientSecret) return null
 
   const tokenResponse = await fetch('https://github.com/login/oauth/access_token', {
@@ -98,9 +109,29 @@ export async function exchangeGithubCodeForUser(code: string, config: ServerConf
   })
   if (!userResponse.ok) return null
   const user = await userResponse.json() as { id: number; login: string; name?: string | null; avatar_url?: string | null }
+
+  const emailsResponse = await fetch('https://api.github.com/user/emails', {
+    headers: {
+      authorization: `Bearer ${tokenData.access_token}`,
+      accept: 'application/vnd.github+json',
+      'user-agent': 'OpenCodeUI Thin Server',
+    },
+  })
+
+  let email: string | null = null
+  if (emailsResponse.ok) {
+    const emails = await emailsResponse.json() as Array<{ email?: string; primary?: boolean; verified?: boolean }>
+    const primaryVerified = emails.find((entry) => entry.email && entry.primary && entry.verified)
+    const verified = emails.find((entry) => entry.email && entry.verified)
+    const fallback = emails.find((entry) => entry.email)
+    email = primaryVerified?.email ?? verified?.email ?? fallback?.email ?? null
+    if (email) email = normalizeEmail(email)
+  }
+
   return {
     githubId: String(user.id),
     login: user.login,
+    email,
     name: user.name ?? null,
     avatarUrl: user.avatar_url ?? null,
   }
