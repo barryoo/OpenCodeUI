@@ -4,6 +4,7 @@ import { deleteSession, getSessionsForDirectory, type ApiSession, updateSession 
 import { Button } from '../../components/ui/Button'
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog'
 import type { ThinItem, ThinItemType, ThinSessionSummary, ThinWorkflowStatus } from '../../api/thinServer'
+import { getBindableSessions } from './bindableSessions'
 import { SessionListItem } from '../chat/sidebar/SessionListItem'
 
 const ITEM_TYPE_OPTIONS: Array<{ value: ThinItemType; label: string }> = [
@@ -24,7 +25,7 @@ interface ItemDetailPanelProps {
   item: ThinItem
   mode?: 'create' | 'edit'
   linkedSessions: ThinSessionSummary[]
-  unboundSessions?: ThinSessionSummary[]
+  projectSummaries?: ThinSessionSummary[]
   projectDirectory?: string
   isLinkedSessionPinned?: (sessionId: string) => boolean
   onToggleLinkedSessionPin?: (sessionId: string) => void
@@ -115,7 +116,7 @@ export function ItemDetailPanel({
   item,
   mode = 'edit',
   linkedSessions,
-  unboundSessions = [],
+  projectSummaries = [],
   projectDirectory,
   isLinkedSessionPinned,
   onToggleLinkedSessionPin,
@@ -149,6 +150,7 @@ export function ItemDetailPanel({
   const [sessionMenuAnchor, setSessionMenuAnchor] = useState<DOMRect | null>(null)
   const [bindMenuOpen, setBindMenuOpen] = useState(false)
   const [bindableSessions, setBindableSessions] = useState<ApiSession[]>([])
+  const [reusableSummaryByExternalId, setReusableSummaryByExternalId] = useState<Map<string, ThinSessionSummary>>(new Map())
   const [existingLinkedSessionIds, setExistingLinkedSessionIds] = useState<Set<string> | null>(null)
   const bindMenuRef = useRef<HTMLDivElement | null>(null)
   const itemMenuRef = useRef<HTMLDivElement | null>(null)
@@ -242,17 +244,20 @@ export function ItemDetailPanel({
     let cancelled = false
     void getSessionsForDirectory({ directory: projectDirectory, roots: true, limit: 200 }).then((sessions) => {
       if (cancelled) return
-      const boundIds = new Set(linkedSessions.map((session) => session.externalSessionId))
-      const summariesByExternalId = new Map(unboundSessions.map((summary) => [summary.externalSessionId, summary]))
-      setBindableSessions(sessions.filter((session) => !boundIds.has(session.id) || summariesByExternalId.has(session.id)))
+      const { bindableSessions: filtered, reusableSummaryByExternalId: reusable } = getBindableSessions(sessions, projectSummaries, item.id)
+      setBindableSessions(filtered)
+      setReusableSummaryByExternalId(reusable)
     }).catch(() => {
-      if (!cancelled) setBindableSessions([])
+      if (!cancelled) {
+        setBindableSessions([])
+        setReusableSummaryByExternalId(new Map())
+      }
     })
 
     return () => {
       cancelled = true
     }
-  }, [bindMenuOpen, isCreateMode, linkedSessions, projectDirectory, unboundSessions])
+  }, [bindMenuOpen, isCreateMode, projectDirectory, projectSummaries, item.id])
 
   useEffect(() => {
     if (isCreateMode) return
@@ -431,7 +436,7 @@ export function ItemDetailPanel({
                     {bindableSessions.length === 0 ? (
                       <div className="px-2 py-2 text-[12px] text-text-500">暂无可绑定会话</div>
                     ) : bindableSessions.map((session) => {
-                      const existingSummary = unboundSessions.find((summary) => summary.externalSessionId === session.id)
+                      const existingSummary = reusableSummaryByExternalId.get(session.id)
                       return (
                       <button
                         key={session.id}

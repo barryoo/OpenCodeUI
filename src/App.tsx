@@ -284,7 +284,7 @@ function App() {
   const selectedItemProjectPath = useItemWorkspaceStore((state) => state.selectedItemProjectPath)
   const getItemById = useItemWorkspaceStore((state) => state.getItemById)
   const getLinkedSummaries = useItemWorkspaceStore((state) => state.getLinkedSummaries)
-  const getProjectUnboundSummaries = useItemWorkspaceStore((state) => state.getProjectUnboundSummaries)
+  const getProjectSummaries = useItemWorkspaceStore((state) => state.getProjectSummaries)
   const ensureProjectSummaryForSessions = useItemWorkspaceStore((state) => state.ensureProjectSummaryForSessions)
   useItemWorkspaceStore((state) => state.projectStates)
   const selectItem = useItemWorkspaceStore((state) => state.selectItem)
@@ -336,7 +336,7 @@ function App() {
     : null
   const isDraftItem = selectedItem?.id === '__draft__'
   const linkedSummaries = selectedItem ? getLinkedSummaries(selectedItem.id) : []
-  const unboundSummaries = selectedItemProjectPath ? getProjectUnboundSummaries(selectedItemProjectPath) : []
+  const projectSummaries = selectedItemProjectPath ? getProjectSummaries(selectedItemProjectPath) : []
   const handleSelectItem = useCallback((projectPath: string, item: ThinItem) => {
     setCurrentDirectory(projectPath)
     selectItem(projectPath, item.id)
@@ -803,7 +803,7 @@ function App() {
             item={selectedItem}
             mode={isDraftItem ? 'create' : 'edit'}
             linkedSessions={linkedSummaries}
-            unboundSessions={unboundSummaries}
+            projectSummaries={projectSummaries}
             onCreateItem={async (input) => {
               if (!selectedItemProjectPath) return
               setCurrentDirectory(selectedItemProjectPath)

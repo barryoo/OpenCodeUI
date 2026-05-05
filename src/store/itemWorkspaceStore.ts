@@ -87,6 +87,7 @@ interface ItemWorkspaceState {
   getProjectEntries: (projectPath: string, sessions: ApiSession[]) => MixedSidebarEntry[]
   getProjectItems: (projectPath: string) => ThinItem[]
   getItemById: (projectPath: string, itemId: string) => ThinItem | null
+  getProjectSummaries: (projectPath: string) => ThinSessionSummary[]
   getProjectUnboundSummaries: (projectPath: string) => ThinSessionSummary[]
   getLinkedSummaries: (itemId: string) => ThinSessionSummary[]
   getSessionSummaryByExternalId: (externalSessionId: string) => ThinSessionSummary | null
@@ -313,6 +314,7 @@ export const useItemWorkspaceStore = create<ItemWorkspaceState>((set, get) => ({
     if (itemId === '__draft__') return get().draftItem
     return get().projectStates[projectPath]?.items.find((item) => item.id === itemId) ?? null
   },
+  getProjectSummaries: (projectPath: string) => dedupeSummariesByExternalSessionId(get().projectStates[projectPath]?.summaries ?? []),
   getProjectUnboundSummaries: (projectPath: string) => dedupeSummariesByExternalSessionId(
     (get().projectStates[projectPath]?.summaries ?? []).filter((summary: ThinSessionSummary) => !summary.itemId)
   ),

@@ -148,6 +148,30 @@ describe('itemWorkspaceStore local summary sync', () => {
     expect(linked[0].projectPath).toBe(newPath)
   })
 
+  test('getProjectSummaries deduplicates by externalSessionId and prefers bound version', () => {
+    useItemWorkspaceStore.getState().reset()
+    const boundSummary = makeSummary({ id: 'bound-1', itemId: 'item-99', externalSessionId: sessionId })
+    const unboundSummary = makeSummary({ id: 'unbound-1', itemId: null, externalSessionId: sessionId })
+    useItemWorkspaceStore.setState({
+      projectStates: {
+        [projectPath]: {
+          items: [],
+          summaries: [boundSummary, unboundSummary],
+          error: undefined,
+        },
+      },
+    })
+
+    const result = useItemWorkspaceStore.getState().getProjectSummaries(projectPath)
+
+    // 同一 externalSessionId 只保留一个
+    expect(result).toHaveLength(1)
+    // 优先保留已绑定的版本
+    expect(result[0].id).toBe('bound-1')
+    expect(result[0].itemId).toBe('item-99')
+    expect(result[0].externalSessionId).toBe(sessionId)
+  })
+
   test('getSessionSummaryByExternalId returns the latest and allSummaries has no stale duplicate', () => {
     useItemWorkspaceStore.getState().upsertLocalSummary(
       makeSummary({ id: summaryId2, itemId }),
