@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from 'react'
-import { getThinAuthMe, loginWithGithub, logoutThinAuth, type ThinAuthUser } from '../api/auth'
+import { getThinAuthMe, loginWithEmail as loginWithEmailRequest, loginWithGithub, logoutThinAuth, registerWithEmail as registerWithEmailRequest, type ThinAuthUser } from '../api/auth'
 import { messageCacheStore } from './messageCacheStore'
 import { messageStore } from './messageStore'
 import { childSessionStore } from './childSessionStore'
@@ -60,7 +60,7 @@ class AuthStore {
 
     this.setState({ status: this.state.user ? 'checking' : 'idle', error: null })
     this.refreshPromise = getThinAuthMe()
-      .then((result) => {
+      .then(async (result) => {
         if (result.user) {
           this.setState({
             status: 'authenticated',
@@ -69,6 +69,10 @@ class AuthStore {
             error: null,
           })
           return
+        }
+
+        if (this.state.user) {
+          await this.resetUserBoundState()
         }
 
         this.setState({
@@ -134,6 +138,56 @@ class AuthStore {
         user: null,
         mode: null,
         error: error instanceof Error ? error.message : 'Failed to start GitHub login',
+      })
+      throw error
+    }
+  }
+
+  async loginWithEmail(email: string, password: string): Promise<void> {
+    const previousState = this.state
+    this.setState({ status: 'checking', error: null })
+    try {
+      const result = await loginWithEmailRequest({ email, password })
+      if (this.state.user && this.state.user.id !== result.user?.id) {
+        await this.resetUserBoundState()
+      }
+      this.setState({
+        status: 'authenticated',
+        user: result.user,
+        mode: result.auth?.mode ?? 'password',
+        error: null,
+      })
+    } catch (error) {
+      this.setState({
+        status: previousState.user ? 'authenticated' : 'anonymous',
+        user: previousState.user,
+        mode: previousState.mode,
+        error: error instanceof Error ? error.message : '邮箱登录失败',
+      })
+      throw error
+    }
+  }
+
+  async registerWithEmail(email: string, password: string): Promise<void> {
+    const previousState = this.state
+    this.setState({ status: 'checking', error: null })
+    try {
+      const result = await registerWithEmailRequest({ email, password })
+      if (this.state.user && this.state.user.id !== result.user?.id) {
+        await this.resetUserBoundState()
+      }
+      this.setState({
+        status: 'authenticated',
+        user: result.user,
+        mode: result.auth?.mode ?? 'password',
+        error: null,
+      })
+    } catch (error) {
+      this.setState({
+        status: previousState.user ? 'authenticated' : 'anonymous',
+        user: previousState.user,
+        mode: previousState.mode,
+        error: error instanceof Error ? error.message : '邮箱注册失败',
       })
       throw error
     }

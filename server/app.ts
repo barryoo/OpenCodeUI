@@ -1,14 +1,17 @@
 import type { ServerConfig } from './config'
 import type { DatabaseContext } from './db'
-import type { CreateItemInput, CreateServerProfileInput, ItemType, UpdateItemInput, UpdateServerProfileInput, UpsertSessionSummaryInput, WorkflowStatus } from './domain'
+import type { CreateItemInput, CreateServerProfileInput, ItemType, UpdateItemInput, UpdateServerProfileInput, UpsertSessionSummaryInput, UserRecord, WorkflowStatus } from './domain'
 import {
   consumeGithubState,
   createAuthSessionForUser,
   createGithubState,
   deleteAuthSession,
   exchangeGithubCodeForUser,
+  hashPassword,
   getAuthSession,
+  verifyPassword,
 } from './auth'
+import { deriveAuthDescriptor, normalizeEmail, validatePassword } from './auth-helpers'
 import { ThinServerRepository } from './repositories'
 
 export interface AppContext {
@@ -23,6 +26,8 @@ interface ErrorBody {
     message: string
   }
 }
+
+type PublicUser = Omit<UserRecord, 'passwordHash'>
 
 const ITEM_TYPES: readonly ItemType[] = ['requirement', 'bug', 'research', 'code_review']
 const WORKFLOW_STATUSES: readonly WorkflowStatus[] = ['not_started', 'in_progress', 'completed', 'abandoned']
@@ -94,6 +99,11 @@ function getEffectiveUser(request: Request, context: AppContext) {
 
 function notFound(): Response {
   return errorResponse(404, 'NOT_FOUND', 'Route not found')
+}
+
+function toPublicUser(user: UserRecord): PublicUser {
+  const { passwordHash: _passwordHash, ...publicUser } = user
+  return publicUser
 }
 
 function withCors(response: Response, request?: Request): Response {
@@ -187,7 +197,15 @@ export async function handleRequest(request: Request, context: AppContext): Prom
       return withCors(errorResponse(400, 'AUTH_ERROR', 'Failed to exchange GitHub code'), request)
     }
 
-    const user = context.repository.upsertUserByGithubProfile(githubUser)
+    let user
+    try {
+      user = context.repository.upsertUserByGithubProfile(githubUser)
+    } catch (error) {
+      if (error instanceof Error && error.message === 'GITHUB_EMAIL_CONFLICT') {
+        return withCors(errorResponse(409, 'GITHUB_EMAIL_CONFLICT', 'GitHub 邮箱已绑定到其他账号'), request)
+      }
+      throw error
+    }
     const headers = new Headers({ location: getFrontendBaseUrl(request, context.config.frontendBaseUrl) })
     createAuthSessionForUser(headers, context.repository, context.config, user)
     return withCors(new Response(null, { status: 302, headers }), request)
@@ -196,7 +214,67 @@ export async function handleRequest(request: Request, context: AppContext): Prom
   if (thinPathname === '/auth/me' && method === 'GET') {
     const user = getEffectiveUser(request, context)
     if (!user) return withCors(json({ user: null, auth: null }), request)
-    return withCors(json({ user, auth: { provider: 'github', mode: 'oauth' } }), request)
+    return withCors(json({ user: toPublicUser(user), auth: deriveAuthDescriptor(user) }), request)
+  }
+
+  if (thinPathname === '/auth/register' && method === 'POST') {
+    const body = await parseJsonBody<Record<string, unknown>>(request)
+    if (!body) return withCors(errorResponse(400, 'INVALID_JSON', 'Request body must be valid JSON'), request)
+
+    const email = asString(body.email)
+    const password = asString(body.password)
+    if (!email || !password) {
+      return withCors(errorResponse(400, 'VALIDATION_ERROR', 'email and password are required'), request)
+    }
+
+    const normalizedEmail = normalizeEmail(email)
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
+      return withCors(errorResponse(400, 'INVALID_EMAIL', '邮箱格式不正确'), request)
+    }
+
+    const passwordValidation = validatePassword(password)
+    if (!passwordValidation.ok) {
+      return withCors(errorResponse(400, 'INVALID_PASSWORD', passwordValidation.message), request)
+    }
+
+    if (context.repository.findUserByEmail(normalizedEmail)) {
+      return withCors(errorResponse(409, 'EMAIL_EXISTS', '邮箱已注册'), request)
+    }
+
+    const passwordHash = await hashPassword(password)
+    let user
+    try {
+      user = context.repository.createEmailUser({ email: normalizedEmail, passwordHash })
+    } catch (error) {
+      if (error instanceof Error && error.message.includes('UNIQUE constraint failed')) {
+        return withCors(errorResponse(409, 'EMAIL_EXISTS', '邮箱已注册'), request)
+      }
+      throw error
+    }
+    const headers = new Headers()
+    createAuthSessionForUser(headers, context.repository, context.config, user)
+    return withCors(json({ user: toPublicUser(user), auth: deriveAuthDescriptor(user) }, { status: 201, headers }), request)
+  }
+
+  if (thinPathname === '/auth/login' && method === 'POST') {
+    const body = await parseJsonBody<Record<string, unknown>>(request)
+    if (!body) return withCors(errorResponse(400, 'INVALID_JSON', 'Request body must be valid JSON'), request)
+
+    const email = asString(body.email)
+    const password = asString(body.password)
+    if (!email || !password) {
+      return withCors(errorResponse(400, 'VALIDATION_ERROR', 'email and password are required'), request)
+    }
+
+    const user = context.repository.findUserByEmail(email)
+    const matched = user?.passwordHash ? await verifyPassword(password, user.passwordHash) : false
+    if (!user || !matched) {
+      return withCors(errorResponse(401, 'INVALID_CREDENTIALS', '邮箱或密码错误'), request)
+    }
+
+    const headers = new Headers()
+    createAuthSessionForUser(headers, context.repository, context.config, user)
+    return withCors(json({ user: toPublicUser(user), auth: deriveAuthDescriptor(user) }, { headers }), request)
   }
 
   if (thinPathname === '/auth/logout' && method === 'POST') {

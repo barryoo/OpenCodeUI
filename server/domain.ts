@@ -4,12 +4,19 @@ export type WorkflowStatus = 'not_started' | 'in_progress' | 'completed' | 'aban
 
 export interface UserRecord {
   id: string
-  githubId: string
+  githubId: string | null
   login: string
+  email: string | null
+  passwordHash: string | null
   name: string | null
   avatarUrl: string | null
   createdAt: string
   updatedAt: string
+}
+
+export interface CreateEmailUserInput {
+  email: string
+  passwordHash: string
 }
 
 export interface AuthSessionRecord {

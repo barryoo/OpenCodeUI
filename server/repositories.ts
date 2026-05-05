@@ -1,7 +1,9 @@
 import type { Statement } from 'bun:sqlite'
 import type { DatabaseContext } from './db'
+import { normalizeEmail } from './auth-helpers'
 import type {
   AuthSessionRecord,
+  CreateEmailUserInput,
   CreateItemInput,
   CreateServerProfileInput,
   ItemDocumentRefRecord,
@@ -21,8 +23,10 @@ type RowValue = string | number | null
 
 interface UserRow {
   id: string
-  github_id: string
+  github_id: string | null
   login: string
+  email: string | null
+  password_hash: string | null
   name: string | null
   avatar_url: string | null
   created_at: string
@@ -106,6 +110,8 @@ function mapUser(row: UserRow): UserRecord {
     id: row.id,
     githubId: row.github_id,
     login: row.login,
+    email: row.email,
+    passwordHash: row.password_hash,
     name: row.name,
     avatarUrl: row.avatar_url,
     createdAt: row.created_at,
@@ -210,12 +216,20 @@ export class ThinServerRepository {
     this.database.db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`)
   }
 
+  private ensureUserColumn(column: string, definition: string) {
+    const columns = this.database.db.query('PRAGMA table_info(users)').all() as Array<{ name: string }>
+    if (columns.some((entry) => entry.name === column)) return
+    this.database.db.exec(`ALTER TABLE users ADD COLUMN ${column} ${definition}`)
+  }
+
   migrate() {
     this.database.db.exec(`
       CREATE TABLE IF NOT EXISTS users (
         id TEXT PRIMARY KEY,
-        github_id TEXT NOT NULL UNIQUE,
+        github_id TEXT UNIQUE,
         login TEXT NOT NULL,
+        email TEXT,
+        password_hash TEXT,
         name TEXT,
         avatar_url TEXT,
         created_at TEXT NOT NULL,
@@ -314,6 +328,10 @@ export class ThinServerRepository {
       CREATE INDEX IF NOT EXISTS idx_session_summaries_external_session_id ON session_summaries(external_session_id);
     `)
 
+    this.ensureUserColumn('email', 'TEXT')
+    this.ensureUserColumn('password_hash', 'TEXT')
+    this.database.db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email ON users(email) WHERE email IS NOT NULL')
+
     this.ensureColumn('items', 'project_path', 'TEXT')
     this.ensureColumn('items', 'legacy_project_id', 'TEXT')
     this.ensureColumn('session_summaries', 'project_path', 'TEXT')
@@ -362,34 +380,97 @@ export class ThinServerRepository {
     `)
   }
 
-  upsertUserByGithubProfile(input: { githubId: string; login: string; name?: string | null; avatarUrl?: string | null }): UserRecord {
+  findUserByGithubId(githubId: string): UserRecord | null {
+    const row = this.database.db.query('SELECT * FROM users WHERE github_id = ?').get(githubId) as UserRow | null
+    return row ? mapUser(row) : null
+  }
+
+  findUserByEmail(email: string): UserRecord | null {
+    const row = this.database.db.query('SELECT * FROM users WHERE email = ?').get(normalizeEmail(email)) as UserRow | null
+    return row ? mapUser(row) : null
+  }
+
+  createEmailUser(input: CreateEmailUserInput): UserRecord {
+    const now = nowIsoString()
+    const normalizedEmail = normalizeEmail(input.email)
+    const row: UserRow = {
+      id: createId('usr'),
+      github_id: null,
+      login: normalizedEmail,
+      email: normalizedEmail,
+      password_hash: input.passwordHash,
+      name: null,
+      avatar_url: null,
+      created_at: now,
+      updated_at: now,
+    }
+    const statement = this.database.db.query(`
+      INSERT INTO users (id, github_id, login, email, password_hash, name, avatar_url, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `)
+    runStatement(statement, [row.id, row.github_id, row.login, row.email, row.password_hash, row.name, row.avatar_url, row.created_at, row.updated_at])
+    return mapUser(row)
+  }
+
+  upsertUserByGithubProfile(input: { githubId: string; login: string; email?: string | null; name?: string | null; avatarUrl?: string | null }): UserRecord {
     const existing = this.database.db.query('SELECT * FROM users WHERE github_id = ?').get(input.githubId) as UserRow | null
     const now = nowIsoString()
+    const normalizedEmail = input.email ? normalizeEmail(input.email) : null
 
     if (existing) {
+      if (normalizedEmail) {
+        const emailOwner = this.database.db.query('SELECT * FROM users WHERE email = ?').get(normalizedEmail) as UserRow | null
+        if (emailOwner && emailOwner.id !== existing.id) {
+          throw new Error('GITHUB_EMAIL_CONFLICT')
+        }
+      }
+
       const statement = this.database.db.query(`
         UPDATE users
-        SET login = ?, name = ?, avatar_url = ?, updated_at = ?
+        SET login = ?, email = COALESCE(?, email), name = ?, avatar_url = ?, updated_at = ?
         WHERE id = ?
       `)
-      runStatement(statement, [input.login, input.name ?? null, input.avatarUrl ?? null, now, existing.id])
-      return mapUser({ ...existing, login: input.login, name: input.name ?? null, avatar_url: input.avatarUrl ?? null, updated_at: now })
+      runStatement(statement, [input.login, normalizedEmail, input.name ?? null, input.avatarUrl ?? null, now, existing.id])
+      return mapUser({ ...existing, login: input.login, email: normalizedEmail ?? existing.email, name: input.name ?? null, avatar_url: input.avatarUrl ?? null, updated_at: now })
+    }
+
+    if (normalizedEmail) {
+      const existingByEmail = this.database.db.query('SELECT * FROM users WHERE email = ?').get(normalizedEmail) as UserRow | null
+      if (existingByEmail) {
+        const statement = this.database.db.query(`
+          UPDATE users
+          SET github_id = ?, login = ?, email = ?, name = ?, avatar_url = ?, updated_at = ?
+          WHERE id = ?
+        `)
+        runStatement(statement, [input.githubId, input.login, normalizedEmail, input.name ?? null, input.avatarUrl ?? null, now, existingByEmail.id])
+        return mapUser({
+          ...existingByEmail,
+          github_id: input.githubId,
+          login: input.login,
+          email: normalizedEmail,
+          name: input.name ?? null,
+          avatar_url: input.avatarUrl ?? null,
+          updated_at: now,
+        })
+      }
     }
 
     const row: UserRow = {
       id: createId('usr'),
       github_id: input.githubId,
       login: input.login,
+      email: normalizedEmail,
+      password_hash: null,
       name: input.name ?? null,
       avatar_url: input.avatarUrl ?? null,
       created_at: now,
       updated_at: now,
     }
     const statement = this.database.db.query(`
-      INSERT INTO users (id, github_id, login, name, avatar_url, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO users (id, github_id, login, email, password_hash, name, avatar_url, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `)
-    runStatement(statement, [row.id, row.github_id, row.login, row.name, row.avatar_url, row.created_at, row.updated_at])
+    runStatement(statement, [row.id, row.github_id, row.login, row.email, row.password_hash, row.name, row.avatar_url, row.created_at, row.updated_at])
     return mapUser(row)
   }
 
