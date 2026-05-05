@@ -1,0 +1,1542 @@
+- generic [ref=e3]:
+  - generic [ref=e5]:
+    - generic [ref=e6]:
+      - link "OpenCode" [ref=e8] [cursor=pointer]:
+        - /url: /
+        - generic [ref=e9]: OpenCode
+      - generic [ref=e10]:
+        - button "Add project" [ref=e11]:
+          - img [ref=e12]
+        - button "New session" [ref=e14]:
+          - img [ref=e15]
+        - button "Collapse sidebar" [ref=e18]:
+          - img [ref=e19]
+    - generic [ref=e21]:
+      - generic [ref=e22]:
+        - generic [ref=e24]: 最近会话
+        - generic [ref=e25]:
+          - generic [ref=e26]:
+            - button "会话 页面重复请求过多排查" [ref=e27]:
+              - button "置顶会话" [ref=e30]:
+                - img [ref=e31]
+              - generic [ref=e33]:
+                - generic [ref=e34]: 会话
+                - generic [ref=e35]: 页面重复请求过多排查
+            - generic [ref=e36]:
+              - button "会话菜单":
+                - img
+          - generic [ref=e41]:
+            - 'button "会话 L2应用监控与L3业务链路监控体系说明文档 (fork #1)" [ref=e42]':
+              - button "置顶会话" [ref=e45]:
+                - img [ref=e46]
+              - generic [ref=e48]:
+                - generic [ref=e49]: 会话
+                - generic [ref=e50]: "L2应用监控与L3业务链路监控体系说明文档 (fork #1)"
+            - generic [ref=e51]:
+              - generic [ref=e53]: 16m ago
+              - button "会话菜单":
+                - img
+          - generic [ref=e54]:
+            - button "会话 事项绑定会话列表过滤已绑定项" [ref=e55]:
+              - button "置顶会话" [ref=e58]:
+                - img [ref=e59]
+              - generic [ref=e61]:
+                - generic [ref=e62]: 会话
+                - generic [ref=e63]: 事项绑定会话列表过滤已绑定项
+            - generic [ref=e64]:
+              - generic [ref=e66]: 4h ago
+              - button "会话菜单":
+                - img
+          - generic [ref=e67]:
+            - button "会话 项目面板会话列表初始化显示异常" [ref=e68]:
+              - button "置顶会话" [ref=e71]:
+                - img [ref=e72]
+              - generic [ref=e74]:
+                - generic [ref=e75]: 会话
+                - generic [ref=e76]: 项目面板会话列表初始化显示异常
+            - generic [ref=e77]:
+              - generic [ref=e79]: 4h ago
+              - button "会话菜单":
+                - img
+          - generic [ref=e80]:
+            - button "会话 事项面板新建会话后显示问题" [ref=e81]:
+              - button "置顶会话" [ref=e84]:
+                - img [ref=e85]
+              - generic [ref=e87]:
+                - generic [ref=e88]: 会话
+                - generic [ref=e89]: 事项面板新建会话后显示问题
+            - generic [ref=e90]:
+              - generic [ref=e92]: 5h ago
+              - button "会话菜单":
+                - img
+          - generic [ref=e93]:
+            - button "会话 支持用户名密码登录以适配测试环境" [ref=e94]:
+              - button "置顶会话" [ref=e97]:
+                - img [ref=e98]
+              - generic [ref=e100]:
+                - generic [ref=e101]: 会话
+                - generic [ref=e102]: 支持用户名密码登录以适配测试环境
+            - generic [ref=e103]:
+              - generic [ref=e105]: 5h ago
+              - button "会话菜单":
+                - img
+          - generic [ref=e106]:
+            - button "会话 项目面板会话类型标签颜色优化" [ref=e107]:
+              - button "置顶会话" [ref=e110]:
+                - img [ref=e111]
+              - generic [ref=e113]:
+                - generic [ref=e114]: 会话
+                - generic [ref=e115]: 项目面板会话类型标签颜色优化
+            - generic [ref=e116]:
+              - generic [ref=e118]: 5h ago
+              - button "会话菜单":
+                - img
+          - generic [ref=e119]:
+            - button "会话 AxonHub 重启" [ref=e120]:
+              - button "置顶会话" [ref=e123]:
+                - img [ref=e124]
+              - generic [ref=e126]:
+                - generic [ref=e127]: 会话
+                - generic [ref=e128]: AxonHub 重启
+            - generic [ref=e129]:
+              - generic [ref=e131]: 6h ago
+              - button "会话菜单":
+                - img
+          - generic [ref=e132]:
+            - button "会话 server_profiles 中 Active OpenCode Server 重复出现" [ref=e133]:
+              - button "置顶会话" [ref=e136]:
+                - img [ref=e137]
+              - generic [ref=e139]:
+                - generic [ref=e140]: 会话
+                - generic [ref=e141]: server_profiles 中 Active OpenCode Server 重复出现
+            - generic [ref=e142]:
+              - generic [ref=e144]: 8h ago
+              - button "会话菜单":
+                - img
+          - generic [ref=e145]:
+            - button "会话 模型收藏与常用模型置顶" [ref=e146]:
+              - button "置顶会话" [ref=e149]:
+                - img [ref=e150]
+              - generic [ref=e152]:
+                - generic [ref=e153]: 会话
+                - generic [ref=e154]: 模型收藏与常用模型置顶
+            - generic [ref=e155]:
+              - generic [ref=e157]: 9h ago
+              - button "会话菜单":
+                - img
+          - button "加载更多" [ref=e158]
+      - generic [ref=e159]:
+        - generic [ref=e160]: 线程
+        - button "过滤线程" [ref=e162]:
+          - img [ref=e163]
+      - generic [ref=e164]:
+        - generic [ref=e165]:
+          - button "aichat" [ref=e166]:
+            - generic [ref=e167]:
+              - generic [ref=e168]:
+                - img [ref=e170]
+                - img [ref=e173]
+              - generic [ref=e176]: aichat
+            - generic:
+              - button "项目菜单":
+                - img
+              - button "在此项目中创建事项":
+                - img
+              - button "在此项目中创建会话":
+                - img
+          - generic:
+            - generic:
+              - generic:
+                - generic:
+                  - generic: 暂无事项或未绑定会话
+                  - button "新建事项"
+        - generic [ref=e177]:
+          - button "teamgram" [ref=e178]:
+            - generic [ref=e179]:
+              - generic [ref=e180]:
+                - img [ref=e182]
+                - img [ref=e185]
+              - generic [ref=e188]: teamgram
+            - generic:
+              - button "项目菜单":
+                - img
+              - button "在此项目中创建事项":
+                - img
+              - button "在此项目中创建会话":
+                - img
+          - generic:
+            - generic:
+              - generic:
+                - generic:
+                  - generic: 暂无事项或未绑定会话
+                  - button "新建事项"
+        - generic [ref=e189]:
+          - button "研发周报月报" [ref=e190]:
+            - generic [ref=e191]:
+              - generic [ref=e192]:
+                - img [ref=e194]
+                - img [ref=e197]
+              - generic [ref=e200]: 研发周报月报
+            - generic:
+              - button "项目菜单":
+                - img
+              - button "在此项目中创建事项":
+                - img
+              - button "在此项目中创建会话":
+                - img
+          - generic:
+            - generic:
+              - generic:
+                - generic:
+                  - generic: 暂无事项或未绑定会话
+                  - button "新建事项"
+        - generic [ref=e201]:
+          - button "【项目】可观测-监控告警" [expanded] [ref=e202]:
+            - generic [ref=e203]:
+              - generic [ref=e204]:
+                - img [ref=e206]
+                - img [ref=e209]
+              - generic [ref=e212]: 【项目】可观测-监控告警
+            - generic:
+              - button "项目菜单":
+                - img
+              - button "在此项目中创建事项":
+                - img
+              - button "在此项目中创建会话":
+                - img
+          - generic [ref=e215]:
+            - generic [ref=e216]:
+              - 'button "会话 L2应用监控与L3业务链路监控体系说明文档 (fork #1)" [ref=e217]':
+                - button "置顶会话" [ref=e220]:
+                  - img [ref=e221]
+                - generic [ref=e223]:
+                  - generic [ref=e224]: 会话
+                  - generic [ref=e225]: "L2应用监控与L3业务链路监控体系说明文档 (fork #1)"
+              - generic [ref=e226]:
+                - generic [ref=e228]: 16m ago
+                - button "会话菜单":
+                  - img
+            - generic [ref=e229]:
+              - button "会话 Go与Java应用间 Trace 串联可行性" [ref=e230]:
+                - button "置顶会话" [ref=e233]:
+                  - img [ref=e234]
+                - generic [ref=e236]:
+                  - generic [ref=e237]: 会话
+                  - generic [ref=e238]: Go与Java应用间 Trace 串联可行性
+              - generic [ref=e239]:
+                - generic [ref=e241]: 1d ago
+                - button "会话菜单":
+                  - img
+            - generic [ref=e242]:
+              - button "会话 Golang 从 Jaeger 切换到 ARMS 兼容性问题" [ref=e243]:
+                - button "置顶会话" [ref=e246]:
+                  - img [ref=e247]
+                - generic [ref=e249]:
+                  - generic [ref=e250]: 会话
+                  - generic [ref=e251]: Golang 从 Jaeger 切换到 ARMS 兼容性问题
+              - generic [ref=e252]:
+                - generic [ref=e254]: 1d ago
+                - button "会话菜单":
+                  - img
+            - generic [ref=e255]:
+              - button "会话 阿里云 ARMS trace 异构链路支持" [ref=e256]:
+                - button "置顶会话" [ref=e259]:
+                  - img [ref=e260]
+                - generic [ref=e262]:
+                  - generic [ref=e263]: 会话
+                  - generic [ref=e264]: 阿里云 ARMS trace 异构链路支持
+              - generic [ref=e265]:
+                - generic [ref=e267]: 3d ago
+                - button "会话菜单":
+                  - img
+            - generic [ref=e268]:
+              - button "会话 公司各业务线监控情况清单表格" [ref=e269]:
+                - button "置顶会话" [ref=e272]:
+                  - img [ref=e273]
+                - generic [ref=e275]:
+                  - generic [ref=e276]: 会话
+                  - generic [ref=e277]: 公司各业务线监控情况清单表格
+              - generic [ref=e278]:
+                - generic [ref=e280]: 3d ago
+                - button "会话菜单":
+                  - img
+            - generic [ref=e281]:
+              - button "会话 L2应用监控与L3业务链路监控体系说明文档" [ref=e282]:
+                - button "置顶会话" [ref=e285]:
+                  - img [ref=e286]
+                - generic [ref=e288]:
+                  - generic [ref=e289]: 会话
+                  - generic [ref=e290]: L2应用监控与L3业务链路监控体系说明文档
+              - generic [ref=e291]:
+                - generic [ref=e293]: 4/19
+                - button "会话菜单":
+                  - img
+            - generic [ref=e294]:
+              - button "会话 OTEL增加自定义指标方法" [ref=e295]:
+                - button "置顶会话" [ref=e298]:
+                  - img [ref=e299]
+                - generic [ref=e301]:
+                  - generic [ref=e302]: 会话
+                  - generic [ref=e303]: OTEL增加自定义指标方法
+              - generic [ref=e304]:
+                - generic [ref=e306]: 4/8
+                - button "会话菜单":
+                  - img
+            - generic [ref=e307]:
+              - button "会话 监控文档整理" [ref=e308]:
+                - button "置顶会话" [ref=e311]:
+                  - img [ref=e312]
+                - generic [ref=e314]:
+                  - generic [ref=e315]: 会话
+                  - generic [ref=e316]: 监控文档整理
+              - generic [ref=e317]:
+                - generic [ref=e319]: 4/3
+                - button "会话菜单":
+                  - img
+        - generic [ref=e320]:
+          - button "【项目】零信任访问" [expanded] [ref=e321]:
+            - generic [ref=e322]:
+              - generic [ref=e323]:
+                - img [ref=e325]
+                - img [ref=e328]
+              - generic [ref=e331]: 【项目】零信任访问
+            - generic:
+              - button "项目菜单":
+                - img
+              - button "在此项目中创建事项":
+                - img
+              - button "在此项目中创建会话":
+                - img
+          - generic [ref=e335]:
+            - generic [ref=e336]: 事项加载失败
+            - generic [ref=e337]: 请先手动创建 Server Profile
+            - button "重试" [ref=e338]
+        - generic [ref=e339]:
+          - button "【项目】Television" [ref=e340]:
+            - generic [ref=e341]:
+              - generic [ref=e342]:
+                - img [ref=e344]
+                - img [ref=e347]
+              - generic [ref=e350]: 【项目】Television
+            - generic:
+              - button "项目菜单":
+                - img
+              - button "在此项目中创建事项":
+                - img
+              - button "在此项目中创建会话":
+                - img
+          - generic:
+            - generic:
+              - generic:
+                - generic:
+                  - generic: 暂无事项或未绑定会话
+                  - button "新建事项"
+        - generic [ref=e351]:
+          - button "opencodeui" [expanded] [ref=e352]:
+            - generic [ref=e353]:
+              - generic [ref=e354]:
+                - img [ref=e356]
+                - img [ref=e359]
+              - generic [ref=e362]: opencodeui
+            - generic:
+              - button "项目菜单":
+                - img
+              - button "在此项目中创建事项":
+                - img
+              - button "在此项目中创建会话":
+                - img
+          - generic [ref=e365]:
+            - generic [ref=e366]:
+              - button "会话 页面重复请求过多排查" [ref=e367]:
+                - button "置顶会话" [ref=e370]:
+                  - img [ref=e371]
+                - generic [ref=e373]:
+                  - generic [ref=e374]: 会话
+                  - generic [ref=e375]: 页面重复请求过多排查
+              - generic [ref=e376]:
+                - button "会话菜单":
+                  - img
+            - generic [ref=e381]:
+              - button "需求 会话模型管理" [ref=e382]:
+                - button "置顶事项" [ref=e384]:
+                  - img [ref=e385]
+                - generic [ref=e387]:
+                  - generic [ref=e388]: 需求
+                  - generic [ref=e389]: 会话模型管理
+              - generic [ref=e390]:
+                - button "事项菜单":
+                  - img
+            - generic [ref=e391]:
+              - button "审查 重构：事项管理" [ref=e392]:
+                - button "置顶事项" [ref=e394]:
+                  - img [ref=e395]
+                - generic [ref=e397]:
+                  - generic [ref=e398]: 审查
+                  - generic [ref=e399]: 重构：事项管理
+              - generic [ref=e400]:
+                - button "事项菜单":
+                  - img
+            - generic [ref=e401]:
+              - button "需求 事项管理：mobile端适配" [ref=e402]:
+                - button "置顶事项" [ref=e404]:
+                  - img [ref=e405]
+                - generic [ref=e407]:
+                  - generic [ref=e408]: 需求
+                  - generic [ref=e409]: 事项管理：mobile端适配
+              - generic [ref=e410]:
+                - button "事项菜单":
+                  - img
+            - generic [ref=e411]:
+              - button "需求 登录" [ref=e412]:
+                - button "置顶事项" [ref=e414]:
+                  - img [ref=e415]
+                - generic [ref=e417]:
+                  - generic [ref=e418]: 需求
+                  - generic [ref=e419]: 登录
+              - generic [ref=e420]:
+                - button "事项菜单":
+                  - img
+            - generic [ref=e421]:
+              - button "会话 事项绑定会话列表过滤已绑定项" [ref=e422]:
+                - button "置顶会话" [ref=e425]:
+                  - img [ref=e426]
+                - generic [ref=e428]:
+                  - generic [ref=e429]: 会话
+                  - generic [ref=e430]: 事项绑定会话列表过滤已绑定项
+              - generic [ref=e431]:
+                - generic [ref=e433]: 4h ago
+                - button "会话菜单":
+                  - img
+            - button "加载更多" [ref=e434]
+        - generic [ref=e435]:
+          - button "tv" [ref=e436]:
+            - generic [ref=e437]:
+              - generic [ref=e438]:
+                - img [ref=e440]
+                - img [ref=e443]
+              - generic [ref=e446]: tv
+            - generic:
+              - button "项目菜单":
+                - img
+              - button "在此项目中创建事项":
+                - img
+              - button "在此项目中创建会话":
+                - img
+          - generic:
+            - generic:
+              - generic:
+                - generic:
+                  - generic: 暂无事项或未绑定会话
+                  - button "新建事项"
+        - generic [ref=e447]:
+          - button "Sail" [ref=e448]:
+            - generic [ref=e449]:
+              - generic [ref=e450]:
+                - img [ref=e452]
+                - img [ref=e455]
+              - generic [ref=e458]: Sail
+            - generic:
+              - button "项目菜单":
+                - img
+              - button "在此项目中创建事项":
+                - img
+              - button "在此项目中创建会话":
+                - img
+          - generic:
+            - generic:
+              - generic:
+                - generic:
+                  - generic: 暂无事项或未绑定会话
+                  - button "新建事项"
+        - generic [ref=e459]:
+          - button "sail_console" [ref=e460]:
+            - generic [ref=e461]:
+              - generic [ref=e462]:
+                - img [ref=e464]
+                - img [ref=e467]
+              - generic [ref=e470]: sail_console
+            - generic:
+              - button "项目菜单":
+                - img
+              - button "在此项目中创建事项":
+                - img
+              - button "在此项目中创建会话":
+                - img
+          - generic:
+            - generic:
+              - generic:
+                - generic:
+                  - generic: 暂无事项或未绑定会话
+                  - button "新建事项"
+        - generic [ref=e471]:
+          - button "KN开发者中心技术文章" [ref=e472]:
+            - generic [ref=e473]:
+              - generic [ref=e474]:
+                - img [ref=e476]
+                - img [ref=e479]
+              - generic [ref=e482]: KN开发者中心技术文章
+            - generic:
+              - button "项目菜单":
+                - img
+              - button "在此项目中创建事项":
+                - img
+              - button "在此项目中创建会话":
+                - img
+          - generic:
+            - generic:
+              - generic:
+                - generic:
+                  - generic: 暂无事项或未绑定会话
+                  - button "新建事项"
+        - generic [ref=e483]:
+          - button "baserock-project" [ref=e484]:
+            - generic [ref=e485]:
+              - generic [ref=e486]:
+                - img [ref=e488]
+                - img [ref=e491]
+              - generic [ref=e494]: baserock-project
+            - generic:
+              - button "项目菜单":
+                - img
+              - button "在此项目中创建事项":
+                - img
+              - button "在此项目中创建会话":
+                - img
+          - generic:
+            - generic:
+              - generic:
+                - generic:
+                  - generic: 暂无事项或未绑定会话
+                  - button "新建事项"
+        - generic [ref=e495]:
+          - button "招聘" [ref=e496]:
+            - generic [ref=e497]:
+              - generic [ref=e498]:
+                - img [ref=e500]
+                - img [ref=e503]
+              - generic [ref=e506]: 招聘
+            - generic:
+              - button "项目菜单":
+                - img
+              - button "在此项目中创建事项":
+                - img
+              - button "在此项目中创建会话":
+                - img
+          - generic:
+            - generic:
+              - generic:
+                - generic:
+                  - generic: 暂无事项或未绑定会话
+                  - button "新建事项"
+        - generic [ref=e507]:
+          - button "kn-hub" [ref=e508]:
+            - generic [ref=e509]:
+              - generic [ref=e510]:
+                - img [ref=e512]
+                - img [ref=e515]
+              - generic [ref=e518]: kn-hub
+            - generic:
+              - button "项目菜单":
+                - img
+              - button "在此项目中创建事项":
+                - img
+              - button "在此项目中创建会话":
+                - img
+          - generic:
+            - generic:
+              - generic:
+                - generic:
+                  - generic: 暂无事项或未绑定会话
+                  - button "新建事项"
+        - generic [ref=e519]:
+          - button "my-agent" [ref=e520]:
+            - generic [ref=e521]:
+              - generic [ref=e522]:
+                - img [ref=e524]
+                - img [ref=e527]
+              - generic [ref=e530]: my-agent
+            - generic:
+              - button "项目菜单":
+                - img
+              - button "在此项目中创建事项":
+                - img
+              - button "在此项目中创建会话":
+                - img
+          - generic:
+            - generic:
+              - generic:
+                - generic:
+                  - generic: 暂无事项或未绑定会话
+                  - button "新建事项"
+        - generic [ref=e531]:
+          - button "llm-memory" [ref=e532]:
+            - generic [ref=e533]:
+              - generic [ref=e534]:
+                - img [ref=e536]
+                - img [ref=e539]
+              - generic [ref=e542]: llm-memory
+            - generic:
+              - button "项目菜单":
+                - img
+              - button "在此项目中创建事项":
+                - img
+              - button "在此项目中创建会话":
+                - img
+          - generic:
+            - generic:
+              - generic:
+                - generic:
+                  - generic: 暂无事项或未绑定会话
+                  - button "新建事项"
+        - generic [ref=e543]:
+          - button "en_reader" [ref=e544]:
+            - generic [ref=e545]:
+              - generic [ref=e546]:
+                - img [ref=e548]
+                - img [ref=e551]
+              - generic [ref=e554]: en_reader
+            - generic:
+              - button "项目菜单":
+                - img
+              - button "在此项目中创建事项":
+                - img
+              - button "在此项目中创建会话":
+                - img
+          - generic:
+            - generic:
+              - generic:
+                - generic:
+                  - generic: 暂无事项或未绑定会话
+                  - button "新建事项"
+        - generic [ref=e555]:
+          - button "axonhub" [expanded] [ref=e556]:
+            - generic [ref=e557]:
+              - generic [ref=e558]:
+                - img [ref=e560]
+                - img [ref=e563]
+              - generic [ref=e566]: axonhub
+            - generic:
+              - button "项目菜单":
+                - img
+              - button "在此项目中创建事项":
+                - img
+              - button "在此项目中创建会话":
+                - img
+          - generic [ref=e570]:
+            - generic [ref=e571]: 事项加载失败
+            - generic [ref=e572]: 请先手动创建 Server Profile
+            - button "重试" [ref=e573]
+        - generic [ref=e574]:
+          - button "digital-employee" [ref=e575]:
+            - generic [ref=e576]:
+              - generic [ref=e577]:
+                - img [ref=e579]
+                - img [ref=e582]
+              - generic [ref=e585]: digital-employee
+            - generic:
+              - button "项目菜单":
+                - img
+              - button "在此项目中创建事项":
+                - img
+              - button "在此项目中创建会话":
+                - img
+          - generic:
+            - generic:
+              - generic:
+                - generic:
+                  - generic: 暂无事项或未绑定会话
+                  - button "新建事项"
+        - generic [ref=e586]:
+          - button "captive-portal-auth" [ref=e587]:
+            - generic [ref=e588]:
+              - generic [ref=e589]:
+                - img [ref=e591]
+                - img [ref=e594]
+              - generic [ref=e597]: captive-portal-auth
+            - generic:
+              - button "项目菜单":
+                - img
+              - button "在此项目中创建事项":
+                - img
+              - button "在此项目中创建会话":
+                - img
+          - generic:
+            - generic:
+              - generic:
+                - generic:
+                  - generic: 暂无事项或未绑定会话
+                  - button "新建事项"
+        - generic [ref=e598]:
+          - button "sail_official" [ref=e599]:
+            - generic [ref=e600]:
+              - generic [ref=e601]:
+                - img [ref=e603]
+                - img [ref=e606]
+              - generic [ref=e609]: sail_official
+            - generic:
+              - button "项目菜单":
+                - img
+              - button "在此项目中创建事项":
+                - img
+              - button "在此项目中创建会话":
+                - img
+          - generic:
+            - generic:
+              - generic:
+                - generic:
+                  - generic: 暂无事项或未绑定会话
+                  - button "新建事项"
+        - generic [ref=e610]:
+          - button "kylith_official" [ref=e611]:
+            - generic [ref=e612]:
+              - generic [ref=e613]:
+                - img [ref=e615]
+                - img [ref=e618]
+              - generic [ref=e621]: kylith_official
+            - generic:
+              - button "项目菜单":
+                - img
+              - button "在此项目中创建事项":
+                - img
+              - button "在此项目中创建会话":
+                - img
+          - generic:
+            - generic:
+              - generic:
+                - generic:
+                  - generic: 暂无事项或未绑定会话
+                  - button "新建事项"
+        - generic [ref=e622]:
+          - button "zore-trust-doc" [ref=e623]:
+            - generic [ref=e624]:
+              - generic [ref=e625]:
+                - img [ref=e627]
+                - img [ref=e630]
+              - generic [ref=e633]: zore-trust-doc
+            - generic:
+              - button "项目菜单":
+                - img
+              - button "在此项目中创建事项":
+                - img
+              - button "在此项目中创建会话":
+                - img
+          - generic:
+            - generic:
+              - generic:
+                - generic:
+                  - generic: 暂无事项或未绑定会话
+                  - button "新建事项"
+        - generic [ref=e634]:
+          - button "opencode" [ref=e635]:
+            - generic [ref=e636]:
+              - generic [ref=e637]:
+                - img [ref=e639]
+                - img [ref=e642]
+              - generic [ref=e645]: opencode
+            - generic:
+              - button "项目菜单":
+                - img
+              - button "在此项目中创建事项":
+                - img
+              - button "在此项目中创建会话":
+                - img
+          - generic:
+            - generic:
+              - generic:
+                - generic:
+                  - generic: 暂无事项或未绑定会话
+                  - button "新建事项"
+        - generic [ref=e646]:
+          - button "opencode" [expanded] [ref=e647]:
+            - generic [ref=e648]:
+              - generic [ref=e649]:
+                - img [ref=e651]
+                - img [ref=e654]
+              - generic [ref=e657]: opencode
+            - generic:
+              - button "项目菜单":
+                - img
+              - button "在此项目中创建事项":
+                - img
+              - button "在此项目中创建会话":
+                - img
+          - generic [ref=e660]:
+            - generic [ref=e661]:
+              - generic [ref=e662]: 事项加载失败
+              - generic [ref=e663]: 请先手动创建 Server Profile
+              - button "重试" [ref=e664]
+            - button "加载更多" [ref=e665]
+        - generic [ref=e666]:
+          - button "knagent" [expanded] [ref=e667]:
+            - generic [ref=e668]:
+              - generic [ref=e669]:
+                - img [ref=e671]
+                - img [ref=e674]
+              - generic [ref=e677]: knagent
+            - generic:
+              - button "项目菜单":
+                - img
+              - button "在此项目中创建事项":
+                - img
+              - button "在此项目中创建会话":
+                - img
+          - generic [ref=e681]:
+            - generic [ref=e682]: 事项加载失败
+            - generic [ref=e683]: 请先手动创建 Server Profile
+            - button "重试" [ref=e684]
+        - generic [ref=e685]:
+          - button "auto-penetration-agent" [ref=e686]:
+            - generic [ref=e687]:
+              - generic [ref=e688]:
+                - img [ref=e690]
+                - img [ref=e693]
+              - generic [ref=e696]: auto-penetration-agent
+            - generic:
+              - button "项目菜单":
+                - img
+              - button "在此项目中创建事项":
+                - img
+              - button "在此项目中创建会话":
+                - img
+          - generic:
+            - generic:
+              - generic:
+                - generic:
+                  - generic: 暂无事项或未绑定会话
+                  - button "新建事项"
+        - generic [ref=e697]:
+          - button "signal" [ref=e698]:
+            - generic [ref=e699]:
+              - generic [ref=e700]:
+                - img [ref=e702]
+                - img [ref=e705]
+              - generic [ref=e708]: signal
+            - generic:
+              - button "项目菜单":
+                - img
+              - button "在此项目中创建事项":
+                - img
+              - button "在此项目中创建会话":
+                - img
+          - generic:
+            - generic:
+              - generic:
+                - generic:
+                  - generic: 暂无事项或未绑定会话
+                  - button "新建事项"
+        - generic [ref=e709]:
+          - button "ojk" [ref=e710]:
+            - generic [ref=e711]:
+              - generic [ref=e712]:
+                - img [ref=e714]
+                - img [ref=e717]
+              - generic [ref=e720]: ojk
+            - generic:
+              - button "项目菜单":
+                - img
+              - button "在此项目中创建事项":
+                - img
+              - button "在此项目中创建会话":
+                - img
+          - generic:
+            - generic:
+              - generic:
+                - generic:
+                  - generic: 暂无事项或未绑定会话
+                  - button "新建事项"
+        - generic [ref=e721]:
+          - button "signoz-deploy" [ref=e722]:
+            - generic [ref=e723]:
+              - generic [ref=e724]:
+                - img [ref=e726]
+                - img [ref=e729]
+              - generic [ref=e732]: signoz-deploy
+            - generic:
+              - button "项目菜单":
+                - img
+              - button "在此项目中创建事项":
+                - img
+              - button "在此项目中创建会话":
+                - img
+          - generic:
+            - generic:
+              - generic:
+                - generic:
+                  - generic: 暂无事项或未绑定会话
+                  - button "新建事项"
+        - generic [ref=e733]:
+          - button ".opencode" [ref=e734]:
+            - generic [ref=e735]:
+              - generic [ref=e736]:
+                - img [ref=e738]
+                - img [ref=e741]
+              - generic [ref=e744]: .opencode
+            - generic:
+              - button "项目菜单":
+                - img
+              - button "在此项目中创建事项":
+                - img
+              - button "在此项目中创建会话":
+                - img
+          - generic:
+            - generic:
+              - generic:
+                - generic:
+                  - generic: 暂无事项或未绑定会话
+                  - button "新建事项"
+        - generic [ref=e745]:
+          - button ".kube" [ref=e746]:
+            - generic [ref=e747]:
+              - generic [ref=e748]:
+                - img [ref=e750]
+                - img [ref=e753]
+              - generic [ref=e756]: .kube
+            - generic:
+              - button "项目菜单":
+                - img
+              - button "在此项目中创建事项":
+                - img
+              - button "在此项目中创建会话":
+                - img
+          - generic:
+            - generic:
+              - generic:
+                - generic:
+                  - generic: 暂无事项或未绑定会话
+                  - button "新建事项"
+        - generic [ref=e757]:
+          - button "NAS" [ref=e758]:
+            - generic [ref=e759]:
+              - generic [ref=e760]:
+                - img [ref=e762]
+                - img [ref=e765]
+              - generic [ref=e768]: NAS
+            - generic:
+              - button "项目菜单":
+                - img
+              - button "在此项目中创建事项":
+                - img
+              - button "在此项目中创建会话":
+                - img
+          - generic:
+            - generic:
+              - generic:
+                - generic:
+                  - generic: 暂无事项或未绑定会话
+                  - button "新建事项"
+        - generic [ref=e769]:
+          - button "chen" [ref=e770]:
+            - generic [ref=e771]:
+              - generic [ref=e772]:
+                - img [ref=e774]
+                - img [ref=e777]
+              - generic [ref=e780]: chen
+            - generic:
+              - button "项目菜单":
+                - img
+              - button "在此项目中创建事项":
+                - img
+              - button "在此项目中创建会话":
+                - img
+          - generic:
+            - generic:
+              - generic:
+                - generic:
+                  - generic: 暂无事项或未绑定会话
+                  - button "新建事项"
+        - generic [ref=e781]:
+          - button "workspace" [ref=e782]:
+            - generic [ref=e783]:
+              - generic [ref=e784]:
+                - img [ref=e786]
+                - img [ref=e789]
+              - generic [ref=e792]: workspace
+            - generic:
+              - button "项目菜单":
+                - img
+              - button "在此项目中创建事项":
+                - img
+              - button "在此项目中创建会话":
+                - img
+          - generic:
+            - generic:
+              - generic:
+                - generic:
+                  - generic: 暂无事项或未绑定会话
+                  - button "新建事项"
+        - generic [ref=e793]:
+          - button "OpenCodeUI" [ref=e794]:
+            - generic [ref=e795]:
+              - generic [ref=e796]:
+                - img [ref=e798]
+                - img [ref=e801]
+              - generic [ref=e804]: OpenCodeUI
+            - generic:
+              - button "项目菜单":
+                - img
+              - button "在此项目中创建事项":
+                - img
+              - button "在此项目中创建会话":
+                - img
+          - generic:
+            - generic:
+              - generic:
+                - generic:
+                  - generic: 暂无事项或未绑定会话
+                  - button "新建事项"
+        - generic [ref=e805]:
+          - button "codex-provider-sync" [ref=e806]:
+            - generic [ref=e807]:
+              - generic [ref=e808]:
+                - img [ref=e810]
+                - img [ref=e813]
+              - generic [ref=e816]: codex-provider-sync
+            - generic:
+              - button "项目菜单":
+                - img
+              - button "在此项目中创建事项":
+                - img
+              - button "在此项目中创建会话":
+                - img
+          - generic:
+            - generic:
+              - generic:
+                - generic:
+                  - generic: 暂无事项或未绑定会话
+                  - button "新建事项"
+    - button "33.1k / 400.0k 8%" [ref=e819]:
+      - img [ref=e821]
+      - generic [ref=e825]:
+        - generic [ref=e826]: 33.1k / 400.0k
+        - generic [ref=e827]: 8%
+  - generic [ref=e831]:
+    - generic [ref=e833]:
+      - button "进行中" [ref=e837]:
+        - generic [ref=e838]: 进行中
+        - img [ref=e839]
+      - generic [ref=e842]:
+        - button "页面重复请求过多排查" [ref=e843]
+        - button "Share session" [ref=e845]:
+          - img [ref=e846]
+      - generic [ref=e848]:
+        - generic [ref=e850]:
+          - button "Open project in Zed" [ref=e851]:
+            - img [ref=e853]
+            - generic [ref=e855]: Open
+          - button "Open editor options" [ref=e857]:
+            - img [ref=e858]
+        - button "Open system status" [ref=e861]:
+          - img [ref=e862]
+        - generic [ref=e865]:
+          - button "Open bottom panel" [ref=e866]:
+            - img [ref=e867]
+          - button "Open panel" [ref=e869]:
+            - img [ref=e870]
+    - generic [ref=e879]:
+      - generic [ref=e884]:
+        - generic [ref=e886]:
+          - separator [ref=e887]
+          - heading "Goal" [level=2] [ref=e888]
+          - list [ref=e889]:
+            - listitem [ref=e890]:
+              - text: 将“页面重复请求过多”相关修复合并到
+              - code [ref=e891]: master
+              - text: ，并验证构建、lint、测试通过。
+          - heading "Constraints & Preferences" [level=2] [ref=e892]
+          - list [ref=e893]:
+            - listitem [ref=e894]: 必须用 Playwright CLI 扩展模式连接 Edge 当前页，避免 CDP。
+            - listitem [ref=e895]: 采用系统化排查 / TDD / 先验证后结论。
+            - listitem [ref=e896]:
+              - text: 合并目标是
+              - code [ref=e897]: master
+              - text: 。
+            - listitem [ref=e898]:
+              - text: 保留请求治理相关改动，不丢
+              - code [ref=e899]: master
+              - text: 既有修复。
+          - heading "Progress" [level=2] [ref=e900]
+          - heading "Done" [level=3] [ref=e901]
+          - list [ref=e902]:
+            - listitem [ref=e903]:
+              - text: 已完成
+              - button "feat/item-request-dedup" [ref=e904]:
+                - code [ref=e905] [cursor=pointer]: feat/item-request-dedup
+              - text: 的主要实现并多轮验证。
+            - listitem [ref=e906]:
+              - code [ref=e907]: projectLoadPlan
+              - text: ：拆分
+              - code [ref=e908]: projectLoading
+              - text: /
+              - code [ref=e909]: sessionLoading
+              - text: ，修复 Sidebar 重复加载链。
+            - listitem [ref=e910]:
+              - code [ref=e911]: projectCatalog
+              - text: ：为
+              - button "/api/project" [ref=e912]:
+                - code [ref=e913] [cursor=pointer]: /api/project
+              - text: 引入共享缓存、in-flight dedupe、invalidate、路径归一化。
+            - listitem [ref=e914]:
+              - code [ref=e915]: sessionSummarySync
+              - text: ：将
+              - code [ref=e916]: session-summaries
+              - text: 改为差量同步（仅 title/activity）。
+            - listitem [ref=e917]:
+              - code [ref=e918]: itemWorkspaceStore
+              - text: ：修复
+              - code [ref=e919]: updateSessionStatus()
+              - text: 跨项目串数据，增加
+              - code [ref=e920]: loadProject
+              - text: 短路。
+            - listitem [ref=e921]:
+              - code [ref=e922]: ItemDetailPanel
+              - text: ：统一
+              - code [ref=e923]: loadAvailableSessions()
+              - text: ，修复切 item 定时器串写、unbind 失败误隐藏。
+            - listitem [ref=e924]:
+              - button "App.tsx" [ref=e925]:
+                - code [ref=e926] [cursor=pointer]: App.tsx
+              - text: ：route 恢复增加
+              - code [ref=e927]: isProjectLoading()
+              - text: 短路，自动恢复前校验 session 真实存在。
+            - listitem [ref=e928]:
+              - text: 修复
+              - code [ref=e929]: master
+              - text: 上的 TS 构建错误：
+              - list [ref=e930]:
+                - listitem [ref=e931]:
+                  - code [ref=e932]: startupChoiceStore
+                  - text: 重新导出/还原
+                - listitem [ref=e933]:
+                  - code [ref=e934]: LoginPromptDialog
+                  - text: 增加
+                  - code [ref=e935]: onContinueWithoutLogin
+                - listitem [ref=e936]:
+                  - button "Header.tsx" [ref=e937]:
+                    - code [ref=e938] [cursor=pointer]: Header.tsx
+                  - text: 的
+                  - code [ref=e939]: updateSessionStatus
+                  - text: 改为
+                  - code [ref=e940]: projectPath
+                - listitem [ref=e941]:
+                  - button "MultiProjectSidePanel.tsx" [ref=e942]:
+                    - code [ref=e943] [cursor=pointer]: MultiProjectSidePanel.tsx
+                  - text: 改用
+                  - code [ref=e944]: getLegacyProjectIdByPathMap
+                - listitem [ref=e945]:
+                  - button "ThinItem.projectId" [ref=e946]:
+                    - code [ref=e947] [cursor=pointer]: ThinItem.projectId
+                  - text: /
+                  - code [ref=e948]: onSelectItem
+                  - text: 改为
+                  - code [ref=e949]: projectPath
+            - listitem [ref=e950]:
+              - text: 已执行并通过：
+              - list [ref=e951]:
+                - listitem [ref=e952]:
+                  - code [ref=e953]: bun test src/features/chat/sidebar/projectLoadPlan.test.ts src/api/projectCatalog.test.ts src/store/sessionSummarySync.test.ts src/store/itemWorkspaceStore.test.ts
+                - listitem [ref=e954]:
+                  - code [ref=e955]: bun run build
+                - listitem [ref=e956]:
+                  - code [ref=e957]: npm run lint
+            - listitem [ref=e958]:
+              - text: 已在
+              - code [ref=e959]: master
+              - text: 提交 merge commit：
+              - code [ref=e960]: 8378c1a
+              - text: (
+              - code [ref=e961]: "merge: item request dedup fixes into master"
+              - text: )
+            - listitem [ref=e962]:
+              - text: 已解决 merge 冲突文件：
+              - list [ref=e963]:
+                - listitem [ref=e964]:
+                  - button "src/contexts/DirectoryContext.tsx" [ref=e965]:
+                    - code [ref=e966] [cursor=pointer]: src/contexts/DirectoryContext.tsx
+                - listitem [ref=e967]:
+                  - button "src/features/auth/LoginPromptDialog.tsx" [ref=e968]:
+                    - code [ref=e969] [cursor=pointer]: src/features/auth/LoginPromptDialog.tsx
+                - listitem [ref=e970]:
+                  - button "src/features/chat/Header.tsx" [ref=e971]:
+                    - code [ref=e972] [cursor=pointer]: src/features/chat/Header.tsx
+                - listitem [ref=e973]:
+                  - button "src/features/chat/sidebar/MultiProjectSidePanel.tsx" [ref=e974]:
+                    - code [ref=e975] [cursor=pointer]: src/features/chat/sidebar/MultiProjectSidePanel.tsx
+                - listitem [ref=e976]:
+                  - button "src/features/items/ItemDetailPanel.tsx" [ref=e977]:
+                    - code [ref=e978] [cursor=pointer]: src/features/items/ItemDetailPanel.tsx
+                - listitem [ref=e979]:
+                  - button "src/store/itemWorkspaceStore.ts" [ref=e980]:
+                    - code [ref=e981] [cursor=pointer]: src/store/itemWorkspaceStore.ts
+                - listitem [ref=e982]:
+                  - button "src/store/itemWorkspaceStore.test.ts" [ref=e983]:
+                    - code [ref=e984] [cursor=pointer]: src/store/itemWorkspaceStore.test.ts
+          - heading "In Progress" [level=3] [ref=e985]
+          - list [ref=e986]:
+            - listitem [ref=e987]:
+              - text: 清理
+              - button "feat/item-request-dedup" [ref=e988]:
+                - code [ref=e989] [cursor=pointer]: feat/item-request-dedup
+              - text: worktree / 分支收尾。
+            - listitem [ref=e990]:
+              - text: 删除 worktree 前需处理
+              - button ".playwright-cli/" [ref=e991]:
+                - code [ref=e992] [cursor=pointer]: .playwright-cli/
+              - text: 临时文件。
+          - heading "Blocked" [level=3] [ref=e993]
+          - list [ref=e994]:
+            - listitem [ref=e995]:
+              - code [ref=e996]: git worktree remove "/Users/chen/workspace/OpenCodeUI/OpenCodeUI-feat/item-request-dedup"
+              - text: 因 worktree 内有未清理的
+              - button ".playwright-cli/" [ref=e997]:
+                - code [ref=e998] [cursor=pointer]: .playwright-cli/
+              - text: 被阻止。
+            - listitem [ref=e999]:
+              - code [ref=e1000]: rm -rf
+              - text: 清理
+              - button ".playwright-cli/" [ref=e1001]:
+                - code [ref=e1002] [cursor=pointer]: .playwright-cli/
+              - text: 时受到当前环境命令限制，导致无法直接完成自动清理。
+            - listitem [ref=e1003]:
+              - code [ref=e1004]: git branch -d feat/item-request-dedup
+              - text: 需先移除对应 worktree。
+          - heading "Key Decisions" [level=2] [ref=e1005]
+          - list [ref=e1006]:
+            - listitem [ref=e1007]:
+              - text: 请求治理分层处理：
+              - list [ref=e1008]:
+                - listitem [ref=e1009]: Sidebar 加载链去重
+                - listitem [ref=e1010]:
+                  - button "/api/project" [ref=e1011]:
+                    - code [ref=e1012] [cursor=pointer]: /api/project
+                  - text: 共享缓存
+                - listitem [ref=e1013]:
+                  - code [ref=e1014]: session-summaries
+                  - text: 差量同步
+                - listitem [ref=e1015]: 事项详情与 route 恢复收敛
+            - listitem [ref=e1016]:
+              - code [ref=e1017]: sessionSummarySync
+              - text: 只负责 title/activity 差量；status 继续由
+              - code [ref=e1018]: updateSessionStatus()
+              - text: 专管。
+            - listitem [ref=e1019]:
+              - code [ref=e1020]: updateSessionStatus()
+              - text: 只按
+              - code [ref=e1021]: projectPath + externalSessionId
+              - text: 找 existing，避免跨项目串数据。
+            - listitem [ref=e1022]:
+              - code [ref=e1023]: ItemDetailPanel
+              - text: stale session 检测后，unbind 失败要回退可见并报错。
+            - listitem [ref=e1024]:
+              - button "App.tsx" [ref=e1025]:
+                - code [ref=e1026] [cursor=pointer]: App.tsx
+              - text: 自动恢复前必须确认目标 session 真实存在，避免跳到 stale session。
+            - listitem [ref=e1027]:
+              - code [ref=e1028]: DirectoryContext
+              - text: /
+              - code [ref=e1029]: useProject
+              - text: 使用 generation guard，防止旧异步结果污染新状态。
+          - heading "Next Steps" [level=2] [ref=e1030]
+          - list [ref=e1031]:
+            - listitem [ref=e1032]:
+              - text: 清理
+              - button "feat/item-request-dedup" [ref=e1033]:
+                - code [ref=e1034] [cursor=pointer]: feat/item-request-dedup
+              - text: worktree 内的
+              - button ".playwright-cli/" [ref=e1035]:
+                - code [ref=e1036] [cursor=pointer]: .playwright-cli/
+              - text: 临时文件。
+            - listitem [ref=e1037]:
+              - text: 删除
+              - button "feat/item-request-dedup" [ref=e1038]:
+                - code [ref=e1039] [cursor=pointer]: feat/item-request-dedup
+              - text: worktree。
+            - listitem [ref=e1040]:
+              - text: 删除本地分支
+              - button "feat/item-request-dedup" [ref=e1041]:
+                - code [ref=e1042] [cursor=pointer]: feat/item-request-dedup
+              - text: 。
+            - listitem [ref=e1043]:
+              - text: 如需要，再将
+              - code [ref=e1044]: master
+              - text: 推送到远端。
+          - heading "Critical Context" [level=2] [ref=e1045]
+          - list [ref=e1046]:
+            - listitem [ref=e1047]:
+              - text: 最新验证结果：
+              - list [ref=e1048]:
+                - listitem [ref=e1049]:
+                  - code [ref=e1050]: 50 pass / 0 fail
+                - listitem [ref=e1051]:
+                  - code [ref=e1052]: bun run build
+                  - text: 通过
+                - listitem [ref=e1053]:
+                  - code [ref=e1054]: npm run lint
+                  - text: 通过
+            - listitem [ref=e1055]:
+              - text: 构建仍有 Rollup warning：
+              - list [ref=e1056]:
+                - listitem [ref=e1057]:
+                  - button "src/api/client.ts" [ref=e1058]:
+                    - code [ref=e1059] [cursor=pointer]: src/api/client.ts
+                  - text: 同时被动态和静态导入（
+                  - button "projectCatalog.ts" [ref=e1060]:
+                    - code [ref=e1061] [cursor=pointer]: projectCatalog.ts
+                  - text: /
+                  - button "api/index.ts" [ref=e1062]:
+                    - code [ref=e1063] [cursor=pointer]: api/index.ts
+                  - text: /
+                  - button "thinServer.ts" [ref=e1064]:
+                    - code [ref=e1065] [cursor=pointer]: thinServer.ts
+                  - text: /
+                  - button "MentionMenu.tsx" [ref=e1066]:
+                    - code [ref=e1067] [cursor=pointer]: MentionMenu.tsx
+                  - text: ），但不阻断构建。
+            - listitem [ref=e1068]:
+              - code [ref=e1069]: master
+              - text: 合并时已处理冲突并提交，但 worktree 清理未完成。
+            - listitem [ref=e1070]:
+              - text: 曾出现的构建错误已修复：
+              - list [ref=e1071]:
+                - listitem [ref=e1072]:
+                  - button "src/store/index.ts" [ref=e1073]:
+                    - code [ref=e1074] [cursor=pointer]: src/store/index.ts
+                  - text: 缺少
+                  - code [ref=e1075]: startupChoiceStore
+                - listitem [ref=e1076]:
+                  - code [ref=e1077]: LoginPromptDialogProps
+                  - text: 缺
+                  - code [ref=e1078]: onContinueWithoutLogin
+                - listitem [ref=e1079]:
+                  - button "Header.tsx" [ref=e1080]:
+                    - code [ref=e1081] [cursor=pointer]: Header.tsx
+                  - text: 传错
+                  - code [ref=e1082]: projectId
+                - listitem [ref=e1083]:
+                  - button "MultiProjectSidePanel.tsx" [ref=e1084]:
+                    - code [ref=e1085] [cursor=pointer]: MultiProjectSidePanel.tsx
+                  - text: 使用过时
+                  - code [ref=e1086]: getProjectIdByPathMap
+                - listitem [ref=e1087]:
+                  - button "ThinItem.projectId" [ref=e1088]:
+                    - code [ref=e1089] [cursor=pointer]: ThinItem.projectId
+                  - text: 字段与现有类型不符
+            - listitem [ref=e1090]: 浏览器复测在当前线上页仍观察到大量请求，但本次最终交付以代码合并与验证通过为准。
+          - heading "Relevant Files" [level=2] [ref=e1091]
+          - list [ref=e1092]:
+            - listitem [ref=e1093]:
+              - button "src/features/chat/sidebar/MultiProjectSidePanel.tsx" [ref=e1094]:
+                - code [ref=e1095] [cursor=pointer]: src/features/chat/sidebar/MultiProjectSidePanel.tsx
+              - text: ：Sidebar 重复加载、projectPath/legacy id 处理。
+            - listitem [ref=e1096]:
+              - button "src/features/chat/sidebar/projectLoadPlan.ts" [ref=e1097]:
+                - code [ref=e1098] [cursor=pointer]: src/features/chat/sidebar/projectLoadPlan.ts
+              - text: ：Sidebar 加载决策纯函数。
+            - listitem [ref=e1099]:
+              - button "src/api/projectCatalog.ts" [ref=e1100]:
+                - code [ref=e1101] [cursor=pointer]: src/api/projectCatalog.ts
+              - text: ：
+              - button "/api/project" [ref=e1102]:
+                - code [ref=e1103] [cursor=pointer]: /api/project
+              - text: 缓存、inflight dedupe、路径归一化。
+            - listitem [ref=e1104]:
+              - button "src/store/sessionSummarySync.ts" [ref=e1105]:
+                - code [ref=e1106] [cursor=pointer]: src/store/sessionSummarySync.ts
+              - text: ：
+              - code [ref=e1107]: session-summaries
+              - text: 差量同步。
+            - listitem [ref=e1108]:
+              - button "src/store/itemWorkspaceStore.ts" [ref=e1109]:
+                - code [ref=e1110] [cursor=pointer]: src/store/itemWorkspaceStore.ts
+              - text: ：
+              - code [ref=e1111]: loadProject
+              - text: 短路、
+              - code [ref=e1112]: updateSessionStatus
+              - text: fallback、summary 合并。
+            - listitem [ref=e1113]:
+              - button "src/features/items/ItemDetailPanel.tsx" [ref=e1114]:
+                - code [ref=e1115] [cursor=pointer]: src/features/items/ItemDetailPanel.tsx
+              - text: ：会话读取复用、定时器清理、stale 解绑回退。
+            - listitem [ref=e1116]:
+              - button "src/App.tsx" [ref=e1117]:
+                - code [ref=e1118] [cursor=pointer]: src/App.tsx
+              - text: ：route 恢复、自动选会话前置校验。
+            - listitem [ref=e1119]:
+              - button "src/contexts/DirectoryContext.tsx" [ref=e1120]:
+                - code [ref=e1121] [cursor=pointer]: src/contexts/DirectoryContext.tsx
+              - text: ：generation guard、server 切换同步。
+            - listitem [ref=e1122]:
+              - button "src/store/startupChoiceStore.ts" [ref=e1123]:
+                - code [ref=e1124] [cursor=pointer]: src/store/startupChoiceStore.ts
+              - text: /
+              - button "src/store/index.ts" [ref=e1125]:
+                - code [ref=e1126] [cursor=pointer]: src/store/index.ts
+              - text: ：登录启动流程恢复。
+            - listitem [ref=e1127]:
+              - button "src/features/auth/LoginPromptDialog.tsx" [ref=e1128]:
+                - code [ref=e1129] [cursor=pointer]: src/features/auth/LoginPromptDialog.tsx
+              - text: ：继续使用 / 登录按钮。
+            - listitem [ref=e1130]:
+              - button "src/features/chat/Header.tsx" [ref=e1131]:
+                - code [ref=e1132] [cursor=pointer]: src/features/chat/Header.tsx
+              - text: ：
+              - code [ref=e1133]: updateSessionStatus
+              - text: 调用参数修正。
+            - listitem [ref=e1134]:
+              - button "src/store/itemWorkspaceStore.test.ts" [ref=e1135]:
+                - code [ref=e1136] [cursor=pointer]: src/store/itemWorkspaceStore.test.ts
+              - text: ：store 级回归测试。
+        - generic [ref=e1137]:
+          - generic "2026/5/2 01:46:52" [ref=e1138]: 01:46
+          - generic [ref=e1139]: 1m3s
+          - button "Copy to clipboard" [ref=e1141]:
+            - img [ref=e1142]
+      - generic [ref=e1150]:
+        - paragraph [ref=e1153]: 现在请求还是很多，你自己用playwright-cli 扩展模式 链接我当前的浏览器看看。
+        - generic [ref=e1154]:
+          - generic "2026/5/2 02:35:35" [ref=e1155]: 02:35
+          - generic [ref=e1156]:
+            - button "Fork from here" [ref=e1157]:
+              - img [ref=e1158]
+            - button "Copy to clipboard" [ref=e1162]:
+              - img [ref=e1163]
+      - generic [ref=e1170]:
+        - paragraph [ref=e1173]: 用 playwright-cli 技能先连你当前浏览器并抓请求证据。
+        - generic [ref=e1175]:
+          - img [ref=e1178]
+          - button "Skill 41ms Running Failed" [ref=e1181]:
+            - generic [ref=e1183]: Skill
+            - generic [ref=e1184]:
+              - generic [ref=e1185]: 41ms
+              - generic: Running
+              - generic: Failed
+              - img [ref=e1187]
+        - generic [ref=e1189]:
+          - generic "2026/5/2 02:35:35" [ref=e1190]: 02:35
+          - generic [ref=e1191]: 8m44s
+          - button "Copy to clipboard" [ref=e1193]:
+            - img [ref=e1194]
+      - generic [ref=e1201]:
+        - generic [ref=e1202]:
+          - generic [ref=e1203]:
+            - img [ref=e1205]
+            - button "Evaluating skills for debugging I'm considering using my systematic-debugging skill because the user has emphasized that I should use my available skills. This seems like a smart starting point! It's interesting how focusing on specific skills can really boost effectiveness. I'm curious to see how this approach will help us tackle the task at hand. Let's see what insights I can uncover by applying this systematic method!" [ref=e1212] [cursor=pointer]:
+              - generic [ref=e1215]:
+                - paragraph [ref=e1216]:
+                  - strong [ref=e1217]: Evaluating skills for debugging
+                - paragraph [ref=e1218]: I'm considering using my systematic-debugging skill because the user has emphasized that I should use my available skills. This seems like a smart starting point! It's interesting how focusing on specific skills can really boost effectiveness. I'm curious to see how this approach will help us tackle the task at hand. Let's see what insights I can uncover by applying this systematic method!
+              - img [ref=e1220]
+          - status [ref=e1222]: "**Evaluating skills for debugging** I'm considering using my systematic-debugging skill because the user has emphasized that I should use my available skills. This seems like a smart starting point! It's interesting how focusing on specific skills can really boost effectiveness. I'm curious to see how this approach will help us tackle the task at hand. Let's see what insights I can uncover by applying this systematic method!"
+        - paragraph [ref=e1225]: 再按系统化排查流程执行一次，请求证据会直接从你当前浏览器抓。
+        - generic [ref=e1227]:
+          - img [ref=e1230]
+          - button "Skill 28ms Running Failed" [ref=e1233]:
+            - generic [ref=e1235]: Skill
+            - generic [ref=e1236]:
+              - generic [ref=e1237]: 28ms
+              - generic: Running
+              - generic: Failed
+              - img [ref=e1239]
+        - generic [ref=e1241]:
+          - generic "2026/5/2 02:44:19" [ref=e1242]: 02:44
+          - generic [ref=e1243]: 7.4s
+          - button "Copy to clipboard" [ref=e1245]:
+            - img [ref=e1246]
+      - generic [ref=e1253]:
+        - paragraph [ref=e1256]: 开始连接你当前浏览器（extension 模式），随后抓取 Network 证据。
+        - generic [ref=e1258]:
+          - img [ref=e1261]
+          - button "Bash Attach to current browser via extension 27ms Running Failed" [ref=e1264]:
+            - generic [ref=e1265]:
+              - generic [ref=e1266]: Bash
+              - generic [ref=e1267]: Attach to current browser via extension
+            - generic [ref=e1268]:
+              - generic [ref=e1269]: 27ms
+              - generic: Running
+              - generic: Failed
+              - img [ref=e1271]
+        - generic [ref=e1273]:
+          - generic "2026/5/2 02:44:26" [ref=e1274]: 02:44
+          - generic [ref=e1275]: 14m51s
+          - button "Copy to clipboard" [ref=e1277]:
+            - img [ref=e1278]
+      - generic [ref=e1286]:
+        - paragraph [ref=e1289]: 不是连接chrome，是连接edge
+        - generic [ref=e1290]:
+          - generic "2026/5/2 02:59:32" [ref=e1291]: 02:59
+          - generic [ref=e1292]:
+            - button "Fork from here" [ref=e1293]:
+              - img [ref=e1294]
+            - button "Copy to clipboard" [ref=e1298]:
+              - img [ref=e1299]
+      - generic [ref=e1306]:
+        - paragraph [ref=e1309]: 收到，改连 Edge。先直接按 Edge 参数重连。
+        - generic [ref=e1311]:
+          - img [ref=e1314]
+          - button "Bash Attach to Edge via extension mode 1ms Running Failed" [ref=e1317]:
+            - generic [ref=e1318]:
+              - generic [ref=e1319]: Bash
+              - generic [ref=e1320]: Attach to Edge via extension mode
+            - generic [ref=e1321]:
+              - generic [ref=e1322]: 1ms
+              - generic: Running
+              - generic: Failed
+              - img [ref=e1324]
+        - generic [ref=e1326]:
+          - generic "2026/5/2 02:59:32" [ref=e1327]: 02:59
+          - generic [ref=e1328]: 6.5s
+          - button "Copy to clipboard" [ref=e1330]:
+            - img [ref=e1331]
+      - generic [ref=e1338]:
+        - paragraph [ref=e1341]:
+          - code [ref=e1342]: attach
+          - text: 语法不支持
+          - code [ref=e1343]: "--browser"
+          - text: ，我改用
+          - code [ref=e1344]: "--extension=msedge"
+          - text: 。
+        - generic [ref=e1346]:
+          - img [ref=e1350]
+          - button "Bash Attach to Edge extension session Running Failed" [ref=e1353]:
+            - generic [ref=e1354]:
+              - generic [ref=e1355]: Bash
+              - generic [ref=e1356]: Attach to Edge extension session
+            - generic [ref=e1357]:
+              - generic [ref=e1358]: Running
+              - generic: Failed
+              - img [ref=e1360]
+        - generic [ref=e1362]:
+          - generic "2026/5/2 02:59:38" [ref=e1363]: 02:59
+          - button "Copy to clipboard" [ref=e1365]:
+            - img [ref=e1366]
+    - generic [ref=e1391]:
+      - generic [ref=e1394]:
+        - textbox "Reply to Agent (type @ to mention, / for commands)" [active] [ref=e1397]
+        - generic [ref=e1398]:
+          - generic [ref=e1399]:
+            - button "GPT-5.3 Codex" [ref=e1402] [cursor=pointer]:
+              - generic [ref=e1403]: GPT-5.3 Codex
+              - img [ref=e1405]
+            - button "High" [ref=e1409] [cursor=pointer]:
+              - img [ref=e1411]
+              - generic [ref=e1413]: High
+              - img [ref=e1415]
+            - button "orchestrator" [ref=e1419] [cursor=pointer]:
+              - img [ref=e1421]
+              - generic [ref=e1424]: orchestrator
+              - img [ref=e1426]
+          - generic [ref=e1428]:
+            - button "Auto-accept permissions" [ref=e1429]:
+              - img [ref=e1430]
+              - generic [ref=e1432]: Auto
+            - button "Upload image" [ref=e1434]:
+              - img [ref=e1435]
+            - button "Stop generation" [ref=e1439]:
+              - img [ref=e1440]
+      - generic [ref=e1442]:
+        - button "5/6 · 全量验证并用浏览器复测请求量" [ref=e1443]:
+          - img [ref=e1444]
+          - generic [ref=e1447]: 5/6
+          - generic [ref=e1448]: ·
+          - generic [ref=e1449]: 全量验证并用浏览器复测请求量
+        - generic [ref=e1450]: ·
+        - button "New Chat" [ref=e1451]

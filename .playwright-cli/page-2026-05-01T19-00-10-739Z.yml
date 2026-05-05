@@ -1,0 +1,791 @@
+- generic [ref=e3]:
+  - generic [ref=e5]:
+    - generic [ref=e6]:
+      - link "OpenCode" [ref=e8] [cursor=pointer]:
+        - /url: /
+        - generic [ref=e9]: OpenCode
+      - generic [ref=e10]:
+        - button "Add project" [ref=e11]:
+          - img [ref=e12]
+        - button "New session" [ref=e14]:
+          - img [ref=e15]
+        - button "Collapse sidebar" [ref=e18]:
+          - img [ref=e19]
+    - generic [ref=e21]:
+      - generic [ref=e22]:
+        - generic [ref=e24]: 最近会话
+        - generic [ref=e26]:
+          - img [ref=e27]
+          - text: 加载中...
+      - generic [ref=e30]:
+        - generic [ref=e31]: 线程
+        - button "过滤线程" [ref=e33]:
+          - img [ref=e34]
+      - generic [ref=e35]:
+        - generic [ref=e36]:
+          - button "aichat" [ref=e37]:
+            - generic [ref=e38]:
+              - generic [ref=e39]:
+                - img [ref=e41]
+                - img [ref=e44]
+              - generic [ref=e47]: aichat
+            - generic:
+              - button "项目菜单":
+                - img
+              - button "在此项目中创建事项":
+                - img
+              - button "在此项目中创建会话":
+                - img
+          - generic:
+            - generic:
+              - generic:
+                - generic:
+                  - generic: 暂无事项或未绑定会话
+                  - button "新建事项"
+        - generic [ref=e48]:
+          - button "teamgram" [ref=e49]:
+            - generic [ref=e50]:
+              - generic [ref=e51]:
+                - img [ref=e53]
+                - img [ref=e56]
+              - generic [ref=e59]: teamgram
+            - generic:
+              - button "项目菜单":
+                - img
+              - button "在此项目中创建事项":
+                - img
+              - button "在此项目中创建会话":
+                - img
+          - generic:
+            - generic:
+              - generic:
+                - generic:
+                  - generic: 暂无事项或未绑定会话
+                  - button "新建事项"
+        - generic [ref=e60]:
+          - button "研发周报月报" [ref=e61]:
+            - generic [ref=e62]:
+              - generic [ref=e63]:
+                - img [ref=e65]
+                - img [ref=e68]
+              - generic [ref=e71]: 研发周报月报
+            - generic:
+              - button "项目菜单":
+                - img
+              - button "在此项目中创建事项":
+                - img
+              - button "在此项目中创建会话":
+                - img
+          - generic:
+            - generic:
+              - generic:
+                - generic:
+                  - generic: 暂无事项或未绑定会话
+                  - button "新建事项"
+        - generic [ref=e72]:
+          - button "【项目】可观测-监控告警" [expanded] [ref=e73]:
+            - generic [ref=e74]:
+              - generic [ref=e75]:
+                - img [ref=e77]
+                - img [ref=e80]
+              - generic [ref=e83]: 【项目】可观测-监控告警
+            - generic:
+              - button "项目菜单":
+                - img
+              - button "在此项目中创建事项":
+                - img
+              - button "在此项目中创建会话":
+                - img
+          - generic [ref=e87]:
+            - img [ref=e88]
+            - text: 加载中...
+        - generic [ref=e91]:
+          - button "【项目】零信任访问" [expanded] [ref=e92]:
+            - generic [ref=e93]:
+              - generic [ref=e94]:
+                - img [ref=e96]
+                - img [ref=e99]
+              - generic [ref=e102]: 【项目】零信任访问
+            - generic:
+              - button "项目菜单":
+                - img
+              - button "在此项目中创建事项":
+                - img
+              - button "在此项目中创建会话":
+                - img
+          - generic [ref=e106]:
+            - img [ref=e107]
+            - text: 加载中...
+        - generic [ref=e110]:
+          - button "【项目】Television" [ref=e111]:
+            - generic [ref=e112]:
+              - generic [ref=e113]:
+                - img [ref=e115]
+                - img [ref=e118]
+              - generic [ref=e121]: 【项目】Television
+            - generic:
+              - button "项目菜单":
+                - img
+              - button "在此项目中创建事项":
+                - img
+              - button "在此项目中创建会话":
+                - img
+          - generic:
+            - generic:
+              - generic:
+                - generic:
+                  - generic: 暂无事项或未绑定会话
+                  - button "新建事项"
+        - generic [ref=e122]:
+          - button "opencodeui" [expanded] [ref=e123]:
+            - generic [ref=e124]:
+              - generic [ref=e125]:
+                - img [ref=e127]
+                - img [ref=e130]
+              - generic [ref=e133]: opencodeui
+            - generic:
+              - button "项目菜单":
+                - img
+              - button "在此项目中创建事项":
+                - img
+              - button "在此项目中创建会话":
+                - img
+          - generic [ref=e137]:
+            - img [ref=e138]
+            - text: 加载中...
+        - generic [ref=e141]:
+          - button "tv" [ref=e142]:
+            - generic [ref=e143]:
+              - generic [ref=e144]:
+                - img [ref=e146]
+                - img [ref=e149]
+              - generic [ref=e152]: tv
+            - generic:
+              - button "项目菜单":
+                - img
+              - button "在此项目中创建事项":
+                - img
+              - button "在此项目中创建会话":
+                - img
+          - generic:
+            - generic:
+              - generic:
+                - generic:
+                  - generic: 暂无事项或未绑定会话
+                  - button "新建事项"
+        - generic [ref=e153]:
+          - button "Sail" [ref=e154]:
+            - generic [ref=e155]:
+              - generic [ref=e156]:
+                - img [ref=e158]
+                - img [ref=e161]
+              - generic [ref=e164]: Sail
+            - generic:
+              - button "项目菜单":
+                - img
+              - button "在此项目中创建事项":
+                - img
+              - button "在此项目中创建会话":
+                - img
+          - generic:
+            - generic:
+              - generic:
+                - generic:
+                  - generic: 暂无事项或未绑定会话
+                  - button "新建事项"
+        - generic [ref=e165]:
+          - button "sail_console" [ref=e166]:
+            - generic [ref=e167]:
+              - generic [ref=e168]:
+                - img [ref=e170]
+                - img [ref=e173]
+              - generic [ref=e176]: sail_console
+            - generic:
+              - button "项目菜单":
+                - img
+              - button "在此项目中创建事项":
+                - img
+              - button "在此项目中创建会话":
+                - img
+          - generic:
+            - generic:
+              - generic:
+                - generic:
+                  - generic: 暂无事项或未绑定会话
+                  - button "新建事项"
+        - generic [ref=e177]:
+          - button "KN开发者中心技术文章" [ref=e178]:
+            - generic [ref=e179]:
+              - generic [ref=e180]:
+                - img [ref=e182]
+                - img [ref=e185]
+              - generic [ref=e188]: KN开发者中心技术文章
+            - generic:
+              - button "项目菜单":
+                - img
+              - button "在此项目中创建事项":
+                - img
+              - button "在此项目中创建会话":
+                - img
+          - generic:
+            - generic:
+              - generic:
+                - generic:
+                  - generic: 暂无事项或未绑定会话
+                  - button "新建事项"
+        - generic [ref=e189]:
+          - button "baserock-project" [ref=e190]:
+            - generic [ref=e191]:
+              - generic [ref=e192]:
+                - img [ref=e194]
+                - img [ref=e197]
+              - generic [ref=e200]: baserock-project
+            - generic:
+              - button "项目菜单":
+                - img
+              - button "在此项目中创建事项":
+                - img
+              - button "在此项目中创建会话":
+                - img
+          - generic:
+            - generic:
+              - generic:
+                - generic:
+                  - generic: 暂无事项或未绑定会话
+                  - button "新建事项"
+        - generic [ref=e201]:
+          - button "招聘" [ref=e202]:
+            - generic [ref=e203]:
+              - generic [ref=e204]:
+                - img [ref=e206]
+                - img [ref=e209]
+              - generic [ref=e212]: 招聘
+            - generic:
+              - button "项目菜单":
+                - img
+              - button "在此项目中创建事项":
+                - img
+              - button "在此项目中创建会话":
+                - img
+          - generic:
+            - generic:
+              - generic:
+                - generic:
+                  - generic: 暂无事项或未绑定会话
+                  - button "新建事项"
+        - generic [ref=e213]:
+          - button "kn-hub" [ref=e214]:
+            - generic [ref=e215]:
+              - generic [ref=e216]:
+                - img [ref=e218]
+                - img [ref=e221]
+              - generic [ref=e224]: kn-hub
+            - generic:
+              - button "项目菜单":
+                - img
+              - button "在此项目中创建事项":
+                - img
+              - button "在此项目中创建会话":
+                - img
+          - generic:
+            - generic:
+              - generic:
+                - generic:
+                  - generic: 暂无事项或未绑定会话
+                  - button "新建事项"
+        - generic [ref=e225]:
+          - button "my-agent" [ref=e226]:
+            - generic [ref=e227]:
+              - generic [ref=e228]:
+                - img [ref=e230]
+                - img [ref=e233]
+              - generic [ref=e236]: my-agent
+            - generic:
+              - button "项目菜单":
+                - img
+              - button "在此项目中创建事项":
+                - img
+              - button "在此项目中创建会话":
+                - img
+          - generic:
+            - generic:
+              - generic:
+                - generic:
+                  - generic: 暂无事项或未绑定会话
+                  - button "新建事项"
+        - generic [ref=e237]:
+          - button "llm-memory" [ref=e238]:
+            - generic [ref=e239]:
+              - generic [ref=e240]:
+                - img [ref=e242]
+                - img [ref=e245]
+              - generic [ref=e248]: llm-memory
+            - generic:
+              - button "项目菜单":
+                - img
+              - button "在此项目中创建事项":
+                - img
+              - button "在此项目中创建会话":
+                - img
+          - generic:
+            - generic:
+              - generic:
+                - generic:
+                  - generic: 暂无事项或未绑定会话
+                  - button "新建事项"
+        - generic [ref=e249]:
+          - button "en_reader" [ref=e250]:
+            - generic [ref=e251]:
+              - generic [ref=e252]:
+                - img [ref=e254]
+                - img [ref=e257]
+              - generic [ref=e260]: en_reader
+            - generic:
+              - button "项目菜单":
+                - img
+              - button "在此项目中创建事项":
+                - img
+              - button "在此项目中创建会话":
+                - img
+          - generic:
+            - generic:
+              - generic:
+                - generic:
+                  - generic: 暂无事项或未绑定会话
+                  - button "新建事项"
+        - generic [ref=e261]:
+          - button "axonhub" [expanded] [ref=e262]:
+            - generic [ref=e263]:
+              - generic [ref=e264]:
+                - img [ref=e266]
+                - img [ref=e269]
+              - generic [ref=e272]: axonhub
+            - generic:
+              - button "项目菜单":
+                - img
+              - button "在此项目中创建事项":
+                - img
+              - button "在此项目中创建会话":
+                - img
+          - generic [ref=e276]:
+            - img [ref=e277]
+            - text: 加载中...
+        - generic [ref=e280]:
+          - button "digital-employee" [ref=e281]:
+            - generic [ref=e282]:
+              - generic [ref=e283]:
+                - img [ref=e285]
+                - img [ref=e288]
+              - generic [ref=e291]: digital-employee
+            - generic:
+              - button "项目菜单":
+                - img
+              - button "在此项目中创建事项":
+                - img
+              - button "在此项目中创建会话":
+                - img
+          - generic:
+            - generic:
+              - generic:
+                - generic:
+                  - generic: 暂无事项或未绑定会话
+                  - button "新建事项"
+        - generic [ref=e292]:
+          - button "captive-portal-auth" [ref=e293]:
+            - generic [ref=e294]:
+              - generic [ref=e295]:
+                - img [ref=e297]
+                - img [ref=e300]
+              - generic [ref=e303]: captive-portal-auth
+            - generic:
+              - button "项目菜单":
+                - img
+              - button "在此项目中创建事项":
+                - img
+              - button "在此项目中创建会话":
+                - img
+          - generic:
+            - generic:
+              - generic:
+                - generic:
+                  - generic: 暂无事项或未绑定会话
+                  - button "新建事项"
+        - generic [ref=e304]:
+          - button "sail_official" [ref=e305]:
+            - generic [ref=e306]:
+              - generic [ref=e307]:
+                - img [ref=e309]
+                - img [ref=e312]
+              - generic [ref=e315]: sail_official
+            - generic:
+              - button "项目菜单":
+                - img
+              - button "在此项目中创建事项":
+                - img
+              - button "在此项目中创建会话":
+                - img
+          - generic:
+            - generic:
+              - generic:
+                - generic:
+                  - generic: 暂无事项或未绑定会话
+                  - button "新建事项"
+        - generic [ref=e316]:
+          - button "kylith_official" [ref=e317]:
+            - generic [ref=e318]:
+              - generic [ref=e319]:
+                - img [ref=e321]
+                - img [ref=e324]
+              - generic [ref=e327]: kylith_official
+            - generic:
+              - button "项目菜单":
+                - img
+              - button "在此项目中创建事项":
+                - img
+              - button "在此项目中创建会话":
+                - img
+          - generic:
+            - generic:
+              - generic:
+                - generic:
+                  - generic: 暂无事项或未绑定会话
+                  - button "新建事项"
+        - generic [ref=e328]:
+          - button "zore-trust-doc" [ref=e329]:
+            - generic [ref=e330]:
+              - generic [ref=e331]:
+                - img [ref=e333]
+                - img [ref=e336]
+              - generic [ref=e339]: zore-trust-doc
+            - generic:
+              - button "项目菜单":
+                - img
+              - button "在此项目中创建事项":
+                - img
+              - button "在此项目中创建会话":
+                - img
+          - generic:
+            - generic:
+              - generic:
+                - generic:
+                  - generic: 暂无事项或未绑定会话
+                  - button "新建事项"
+        - generic [ref=e340]:
+          - button "opencode" [ref=e341]:
+            - generic [ref=e342]:
+              - generic [ref=e343]:
+                - img [ref=e345]
+                - img [ref=e348]
+              - generic [ref=e351]: opencode
+            - generic:
+              - button "项目菜单":
+                - img
+              - button "在此项目中创建事项":
+                - img
+              - button "在此项目中创建会话":
+                - img
+          - generic:
+            - generic:
+              - generic:
+                - generic:
+                  - generic: 暂无事项或未绑定会话
+                  - button "新建事项"
+        - generic [ref=e352]:
+          - button "opencode" [expanded] [ref=e353]:
+            - generic [ref=e354]:
+              - generic [ref=e355]:
+                - img [ref=e357]
+                - img [ref=e360]
+              - generic [ref=e363]: opencode
+            - generic:
+              - button "项目菜单":
+                - img
+              - button "在此项目中创建事项":
+                - img
+              - button "在此项目中创建会话":
+                - img
+          - generic [ref=e367]:
+            - img [ref=e368]
+            - text: 加载中...
+        - generic [ref=e371]:
+          - button "knagent" [expanded] [ref=e372]:
+            - generic [ref=e373]:
+              - generic [ref=e374]:
+                - img [ref=e376]
+                - img [ref=e379]
+              - generic [ref=e382]: knagent
+            - generic:
+              - button "项目菜单":
+                - img
+              - button "在此项目中创建事项":
+                - img
+              - button "在此项目中创建会话":
+                - img
+          - generic [ref=e386]:
+            - img [ref=e387]
+            - text: 加载中...
+        - generic [ref=e390]:
+          - button "auto-penetration-agent" [ref=e391]:
+            - generic [ref=e392]:
+              - generic [ref=e393]:
+                - img [ref=e395]
+                - img [ref=e398]
+              - generic [ref=e401]: auto-penetration-agent
+            - generic:
+              - button "项目菜单":
+                - img
+              - button "在此项目中创建事项":
+                - img
+              - button "在此项目中创建会话":
+                - img
+          - generic:
+            - generic:
+              - generic:
+                - generic:
+                  - generic: 暂无事项或未绑定会话
+                  - button "新建事项"
+        - generic [ref=e402]:
+          - button "signal" [ref=e403]:
+            - generic [ref=e404]:
+              - generic [ref=e405]:
+                - img [ref=e407]
+                - img [ref=e410]
+              - generic [ref=e413]: signal
+            - generic:
+              - button "项目菜单":
+                - img
+              - button "在此项目中创建事项":
+                - img
+              - button "在此项目中创建会话":
+                - img
+          - generic:
+            - generic:
+              - generic:
+                - generic:
+                  - generic: 暂无事项或未绑定会话
+                  - button "新建事项"
+        - generic [ref=e414]:
+          - button "ojk" [ref=e415]:
+            - generic [ref=e416]:
+              - generic [ref=e417]:
+                - img [ref=e419]
+                - img [ref=e422]
+              - generic [ref=e425]: ojk
+            - generic:
+              - button "项目菜单":
+                - img
+              - button "在此项目中创建事项":
+                - img
+              - button "在此项目中创建会话":
+                - img
+          - generic:
+            - generic:
+              - generic:
+                - generic:
+                  - generic: 暂无事项或未绑定会话
+                  - button "新建事项"
+        - generic [ref=e426]:
+          - button "signoz-deploy" [ref=e427]:
+            - generic [ref=e428]:
+              - generic [ref=e429]:
+                - img [ref=e431]
+                - img [ref=e434]
+              - generic [ref=e437]: signoz-deploy
+            - generic:
+              - button "项目菜单":
+                - img
+              - button "在此项目中创建事项":
+                - img
+              - button "在此项目中创建会话":
+                - img
+          - generic:
+            - generic:
+              - generic:
+                - generic:
+                  - generic: 暂无事项或未绑定会话
+                  - button "新建事项"
+        - generic [ref=e438]:
+          - button ".opencode" [ref=e439]:
+            - generic [ref=e440]:
+              - generic [ref=e441]:
+                - img [ref=e443]
+                - img [ref=e446]
+              - generic [ref=e449]: .opencode
+            - generic:
+              - button "项目菜单":
+                - img
+              - button "在此项目中创建事项":
+                - img
+              - button "在此项目中创建会话":
+                - img
+          - generic:
+            - generic:
+              - generic:
+                - generic:
+                  - generic: 暂无事项或未绑定会话
+                  - button "新建事项"
+        - generic [ref=e450]:
+          - button ".kube" [ref=e451]:
+            - generic [ref=e452]:
+              - generic [ref=e453]:
+                - img [ref=e455]
+                - img [ref=e458]
+              - generic [ref=e461]: .kube
+            - generic:
+              - button "项目菜单":
+                - img
+              - button "在此项目中创建事项":
+                - img
+              - button "在此项目中创建会话":
+                - img
+          - generic:
+            - generic:
+              - generic:
+                - generic:
+                  - generic: 暂无事项或未绑定会话
+                  - button "新建事项"
+        - generic [ref=e462]:
+          - button "NAS" [ref=e463]:
+            - generic [ref=e464]:
+              - generic [ref=e465]:
+                - img [ref=e467]
+                - img [ref=e470]
+              - generic [ref=e473]: NAS
+            - generic:
+              - button "项目菜单":
+                - img
+              - button "在此项目中创建事项":
+                - img
+              - button "在此项目中创建会话":
+                - img
+          - generic:
+            - generic:
+              - generic:
+                - generic:
+                  - generic: 暂无事项或未绑定会话
+                  - button "新建事项"
+        - generic [ref=e474]:
+          - button "chen" [ref=e475]:
+            - generic [ref=e476]:
+              - generic [ref=e477]:
+                - img [ref=e479]
+                - img [ref=e482]
+              - generic [ref=e485]: chen
+            - generic:
+              - button "项目菜单":
+                - img
+              - button "在此项目中创建事项":
+                - img
+              - button "在此项目中创建会话":
+                - img
+          - generic:
+            - generic:
+              - generic:
+                - generic:
+                  - generic: 暂无事项或未绑定会话
+                  - button "新建事项"
+        - generic [ref=e486]:
+          - button "workspace" [ref=e487]:
+            - generic [ref=e488]:
+              - generic [ref=e489]:
+                - img [ref=e491]
+                - img [ref=e494]
+              - generic [ref=e497]: workspace
+            - generic:
+              - button "项目菜单":
+                - img
+              - button "在此项目中创建事项":
+                - img
+              - button "在此项目中创建会话":
+                - img
+          - generic:
+            - generic:
+              - generic:
+                - generic:
+                  - generic: 暂无事项或未绑定会话
+                  - button "新建事项"
+        - generic [ref=e498]:
+          - button "OpenCodeUI" [ref=e499]:
+            - generic [ref=e500]:
+              - generic [ref=e501]:
+                - img [ref=e503]
+                - img [ref=e506]
+              - generic [ref=e509]: OpenCodeUI
+            - generic:
+              - button "项目菜单":
+                - img
+              - button "在此项目中创建事项":
+                - img
+              - button "在此项目中创建会话":
+                - img
+          - generic:
+            - generic:
+              - generic:
+                - generic:
+                  - generic: 暂无事项或未绑定会话
+                  - button "新建事项"
+        - generic [ref=e510]:
+          - button "codex-provider-sync" [ref=e511]:
+            - generic [ref=e512]:
+              - generic [ref=e513]:
+                - img [ref=e515]
+                - img [ref=e518]
+              - generic [ref=e521]: codex-provider-sync
+            - generic:
+              - button "项目菜单":
+                - img
+              - button "在此项目中创建事项":
+                - img
+              - button "在此项目中创建会话":
+                - img
+          - generic:
+            - generic:
+              - generic:
+                - generic:
+                  - generic: 暂无事项或未绑定会话
+                  - button "新建事项"
+    - button "0 / 200.0k 0%" [ref=e524]:
+      - img [ref=e526]
+      - generic [ref=e530]:
+        - generic [ref=e531]: 0 / 200.0k
+        - generic [ref=e532]: 0%
+  - generic [ref=e536]:
+    - generic [ref=e538]:
+      - button "进行中" [ref=e542]:
+        - generic [ref=e543]: 进行中
+        - img [ref=e544]
+      - generic [ref=e547]:
+        - button "Session ses_21" [ref=e548]
+        - button "Share session" [ref=e550]:
+          - img [ref=e551]
+      - generic [ref=e553]:
+        - generic [ref=e555]:
+          - button "Open project in Zed" [ref=e556]:
+            - img [ref=e558]
+            - generic [ref=e560]: Open
+          - button "Open editor options" [ref=e562]:
+            - img [ref=e563]
+        - button "Open system status" [ref=e566]:
+          - img [ref=e567]
+        - generic [ref=e570]:
+          - button "Open bottom panel" [ref=e571]:
+            - img [ref=e572]
+          - button "Open panel" [ref=e574]:
+            - img [ref=e575]
+    - generic [ref=e580]:
+      - img [ref=e581]
+      - generic [ref=e584]: Loading session...
+    - generic [ref=e593]:
+      - generic [ref=e596]:
+        - textbox "Reply to Agent (type @ to mention, / for commands)" [ref=e599]
+        - generic [ref=e600]:
+          - button "..." [disabled] [ref=e604] [cursor=pointer]:
+            - generic [ref=e605]: ...
+            - img [ref=e607]
+          - generic [ref=e609]:
+            - button "Auto-accept permissions" [ref=e610]:
+              - img [ref=e611]
+              - generic [ref=e613]: Auto
+            - button "Send message" [disabled] [ref=e614]:
+              - img [ref=e615]
+      - button "AI can make mistakes. Please double-check responses." [ref=e619]

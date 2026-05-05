@@ -4,7 +4,7 @@ import type { ThinSessionSummary, ThinWorkflowStatus } from '../api/thinServer'
 export interface SummaryUpsertInput {
   projectPath: string
   externalSessionId: string
-  itemId: string | null
+  itemId?: string | null
   variant: string | null
   titleSnapshot: string
   statusSnapshot: ThinWorkflowStatus
@@ -35,7 +35,7 @@ export function buildSummaryUpsertInputs(input: {
     return [{
       projectPath: input.projectPath,
       externalSessionId: session.id,
-      itemId: existing?.itemId ?? null,
+      ...(existing?.itemId !== undefined ? { itemId: existing.itemId } : {}),
       variant: existing?.variant ?? null,
       titleSnapshot,
       statusSnapshot,
