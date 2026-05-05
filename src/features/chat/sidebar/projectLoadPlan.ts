@@ -3,6 +3,7 @@ export interface ProjectLoadPlanInput {
   projectLoading: boolean
   sessionLoading: boolean
   hasProjectState: boolean
+  projectHasError?: boolean
   loadedLimit: number
   targetLimit: number
   failedSessionLimit: number | null
@@ -23,7 +24,7 @@ export function buildProjectLoadPlan(input: ProjectLoadPlanInput): ProjectLoadPl
     }
   }
 
-  const shouldLoadProject = !input.hasProjectState && !input.projectLoading
+  const shouldLoadProject = (!input.hasProjectState || !!input.projectHasError) && !input.projectLoading
 
   const sessionsNotLoaded = input.loadedLimit < input.targetLimit
   const notAlreadyFailedAtSameLimit = input.failedSessionLimit !== input.targetLimit

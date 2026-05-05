@@ -102,6 +102,23 @@ describe('buildProjectLoadPlan', () => {
     })
   })
 
+  test('reloads project metadata when previous project load ended in error', () => {
+    expect(buildProjectLoadPlan({
+      expanded: true,
+      projectLoading: false,
+      sessionLoading: false,
+      hasProjectState: true,
+      projectHasError: true,
+      loadedLimit: 0,
+      targetLimit: 20,
+      failedSessionLimit: nullFailedLimit,
+    })).toEqual({
+      shouldLoadProject: true,
+      shouldLoadSessions: true,
+      nextSessionLimit: 20,
+    })
+  })
+
   test('suppresses session retry when last attempt failed at same targetLimit', () => {
     expect(buildProjectLoadPlan({
       expanded: true,

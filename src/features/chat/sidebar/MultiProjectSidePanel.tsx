@@ -739,6 +739,7 @@ export function MultiProjectSidePanel(props: SidePanelProps) {
         projectLoading: isProjectLoading(project.path),
         sessionLoading: !!loadingByProject[project.path],
         hasProjectState: !!projectState,
+        projectHasError: !!projectState?.error,
         loadedLimit,
         targetLimit,
         failedSessionLimit: failedSessionLimitByProject[project.path] ?? null,
