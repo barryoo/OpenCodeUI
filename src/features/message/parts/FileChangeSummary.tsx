@@ -67,8 +67,8 @@ function extractFileChanges(toolParts: ToolPart[]): FileChange[] {
         const existing = fileMap.get(key)
         const additions = f.additions ?? 0
         const deletions = f.deletions ?? 0
-        const diff = f.diff
-          ? f.diff
+        const diff = f.diff || f.patch
+          ? f.diff || f.patch
           : f.before !== undefined && f.after !== undefined
           ? { before: f.before, after: f.after }
           : undefined

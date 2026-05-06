@@ -47,6 +47,7 @@ export interface DiagnosticInfo {
 export interface FileDiff {
   filePath: string
   diff?: string
+  patch?: string
   before?: string
   after?: string
   additions?: number

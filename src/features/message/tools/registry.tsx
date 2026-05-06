@@ -78,7 +78,7 @@ export function defaultExtractData(part: ToolPart): ExtractedToolData {
     if (Array.isArray(metadata.files) && metadata.files.length > 0) {
       result.files = (metadata.files as any[]).map((f: any) => ({
         filePath: f.filePath || f.file || 'unknown',
-        diff: f.diff,
+        diff: f.diff || f.patch,
         before: f.before,
         after: f.after,
         additions: f.additions,
